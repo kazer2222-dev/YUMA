@@ -1,0 +1,67 @@
+{
+  "typographyRules": {
+    
+    "fontImport": "@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&display=swap');",
+    
+    "elements": {
+      "h1": {
+        "fontSize": "var(--text-2xl)",
+        "fontWeight": 500,
+        "lineHeight": 1.5,
+        "usage": "Page titles"
+      },
+      "h2": {
+        "fontSize": "var(--text-xl)",
+        "fontWeight": 500,
+        "lineHeight": 1.5,
+        "usage": "Section headers"
+      },
+      "h3": {
+        "fontSize": "var(--text-lg)",
+        "fontWeight": 500,
+        "lineHeight": 1.5,
+        "usage": "Subsection headers"
+      },
+      "h4": {
+        "fontSize": "var(--text-base)",
+        "fontWeight": 500,
+        "lineHeight": 1.5,
+        "usage": "Card titles, task names, milestone names, insight titles"
+      },
+      "p": {
+        "fontSize": "var(--text-base)",
+        "fontWeight": 400,
+        "lineHeight": 1.5,
+        "usage": "Body text, descriptions"
+      },
+      "label": {
+        "fontSize": "var(--text-base)",
+        "fontWeight": 500,
+        "lineHeight": 1.5,
+        "usage": "Form labels"
+      }
+    },
+    
+    "rules": [
+      "Use semantic HTML elements (h1, h2, h3, h4, p, label)",
+      "Never override font-size, font-weight, or line-height with Tailwind unless explicitly requested",
+      "Use h4 for all content titles (task names, milestone names)",
+      "Use p for all body text and descriptions",
+      "Apply CSS variables (var(--text-*)) only in inline styles when needed"
+    ],
+    
+    "cssVariables": {
+      "--text-xs": "0.75rem",
+      "--text-sm": "0.875rem",
+      "--text-base": "1rem",
+      "--text-lg": "1.125rem",
+      "--text-xl": "1.25rem",
+      "--text-2xl": "1.5rem",
+      "--text-3xl": "1.875rem",
+      "--font-weight-normal": "400",
+      "--font-weight-medium": "500",
+      "--font-weight-bold": "700",
+      "--font-weight-extrabold": "800"
+    }
+  }
+}

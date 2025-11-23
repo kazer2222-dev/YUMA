@@ -1,0 +1,188 @@
+{
+  "mobileResponsive": {
+    "name": "YUMA Mobile Responsive Design",
+    "version": "1.0",
+    "description": "Mobile-friendly responsive design specifications",
+    
+    "breakpoints": {
+      "sm": "640px",
+      "md": "768px",
+      "lg": "1024px",
+      "xl": "1280px",
+      "description": "Tailwind CSS default breakpoints"
+    },
+    
+    "components": {
+      
+      "sidebar": {
+        "desktop": {
+          "display": "Always visible",
+          "width": "240px (w-60)",
+          "position": "Fixed left",
+          "implementation": "ClickUpSidebar with 'hidden lg:flex'"
+        },
+        "mobile": {
+          "display": "Hidden by default",
+          "trigger": "Hamburger menu button in header",
+          "component": "MobileSidebar using Sheet",
+          "side": "left",
+          "width": "256px (w-64)",
+          "behavior": "Overlay drawer that closes after navigation"
+        }
+      },
+      
+      "header": {
+        "height": "56px (h-14)",
+        "padding": {
+          "mobile": "0.75rem (px-3)",
+          "desktop": "1.5rem (px-6)"
+        },
+        "elements": {
+          "menuButton": {
+            "display": "< lg (1024px)",
+            "icon": "Menu",
+            "size": "h-9 w-9"
+          },
+          "search": {
+            "display": ">= md (768px)",
+            "hidden": "< md (768px)"
+          },
+          "createTaskButton": {
+            "text": "hidden < sm (640px)",
+            "iconOnly": "< sm (640px)"
+          },
+          "userNameLabel": {
+            "display": ">= sm (640px)",
+            "hidden": "< sm (640px)"
+          }
+        }
+      },
+      
+      "viewNavigation": {
+        "height": "48px (h-12)",
+        "padding": {
+          "mobile": "0.75rem (px-3)",
+          "desktop": "1.5rem (px-6)"
+        },
+        "tabs": {
+          "mobile": {
+            "scroll": "horizontal overflow-x-auto",
+            "labels": "hidden < sm (640px)",
+            "iconsOnly": true,
+            "width": "flex-shrink-0"
+          },
+          "desktop": {
+            "scroll": false,
+            "labels": "visible",
+            "width": "auto"
+          }
+        },
+        "actions": {
+          "configureButton": {
+            "display": ">= md (768px)",
+            "text": "hidden < lg (1024px)"
+          },
+          "createTaskButton": {
+            "display": ">= md (768px)",
+            "text": "hidden < lg (1024px)"
+          }
+        }
+      },
+      
+      "homePage": {
+        "padding": {
+          "mobile": "0.75rem (p-3)",
+          "desktop": "1.5rem (p-6)"
+        },
+        "spacing": {
+          "mobile": "1rem (space-y-4)",
+          "desktop": "1.5rem (space-y-6)"
+        },
+        "welcomeSection": {
+          "layout": {
+            "mobile": "flex-col (stacked)",
+            "desktop": "flex-row"
+          },
+          "button": {
+            "mobile": "w-full",
+            "desktop": "w-auto"
+          }
+        },
+        "statsCards": {
+          "grid": "grid-cols-1 md:grid-cols-2 lg:grid-cols-4",
+          "gap": "1rem (gap-4)"
+        },
+        "contentGrid": {
+          "layout": "grid-cols-1 lg:grid-cols-3"
+        }
+      },
+      
+      "kanbanBoard": {
+        "padding": {
+          "mobile": "0.75rem (p-3)",
+          "desktop": "1.5rem (p-6)"
+        },
+        "gap": {
+          "mobile": "0.75rem (gap-3)",
+          "desktop": "1rem (gap-4)"
+        },
+        "columnWidth": {
+          "mobile": "288px (w-72)",
+          "desktop": "320px (w-80)"
+        },
+        "scroll": "horizontal overflow-x-auto",
+        "columns": "flex-shrink-0 (prevent wrapping)"
+      }
+    },
+    
+    "utilities": {
+      "scrollbarHide": {
+        "class": "scrollbar-hide",
+        "description": "Hides scrollbars for horizontal scroll areas",
+        "usage": "Applied to view navigation tabs",
+        "implementation": "CSS in globals.css"
+      }
+    },
+    
+    "touchTargets": {
+      "minimum": "44px x 44px",
+      "buttons": {
+        "mobile": "h-9 (36px) - acceptable for secondary actions",
+        "primary": "h-10 or h-12 recommended"
+      },
+      "navigation": {
+        "items": "min h-9 with adequate padding"
+      }
+    },
+    
+    "typography": {
+      "responsive": "Uses semantic HTML (h1, h2, h3, h4, p)",
+      "scaling": "Inherits from globals.css, no manual scaling needed",
+      "readability": "Maintains consistent line-height across breakpoints"
+    },
+    
+    "implementation": {
+      "files": [
+        "/App.tsx - Main responsive layout",
+        "/components/mobile-sidebar.tsx - Mobile drawer",
+        "/components/clickup-header.tsx - Responsive header",
+        "/components/clickup-sidebar.tsx - Desktop sidebar",
+        "/components/view-navigation.tsx - Responsive tabs",
+        "/components/home-page.tsx - Responsive dashboard",
+        "/components/clickup-kanban-board.tsx - Horizontal scroll board"
+      ]
+    },
+    
+    "testingChecklist": [
+      "Sidebar opens/closes on mobile",
+      "Navigation closes after selecting item",
+      "Header search hidden on mobile",
+      "View tabs scroll horizontally on mobile",
+      "Button text hidden on small screens",
+      "Stats cards stack properly",
+      "Kanban columns scroll horizontally",
+      "Touch targets are adequate size",
+      "Text remains readable at all sizes"
+    ]
+  }
+}

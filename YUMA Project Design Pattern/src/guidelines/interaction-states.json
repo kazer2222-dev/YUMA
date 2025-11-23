@@ -1,0 +1,72 @@
+{
+  "interactionStates": {
+    
+    "hover": {
+      "transition": "all 150ms ease",
+      "applies": ["buttons", "cards", "navigation-items", "tabs"],
+      "changes": {
+        "background": "Use CSS variables for theme-aware hover states",
+        "important": "NEVER use fixed colors - always use CSS variables",
+        "examples": {
+          "card": "hover:bg-[var(--muted)] (theme adapts automatically)",
+          "cardSubtle": "hover:bg-[var(--muted)]/50 (50% opacity for subtle effect)",
+          "button": "hover:bg-[var(--primary)]/90 (90% opacity)",
+          "navigation": "hover:bg-[var(--muted)] hover:text-[var(--foreground)]",
+          "shadow": "hover:shadow-md (theme-agnostic alternative)"
+        },
+        "darkMode": {
+          "muted": "#1E1F24 (dark gray)",
+          "effect": "lightens elements"
+        },
+        "lightMode": {
+          "muted": "#E9ECEF (light gray)",
+          "effect": "darkens elements slightly"
+        }
+      }
+    },
+    
+    "active": {
+      "applies": ["navigation-items", "tabs", "toggles"],
+      "changes": {
+        "background": "#4353FF",
+        "color": "white",
+        "border": "2px solid #4353FF (sidebar only)"
+      }
+    },
+    
+    "focus": {
+      "applies": ["inputs", "buttons", "links"],
+      "changes": {
+        "outline": "2px solid #4353FF",
+        "outlineOffset": "2px"
+      }
+    },
+    
+    "disabled": {
+      "applies": ["all interactive elements"],
+      "changes": {
+        "opacity": 0.5,
+        "cursor": "not-allowed",
+        "pointerEvents": "none"
+      }
+    },
+    
+    "loading": {
+      "applies": ["buttons", "cards"],
+      "changes": {
+        "cursor": "wait",
+        "opacity": 0.7
+      }
+    },
+    
+    "animations": {
+      "duration": {
+        "fast": "150ms",
+        "normal": "250ms",
+        "slow": "350ms"
+      },
+      "easing": "ease",
+      "properties": ["background-color", "color", "opacity", "transform"]
+    }
+  }
+}

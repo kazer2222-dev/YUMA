@@ -1,0 +1,128 @@
+{
+  "themeSystem": {
+    "name": "YUMA Theme Switcher",
+    "version": "1.0",
+    "description": "Light and dark mode switching system",
+    
+    "implementation": {
+      "provider": "/components/theme-provider.tsx",
+      "toggle": "/components/theme-toggle.tsx",
+      "cssVariables": "/styles/globals.css"
+    },
+    
+    "usage": {
+      "hookExample": "const { theme, toggleTheme } = useTheme();",
+      "componentExample": "<ThemeToggle />",
+      "providerSetup": "Wrap App in <ThemeProvider>"
+    },
+    
+    "themes": {
+      "dark": {
+        "background": {
+          "primary": "#0F1014",
+          "card": "#11121A",
+          "sidebar": "#0C0D11",
+          "input": "#1A1B20",
+          "secondary": "#1A1B20",
+          "muted": "#1E1F24",
+          "border": "#1E1F24"
+        },
+        "text": {
+          "primary": "#E4E5E7",
+          "secondary": "#7D8089"
+        },
+        "description": "Ultra-dark theme for reduced eye strain"
+      },
+      
+      "light": {
+        "background": {
+          "primary": "#FFFFFF",
+          "card": "#F8F9FA",
+          "sidebar": "#F8F9FA",
+          "input": "#F8F9FA",
+          "secondary": "#F1F3F5",
+          "muted": "#E9ECEF",
+          "border": "#DEE2E6"
+        },
+        "text": {
+          "primary": "#1A1A1A",
+          "secondary": "#6C757D"
+        },
+        "description": "Clean light theme for bright environments"
+      }
+    },
+    
+    "sharedColors": {
+      "description": "Colors that remain the same in both themes",
+      "brand": {
+        "primary": "#4353FF",
+        "destructive": "#F44336"
+      },
+      "status": {
+        "todo": "#7D8089",
+        "inProgress": "#4353FF",
+        "done": "#10B981",
+        "blocked": "#F44336"
+      },
+      "priority": {
+        "low": "#7D8089",
+        "medium": "#F59E0B",
+        "high": "#FF9800",
+        "urgent": "#F44336"
+      },
+      "features": {
+        "home": "#4353FF",
+        "inbox": "#10B981",
+        "tasks": "#8B5CF6",
+        "documents": "#F59E0B",
+        "goals": "#EC4899",
+        "dashboards": "#06B6D4",
+        "ai": "#4353FF"
+      }
+    },
+    
+    "persistence": {
+      "method": "localStorage",
+      "key": "yuma-theme",
+      "defaultValue": "dark"
+    },
+    
+    "toggleButton": {
+      "location": "Header (next to Create Task button)",
+      "darkModeIcon": "Sun",
+      "lightModeIcon": "Moon",
+      "darkModeIconColor": "#F59E0B",
+      "lightModeIconColor": "#4353FF",
+      "size": "h-9 w-9",
+      "variant": "ghost"
+    },
+    
+    "cssImplementation": {
+      "rootClass": ":root or .light",
+      "darkClass": ".dark",
+      "customVariants": [
+        "@custom-variant dark (&:is(.dark *))",
+        "@custom-variant light (&:is(.light *))"
+      ],
+      "variables": [
+        "--background",
+        "--foreground",
+        "--card",
+        "--border",
+        "--input-background",
+        "--muted",
+        "--muted-foreground"
+      ]
+    },
+    
+    "transitions": {
+      "duration": "150ms",
+      "properties": [
+        "background-color",
+        "color",
+        "border-color"
+      ],
+      "easing": "ease"
+    }
+  }
+}

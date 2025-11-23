@@ -1,0 +1,594 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native"]
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  avatar    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Authentication
+  sessions Session[]
+  pinCodes PinCode[]
+
+  // Space memberships
+  spaceMemberships SpaceMember[]
+
+  // Task assignments
+  assignedTasks              Task[]
+  templateDefaultAssignments Template[] @relation("TemplateDefaultAssignee")
+
+  // Comments and activity
+  comments   Comment[]
+  activities Activity[]
+
+  // Events
+  eventParticipants EventParticipant[]
+  createdEvents     Event[]            @relation("EventCreator")
+
+  // Admin
+  adminRole AdminRole?
+
+  @@map("users")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  userId       String
+  token        String   @unique
+  refreshToken String?  @unique
+  deviceInfo   String?
+  ipAddress    String?
+  userAgent    String?
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  lastActiveAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model PinCode {
+  id         String    @id @default(cuid())
+  userId     String?
+  email      String
+  code       String
+  hashedCode String
+  attempts   Int       @default(0)
+  resends    Int       @default(0)
+  expiresAt  DateTime
+  createdAt  DateTime  @default(now())
+  usedAt     DateTime?
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("pin_codes")
+}
+
+model Space {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  slug        String   @unique
+  ticker      String   @unique @default("SPACE")
+  timezone    String   @default("UTC")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Members
+  members SpaceMember[]
+
+  // Tasks
+  tasks Task[]
+
+  // Custom fields
+  customFields CustomField[]
+
+  // Events
+  events Event[]
+
+  // Integrations
+  integrations Integration[]
+
+  // Settings
+  settings SpaceSettings?
+
+  // Boards
+  boards Board[]
+
+  // Statuses
+  statuses Status[]
+
+  // Templates
+  templates Template[]
+  Workflow  Workflow[]
+
+  @@map("spaces")
+}
+
+model Board {
+  id          String   @id @default(cuid())
+  spaceId     String
+  name        String
+  description String?
+  type        String   @default("KANBAN") // KANBAN, SCRUM
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  space              Space                   @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  sprints            Sprint[]
+  releases           Release[]
+  statusVisibilities BoardStatusVisibility[]
+
+  @@map("boards")
+}
+
+model SpaceMember {
+  id       String   @id @default(cuid())
+  spaceId  String
+  userId   String
+  role     String   @default("MEMBER") // OWNER, ADMIN, MEMBER, VIEWER
+  joinedAt DateTime @default(now())
+
+  space Space @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([spaceId, userId])
+  @@map("space_members")
+}
+
+model Status {
+  id          String   @id @default(cuid())
+  spaceId     String
+  name        String
+  key         String
+  color       String?
+  description String?
+  order       Int
+  isStart     Boolean  @default(false)
+  isDone      Boolean  @default(false)
+  wipLimit    Int?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  space             Space                   @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  tasks             Task[]
+  boardVisibilities BoardStatusVisibility[]
+  workflowStatuses  WorkflowStatus[]        @relation("StatusWorkflowStatuses")
+
+  @@unique([spaceId, key])
+  @@map("statuses")
+}
+
+model BoardStatusVisibility {
+  id        String   @id @default(cuid())
+  boardId   String
+  statusId  String
+  visible   Boolean  @default(true)
+  order     Int?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  board  Board  @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  status Status @relation(fields: [statusId], references: [id], onDelete: Cascade)
+
+  @@unique([boardId, statusId])
+  @@map("board_status_visibilities")
+}
+
+model Task {
+  id               String    @id @default(cuid())
+  spaceId          String
+  number           Int       @default(0)
+  summary          String
+  description      String?
+  priority         String    @default("NORMAL") // HIGHEST, HIGH, NORMAL, LOW, LOWEST
+  tags             String // JSON string for SQLite
+  startDate        DateTime?
+  dueDate          DateTime?
+  estimate         String?
+  storyPoints      Int? // Story points for Scrum/Agile estimation
+  backlogOrder     Int? // Order in backlog (for prioritization)
+  assigneeId       String?
+  statusId         String
+  sprintId         String?
+  releaseVersion   String? // Release version the task belongs to
+  parentId         String?
+  workflowId       String?
+  workflowStatusId String?
+  workflowVersion  Int?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  // Relationships
+  space          Space           @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  assignee       User?           @relation(fields: [assigneeId], references: [id], onDelete: SetNull)
+  status         Status          @relation(fields: [statusId], references: [id])
+  sprint         Sprint?         @relation(fields: [sprintId], references: [id])
+  parent         Task?           @relation("TaskHierarchy", fields: [parentId], references: [id])
+  subtasks       Task[]          @relation("TaskHierarchy")
+  workflow       Workflow?       @relation(fields: [workflowId], references: [id], onDelete: SetNull)
+  workflowStatus WorkflowStatus? @relation("WorkflowStatusTasks", fields: [workflowStatusId], references: [id], onDelete: SetNull)
+
+  // Dependencies
+  dependencies TaskDependency[] @relation("TaskDependsOn")
+  dependents   TaskDependency[] @relation("TaskDependent")
+
+  // Attachments
+  attachments Attachment[]
+
+  // Comments
+  comments Comment[]
+
+  // Activities
+  activities Activity[]
+
+  // Custom field values
+  customFieldValues CustomFieldValue[]
+
+  // Events
+  events Event[]
+
+  @@unique([spaceId, number])
+  @@map("tasks")
+}
+
+model Sprint {
+  id        String    @id @default(cuid())
+  boardId   String
+  name      String
+  goal      String?
+  startDate DateTime?
+  endDate   DateTime?
+  state     String    @default("PLANNED") // PLANNED, ACTIVE, COMPLETED, CLOSED
+  order     Int       @default(0)
+  velocity  Int? // Calculated velocity from completed sprints
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  board    Board           @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  tasks    Task[]
+  releases ReleaseSprint[]
+
+  @@map("sprints")
+}
+
+model TaskDependency {
+  id          String   @id @default(cuid())
+  taskId      String
+  dependsOnId String
+  createdAt   DateTime @default(now())
+
+  task      Task @relation("TaskDependsOn", fields: [taskId], references: [id], onDelete: Cascade)
+  dependsOn Task @relation("TaskDependent", fields: [dependsOnId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, dependsOnId])
+  @@map("task_dependencies")
+}
+
+model Attachment {
+  id        String   @id @default(cuid())
+  taskId    String
+  filename  String
+  mimeType  String
+  size      Int
+  url       String
+  createdAt DateTime @default(now())
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@map("attachments")
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  taskId    String
+  userId    String
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("comments")
+}
+
+model Activity {
+  id        String   @id @default(cuid())
+  taskId    String?
+  userId    String
+  type      String // CREATED, UPDATED, STATUS_CHANGED, etc.
+  data      String // JSON string for SQLite
+  createdAt DateTime @default(now())
+
+  task Task? @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("activities")
+}
+
+model CustomField {
+  id        String   @id @default(cuid())
+  spaceId   String
+  name      String
+  key       String
+  type      String // STRING, TEXT, NUMBER, DATE, etc.
+  options   String? // JSON string for SQLite
+  required  Boolean  @default(false)
+  order     Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  space  Space              @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  values CustomFieldValue[]
+
+  @@unique([spaceId, key])
+  @@map("custom_fields")
+}
+
+model CustomFieldValue {
+  id            String   @id @default(cuid())
+  taskId        String
+  customFieldId String
+  value         String // JSON string for SQLite
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  task        Task        @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  customField CustomField @relation(fields: [customFieldId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, customFieldId])
+  @@map("custom_field_values")
+}
+
+model Event {
+  id             String   @id @default(cuid())
+  spaceId        String?
+  taskId         String?
+  title          String
+  description    String?
+  startDate      DateTime
+  endDate        DateTime
+  location       String?
+  invitationLink String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  space        Space?             @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  task         Task?              @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  creator      User               @relation("EventCreator", fields: [creatorId], references: [id])
+  creatorId    String
+  participants EventParticipant[]
+
+  @@map("events")
+}
+
+model EventParticipant {
+  id       String   @id @default(cuid())
+  eventId  String
+  userId   String
+  rsvp     String   @default("PENDING") // PENDING, ACCEPTED, DECLINED, MAYBE
+  joinedAt DateTime @default(now())
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, userId])
+  @@map("event_participants")
+}
+
+model Integration {
+  id        String    @id @default(cuid())
+  spaceId   String?
+  type      String // SLACK, TEAMS, DISCORD, etc.
+  name      String
+  config    String // JSON string for SQLite
+  status    String    @default("DISCONNECTED") // CONNECTED, ERROR, DISCONNECTED
+  lastSync  DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  space Space? @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+
+  @@map("integrations")
+}
+
+model SpaceSettings {
+  id                   String   @id @default(cuid())
+  spaceId              String   @unique
+  maxMembers           Int?
+  storageLimit         Int?
+  allowCustomFields    Boolean  @default(true)
+  allowIntegrations    Boolean  @default(true)
+  defaultTaskTemplate  String? // JSON string for SQLite
+  aiAutomationsEnabled Boolean  @default(true)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  space Space @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+
+  @@map("space_settings")
+}
+
+model AdminRole {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  role      String   @default("ADMIN") // ADMIN, VIEWER
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("admin_roles")
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  action     String
+  targetType String?
+  targetId   String?
+  metadata   String? // JSON string for SQLite
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  @@map("audit_logs")
+}
+
+model Release {
+  id          String    @id @default(cuid())
+  boardId     String
+  name        String
+  version     String
+  releaseDate DateTime?
+  description String?
+  status      String    @default("PENDING") // PENDING, RELEASED
+  metrics     String? // JSON string for SQLite (totalTasks, totalStoryPoints, bugsFixed, newFeatures)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  board   Board           @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  sprints ReleaseSprint[]
+
+  @@map("releases")
+}
+
+model ReleaseSprint {
+  id        String   @id @default(cuid())
+  releaseId String
+  sprintId  String
+  createdAt DateTime @default(now())
+
+  release Release @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+  sprint  Sprint  @relation(fields: [sprintId], references: [id], onDelete: Cascade)
+
+  @@unique([releaseId, sprintId])
+  @@map("release_sprints")
+}
+
+model Template {
+  id                String   @id @default(cuid())
+  spaceId           String
+  title             String
+  fieldConfig       String // JSON string for SQLite - array of field configurations
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  createdBy         String
+  updatedBy         String
+  workflowId        String?
+  defaultAssigneeId String?
+  permissions       String? // JSON string for workflow permissions
+  aiOptimized       Boolean  @default(false)
+
+  space           Space     @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  workflow        Workflow? @relation(fields: [workflowId], references: [id], onDelete: SetNull)
+  defaultAssignee User?     @relation("TemplateDefaultAssignee", fields: [defaultAssigneeId], references: [id], onDelete: SetNull)
+
+  @@unique([spaceId, title], name: "spaceId_title")
+  @@map("templates")
+}
+
+model Workflow {
+  id          String   @id @default(cuid())
+  spaceId     String
+  name        String
+  description String?
+  isDefault   Boolean  @default(false)
+  aiOptimized Boolean  @default(false)
+  version     Int      @default(1)
+  createdBy   String?
+  updatedBy   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  space        Space                @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  statuses     WorkflowStatus[]
+  transitions  WorkflowTransition[]
+  templates    Template[]
+  tasks        Task[]
+  auditEntries WorkflowAudit[]
+
+  @@map("workflows")
+}
+
+model WorkflowStatus {
+  id              String   @id @default(cuid())
+  workflowId      String
+  version         Int
+  key             String
+  name            String
+  category        String // TODO, IN_PROGRESS, DONE
+  color           String?
+  isInitial       Boolean  @default(false)
+  isFinal         Boolean  @default(false)
+  order           Int      @default(0)
+  visibilityRules String? // JSON string
+  fieldLockRules  String? // JSON string
+  statusRefId     String? // Optional linkage to global Status
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  workflow        Workflow             @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  statusRef       Status?              @relation("StatusWorkflowStatuses", fields: [statusRefId], references: [id], onDelete: SetNull)
+  transitionsFrom WorkflowTransition[] @relation("WorkflowTransitionFrom")
+  transitionsTo   WorkflowTransition[] @relation("WorkflowTransitionTo")
+  tasks           Task[]               @relation("WorkflowStatusTasks")
+
+  @@unique([workflowId, version, key])
+  @@index([workflowId, version])
+  @@map("workflow_statuses")
+}
+
+model WorkflowTransition {
+  id            String   @id @default(cuid())
+  workflowId    String
+  version       Int
+  key           String?
+  name          String
+  fromStatusId  String
+  toStatusId    String
+  conditions    String? // JSON string describing conditions
+  validators    String? // JSON string describing validators
+  postFunctions String? // JSON string describing post-functions
+  uiTrigger     String? // BUTTON, MENU, AI
+  order         Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  workflow   Workflow       @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  fromStatus WorkflowStatus @relation("WorkflowTransitionFrom", fields: [fromStatusId], references: [id], onDelete: Cascade)
+  toStatus   WorkflowStatus @relation("WorkflowTransitionTo", fields: [toStatusId], references: [id], onDelete: Cascade)
+
+  @@index([workflowId, version])
+  @@map("workflow_transitions")
+}
+
+model WorkflowAudit {
+  id         String   @id @default(cuid())
+  workflowId String
+  version    Int
+  action     String // CREATED, UPDATED, ROLLED_BACK, ASSIGNED, etc.
+  actorId    String?
+  metadata   String? // JSON string with additional context
+  createdAt  DateTime @default(now())
+
+  workflow Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+
+  @@index([workflowId, version])
+  @@map("workflow_audit")
+}

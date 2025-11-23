@@ -1,0 +1,1434 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* YUMA Design System - Linear meets Notion with calming gradient */
+
+/* Import Inter font */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&display=swap');
+
+/* Custom utility class for content-stretch (from Figma) */
+.content-stretch {
+  align-content: stretch;
+}
+
+@layer base {
+  :root {
+    /* YUMA Design System - Light Theme */
+    /* Fonts */
+    --font-primary: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-mono: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
+    --font-weight-normal: 400;
+    --font-weight-medium: 500;
+    --font-weight-bold: 700;
+    --font-weight-extrabold: 800;
+    
+    /* Colors - Original design system */
+    --color-bg-light: #FFFFFF;
+    --color-bg: #FFFFFF;
+    --background: #FFFFFF;
+    
+    /* Surface / Card */
+    --color-surface-light: #F8F9FA;
+    --color-surface: #F8F9FA;
+    --card: #F8F9FA;
+    --popover: #FFFFFF;
+    --muted: #E9ECEF;
+    --secondary: #F1F3F5;
+    --input-background: #F8F9FA;
+    --switch-background: #E9ECEF;
+    
+    /* Text Primary */
+    --color-text-light: #1A1A1A;
+    --color-text: #1A1A1A;
+    --foreground: #1A1A1A;
+    --card-foreground: #1A1A1A;
+    --popover-foreground: #1A1A1A;
+    --color-text-primary: #1A1A1A;
+    --secondary-foreground: #1A1A1A;
+    
+    /* Text Secondary */
+    --color-text-secondary-light: #6C757D;
+    --color-text-secondary: #6C757D;
+    --muted-foreground: #6C757D;
+    
+    /* Border / Divider */
+    --color-border: #DEE2E6;
+    --border: #DEE2E6;
+    --input: transparent;
+    --sidebar: #F8F9FA;
+    --sidebar-foreground: #1A1A1A;
+    
+    /* Primary Accent - Calm blue (consistent across themes) */
+    --color-primary: #3B82F6;
+    --color-primary-foreground: #FFFFFF;
+    --ring: #3B82F6;
+    
+    /* Success */
+    --color-success: #10B981;
+    --color-success-foreground: #FFFFFF;
+    
+    /* Warning */
+    --color-warning: #F59E0B;
+    --color-warning-foreground: #FFFFFF;
+    
+    /* Accent - same as primary for UI hover states */
+    --color-accent: #3B82F6;
+    --color-accent-foreground: #FFFFFF;
+    
+    /* Error */
+    --color-error: #EF4444;
+    --destructive: #EF4444;
+    --destructive-foreground: #FFFFFF;
+    
+    /* Neutral hover color - more visible */
+    --color-hover: #E5E7EB;
+    
+    /* Design tokens - Exact from spec */
+    --radius: 0.5rem;                /* 8px - base radius */
+    --radius-sm: calc(var(--radius) - 4px);   /* 4px */
+    --radius-md: calc(var(--radius) - 2px);   /* 6px */
+    --radius-lg: var(--radius);               /* 8px */
+    --radius-xl: calc(var(--radius) + 4px);   /* 12px */
+    --radius-card: var(--radius-lg);          /* 8px */
+    --radius-button: var(--radius-lg);        /* 8px */
+    --transition: 150ms ease;
+    
+    /* Tailwind compatibility - HSL format still needed */
+    --primary: var(--color-primary);
+    --primary-foreground: var(--color-primary-foreground);
+    --text-xs: 0.75rem;
+    --text-sm: 0.875rem;
+    --text-base: 1rem;
+    --text-lg: 1.125rem;
+    --text-xl: 1.25rem;
+    --text-2xl: 1.5rem;
+    --text-3xl: 1.875rem;
+    
+    /* Roadmap layout heights - unified for alignment */
+    --roadmap-date-header-height: 48px;
+    --roadmap-group-header-height: 48px;
+    --roadmap-task-row-height: 48px;
+    
+    /* Notion-specific colors */
+    --notion-gray: 247 246 243;
+    --notion-gray-hover: 241 241 239;
+    --notion-blue: 46 170 220;
+    --notion-blue-hover: 35 159 209;
+    --notion-green: 68 183 72;
+    --notion-orange: 255 155 0;
+    --notion-red: 255 59 48;
+    --notion-purple: 164 69 255;
+    --notion-pink: 255 69 179;
+    --notion-yellow: 255 212 0;
+    
+    /* Code snippet colors - Light theme */
+    --code-inline-text: 44 44 44;
+    --code-inline-bg: 243 243 243;
+    --code-block-text: 30 30 30;
+    --code-block-bg: 250 250 250;
+    --code-border: 224 224 224;
+    --code-syntax-keyword: 215 58 73;
+    --code-syntax-string: 3 47 98;
+    --code-syntax-number: 0 92 197;
+    --code-syntax-comment: 106 115 125;
+  }
+
+  .dark {
+    /* YUMA Design System - Dark Theme - Exact Spec from DESIGN_SPEC.md */
+    
+    /* Core backgrounds - Exact from spec */
+    --color-bg-dark: #0F1014;
+    --color-bg: #0F1014;
+    --background: #0F1014;
+    
+    /* Surface / Card - Exact from spec */
+    --color-surface-dark: #16171C;
+    --color-surface: #16171C;
+    --card: #16171C;
+    --popover: #16171C;
+    --muted: #1E1F24;
+    --secondary: #1A1B20;
+    
+    /* Sidebar - Exact from spec */
+    --sidebar-bg: #0C0D11;
+    
+    /* Input backgrounds - Exact from spec */
+    --input-background: #1A1B20;
+    
+    /* Text Primary - Exact from spec */
+    --color-text-dark: #E4E5E7;
+    --color-text: #E4E5E7;
+    --foreground: #E4E5E7;
+    --card-foreground: #E4E5E7;
+    --popover-foreground: #E4E5E7;
+    --color-text-primary: #E4E5E7;
+    --secondary-foreground: #E4E5E7;
+    
+    /* Text Secondary - Exact from spec */
+    --color-text-secondary-dark: #7D8089;
+    --color-text-secondary: #7D8089;
+    --muted-foreground: #7D8089;
+    
+    /* Border / Divider - Exact from spec */
+    --color-border: #1E1F24;
+    --border: #1E1F24;
+    --input: #1E1F24;
+    --input-background: #1A1B20;
+    --sidebar: #0C0D11;
+    --sidebar-foreground: #E4E5E7;
+    
+    /* Primary Accent - Exact from spec */
+    --color-primary: #4353FF;
+    --color-primary-foreground: #FFFFFF;
+    --ring: #4353FF;
+    --primary: #4353FF;
+    
+    /* AI Feature Colors - Exact from spec */
+    --ai-primary: #4353FF;
+    --ai-secondary: #6875FF;
+    --ai-gradient-from: #4353FF;
+    --ai-gradient-to: #6875FF;
+    
+    /* Status Colors - Exact from spec */
+    --status-todo: #7D8089;
+    --status-in-progress: #4353FF;
+    --status-done: #10B981;
+    --status-blocked: #F44336;
+    
+    /* Priority Colors - Exact from spec */
+    --priority-low: #7D8089;
+    --priority-medium: #F59E0B;
+    --priority-high: #FF9800;
+    --priority-urgent: #F44336;
+    
+    /* Success */
+    --color-success: #10B981;
+    --color-success-foreground: #FFFFFF;
+    
+    /* Warning */
+    --color-warning: #F59E0B;
+    --color-warning-foreground: #FFFFFF;
+    
+    /* Accent - same as primary for UI hover states */
+    --color-accent: #4353FF;
+    --color-accent-foreground: #FFFFFF;
+    
+    /* Error - Exact from spec */
+    --color-error: #F44336;
+    --destructive: #F44336;
+    --destructive-foreground: #FFFFFF;
+    
+    /* Neutral hover color - Exact from spec */
+    --color-hover: #1A1B20;
+    
+    /* Tailwind compatibility */
+    --primary-foreground: var(--color-primary-foreground);
+    
+    /* Dark mode Notion-specific colors */
+    --notion-gray: 55 55 55;
+    --notion-gray-hover: 65 65 65;
+    --notion-blue: 46 170 220;
+    --notion-blue-hover: 35 159 209;
+    --notion-green: 68 183 72;
+    --notion-orange: 255 155 0;
+    --notion-red: 239 68 68;
+    --notion-purple: 164 69 255;
+    --notion-pink: 255 69 179;
+    --notion-yellow: 255 212 0;
+    
+    /* Code snippet colors - Dark theme */
+    --code-inline-text: 234 234 234;
+    --code-inline-bg: 42 42 42;
+    --code-block-text: 255 255 255;
+    --code-block-bg: 30 30 30;
+    --code-border: 51 51 51;
+    --code-syntax-keyword: 255 123 114;
+    --code-syntax-string: 165 214 255;
+    --code-syntax-number: 121 192 255;
+    --code-syntax-comment: 139 148 158;
+  }
+  
+  /* Dark theme scrollbar - minimal, rounded, with accent track */
+  .dark ::-webkit-scrollbar-thumb {
+    background: rgba(59, 130, 246, 0.3);
+    border-radius: 4px;
+  }
+
+  .dark ::-webkit-scrollbar-thumb:hover {
+    background: rgba(59, 130, 246, 0.5);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  
+  body {
+    @apply bg-background text-foreground;
+    /* Font family - Exact from spec */
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+    font-feature-settings: 'kern' 1, 'liga' 1;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    /* Base typography - Exact from spec: 14px */
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 1.5;
+    letter-spacing: 0px;
+    color: var(--color-text);
+  }
+  
+  /* Typography Hierarchy - Inter font system */
+  h1 {
+    font-weight: 700;
+    font-size: 32px;
+    line-height: 1.4;
+    letter-spacing: -0.2px;
+    color: var(--color-text);
+    margin-bottom: 1.5rem;
+  }
+  
+  h2 {
+    font-weight: 600;
+    font-size: 24px;
+    line-height: 1.4;
+    letter-spacing: -0.2px;
+    color: var(--color-text);
+    margin-bottom: 1.5rem;
+  }
+  
+  h3 {
+    font-weight: 500;
+    font-size: 18px;
+    line-height: 1.4;
+    letter-spacing: -0.2px;
+    color: var(--color-text);
+    margin-bottom: 1.5rem;
+  }
+  
+  /* Body text */
+  p {
+    font-weight: 400;
+    font-size: 15px;
+    line-height: 1.5;
+    letter-spacing: 0px;
+    margin-bottom: 1em;
+    max-width: 75ch;
+  }
+  
+  /* Caption text */
+  .text-sm, small {
+    font-weight: 400;
+    font-size: 12px;
+    line-height: 1.4;
+    letter-spacing: 0px;
+  }
+  
+  /* Label text */
+  .text-xs, label {
+    font-weight: 400;
+    font-size: 12px;
+    line-height: 1.4;
+    letter-spacing: 0px;
+  }
+  
+  /* Code/Monospace */
+  code, pre, .font-mono {
+    font-family: var(--font-mono);
+  }
+  
+  /* Accessibility - Focus rings */
+  *:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+    opacity: 0.4;
+    border-radius: var(--radius-button);
+  }
+  
+  /* Screen reader semantics */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+  }
+  
+  /* Skip to main content link */
+  .skip-to-main {
+    position: absolute;
+    top: -40px;
+    left: 0;
+    background: var(--color-primary);
+    color: var(--color-primary-foreground);
+    padding: 8px 16px;
+    border-radius: var(--radius-sm);
+    z-index: 100;
+    text-decoration: none;
+  }
+  
+  .skip-to-main:focus {
+    top: 0;
+  }
+  
+  /* Accessibility: Respect reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+    
+    .yuma-logo-flow {
+      animation: none !important;
+    }
+    
+    .animate-enter {
+      animation: none !important;
+    }
+    
+    .drag-active {
+      animation: none !important;
+    }
+  }
+
+  /* YUMA scrollbars - minimal, rounded, with accent track */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: rgba(107, 114, 128, 0.3);
+    border-radius: 4px;
+    transition: background var(--transition);
+  }
+
+/* ------------------------------------------------------------ */
+/* YUMA Design Pattern Alignment Overrides                      */
+/* ------------------------------------------------------------ */
+:root {
+  --font-size: 14px;
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 1.5rem;
+  --text-3xl: 1.875rem;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-bold: 700;
+  --font-weight-extrabold: 800;
+  --ai-primary: #4353FF;
+  --ai-secondary: #6875FF;
+  --ai-gradient-from: #4353FF;
+  --ai-gradient-to: #6875FF;
+  --status-todo: #7D8089;
+  --status-in-progress: #4353FF;
+  --status-done: #10B981;
+  --status-blocked: #F44336;
+  --priority-low: #7D8089;
+  --priority-medium: #F59E0B;
+  --priority-high: #FF9800;
+  --priority-urgent: #F44336;
+  --sidebar: #F8F9FA;
+  --sidebar-foreground: #1A1A1A;
+  --sidebar-primary: #4353FF;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #E9ECEF;
+  --sidebar-accent-foreground: #1A1A1A;
+  --sidebar-border: #DEE2E6;
+  --sidebar-ring: #4353FF;
+}
+
+.dark {
+  --background: #0F1014;
+  --foreground: #E4E5E7;
+  --card: #11121A;
+  --card-foreground: #E4E5E7;
+  --popover: #11121A;
+  --popover-foreground: #E4E5E7;
+  --secondary: #1A1B20;
+  --secondary-foreground: #E4E5E7;
+  --muted: #1E1F24;
+  --muted-foreground: #7D8089;
+  --accent: #1A1B20;
+  --accent-foreground: #E4E5E7;
+  --border: #1E1F24;
+  --input: #1A1B20;
+  --input-background: #1A1B20;
+  --ring: #4353FF;
+  --sidebar: #0C0D11;
+  --sidebar-foreground: #E4E5E7;
+  --sidebar-border: #1E1F24;
+  --sidebar-primary: #4353FF;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #1A1B20;
+  --sidebar-accent-foreground: #E4E5E7;
+  --sidebar-ring: #4353FF;
+}
+
+@layer base {
+  :where(h1) {
+    font-size: var(--text-2xl);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  :where(h2) {
+    font-size: var(--text-xl);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  :where(h3) {
+    font-size: var(--text-lg);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  :where(h4) {
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  :where(p) {
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-normal);
+    line-height: 1.5;
+  }
+
+  :where(button) {
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  :where(label) {
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  :where(input) {
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-normal);
+    line-height: 1.5;
+  }
+}
+
+html {
+  font-size: var(--font-size);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-primary);
+    opacity: 0.6;
+  }
+  
+  .dark ::-webkit-scrollbar-thumb {
+    background: rgba(156, 163, 175, 0.3);
+  }
+
+  .dark ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-primary);
+    opacity: 0.6;
+  }
+
+  /* Focus rings - accessibility */
+  *:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+    opacity: 0.4;
+    border-radius: var(--radius-button);
+  }
+
+  /* Hover states - 5-10% accent tint or subtle shadow lift */
+  button.bg-primary:hover:not(:disabled) {
+    opacity: 0.9;
+  }
+  
+  button:hover:not(:disabled),
+  a:hover,
+  .hover-lift:hover {
+    transition: all var(--transition);
+  }
+  
+  /* Hover lift effect */
+  .hover-lift:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+  }
+  
+  /* Theme transition - 200ms fade */
+  html {
+    transition: background-color 200ms ease-in-out, color 200ms ease-in-out;
+  }
+  
+  /* Specific transitions for theme-aware elements */
+  body, .bg-background, .bg-card, .bg-popover, .bg-muted {
+    transition: background-color 200ms ease-in-out;
+  }
+  
+  .text-foreground, .text-muted-foreground, .text-primary, .text-accent {
+    transition: color 200ms ease-in-out;
+  }
+  
+  .border, .border-border {
+    transition: border-color 200ms ease-in-out;
+  }
+  
+  /* Text selection */
+  ::selection {
+    background: var(--color-primary);
+    opacity: 0.2;
+    color: inherit;
+  }
+
+  /* Micro-interactions - 200ms ease-in-out */
+  .notion-transition,
+  button, a, input, textarea, select {
+    transition: all var(--transition);
+  }
+  
+  /* Enter animations - opacity + translateY 8px, 200ms ease-out */
+  @keyframes enter {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  .animate-enter {
+    animation: enter 200ms ease-out;
+  }
+  
+  /* Drag animations - more visible */
+  @keyframes drag-lift {
+    from {
+      transform: scale(1);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    }
+    to {
+      transform: scale(1.05) rotate(2deg);
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2);
+    }
+  }
+  
+  .drag-active {
+    cursor: grab;
+    animation: drag-lift 150ms ease-out forwards;
+  }
+  
+  .drag-active:active {
+    cursor: grabbing;
+  }
+  
+  /* Enhanced drag overlay visibility */
+  [data-rbd-draggable-context-id] {
+    opacity: 0.95;
+  }
+  
+  /* Drop zone indicators */
+  .drop-zone-active {
+    border: 4px solid var(--color-primary);
+    border-radius: var(--radius-card);
+    background-color: rgba(59, 130, 246, 0.1);
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.2);
+  }
+  
+  /* Logo animations - neon glow pulse */
+  @keyframes neon-pulse {
+    0%, 100% {
+      opacity: 0.9;
+      filter: drop-shadow(0 0 4px currentColor) drop-shadow(0 0 8px currentColor);
+    }
+    50% {
+      opacity: 1;
+      filter: drop-shadow(0 0 6px currentColor) drop-shadow(0 0 12px currentColor) drop-shadow(0 0 18px currentColor);
+    }
+  }
+  
+  .yuma-logo-icon {
+    animation: neon-pulse 2s ease-in-out infinite;
+  }
+  
+  /* Enhanced glow for logo elements */
+  .yuma-logo-icon path,
+  .yuma-logo-icon circle {
+    transition: all 0.3s ease;
+  }
+  
+  /* Component shadows - subtle elevation */
+  /* Cards: 0 1px 2px rgba(0,0,0,0.05) */
+  .shadow-card {
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  }
+  
+  .shadow-card:hover {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+  }
+  
+  /* Buttons - flat with subtle elevation */
+  .shadow-button {
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  }
+  
+  .shadow-button:hover {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+  }
+  
+  /* Modals */
+  .shadow-modal {
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+  }
+  
+  /* Tooltips */
+  .shadow-tooltip {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  }
+  
+  /* Dark theme shadows - faint blue/purple tone */
+  .dark .shadow-card,
+  .dark .shadow-button {
+    box-shadow: 0 1px 2px rgba(59, 130, 246, 0.1);
+  }
+  
+  .dark .shadow-card:hover,
+  .dark .shadow-button:hover {
+    box-shadow: 0 2px 4px rgba(59, 130, 246, 0.15);
+  }
+}
+
+@layer components {
+  /* YUMA buttons - legacy classes for compatibility */
+  .notion-button {
+    @apply inline-flex items-center justify-center rounded-[6px] text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 disabled:pointer-events-none;
+    outline-offset: 2px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  }
+
+  .notion-button-primary {
+    @apply notion-button bg-primary text-primary-foreground hover:opacity-90 h-9 px-3;
+  }
+
+  .notion-button-secondary {
+    @apply notion-button bg-secondary text-secondary-foreground hover:opacity-80 h-9 px-3;
+  }
+
+  .notion-button-ghost {
+    @apply notion-button hover:bg-hover hover:text-foreground h-9 px-3 shadow-none;
+  }
+
+  /* YUMA cards */
+  .notion-card {
+    @apply rounded-[12px] border bg-card text-card-foreground;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  }
+  
+  .notion-card-hover {
+    @apply notion-card transition-all;
+  }
+  
+  .notion-card-hover:hover {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+    background-color: var(--color-hover);
+  }
+  
+  /* Enhanced hover for task cards in boards, sprints, backlog, releases */
+  .bg-card:hover:not(:disabled) {
+    background-color: var(--color-hover);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  }
+
+  /* YUMA inputs */
+  .notion-input {
+    @apply flex h-9 w-full rounded-[6px] border border-input bg-transparent px-3 py-1 text-sm transition-all file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    outline-offset: 2px;
+  }
+
+  /* Notion-style sidebar */
+  .notion-sidebar {
+    @apply w-64 bg-background border-r border-border h-full flex flex-col;
+  }
+
+  /* Notion-style page header */
+  .notion-page-header {
+    @apply border-b border-border backdrop-blur;
+    background-color: rgba(249, 250, 251, 0.95);
+  }
+  
+  .dark .notion-page-header {
+    background-color: rgba(13, 17, 23, 0.95);
+  }
+  
+  @supports (backdrop-filter: blur(1px)) {
+    .notion-page-header {
+      background-color: rgba(249, 250, 251, 0.6);
+    }
+    
+    .dark .notion-page-header {
+      background-color: rgba(13, 17, 23, 0.6);
+    }
+  }
+
+  /* Notion-style content area */
+  .notion-content {
+    @apply flex-1 overflow-auto bg-background;
+  }
+
+  /* Notion-style typography */
+  .notion-heading-1 {
+    @apply text-3xl font-bold text-foreground leading-tight;
+  }
+
+  .notion-heading-2 {
+    @apply text-2xl font-semibold text-foreground leading-tight;
+  }
+
+  .notion-heading-3 {
+    @apply text-xl font-semibold text-foreground leading-snug;
+  }
+
+  .notion-text {
+    @apply text-base text-foreground leading-relaxed;
+  }
+
+  .notion-text-muted {
+    @apply text-sm text-muted-foreground leading-relaxed;
+  }
+
+  /* Notion-style dividers */
+  .notion-divider {
+    @apply border-t border-border my-4;
+  }
+
+  /* Notion-style badges */
+  .notion-badge {
+    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium;
+  }
+
+  .notion-badge-blue {
+    @apply notion-badge bg-blue-100 text-blue-800;
+  }
+
+  .notion-badge-green {
+    @apply notion-badge bg-green-100 text-green-800;
+  }
+
+  .notion-badge-yellow {
+    @apply notion-badge bg-yellow-100 text-yellow-800;
+  }
+
+  .notion-badge-red {
+    @apply notion-badge bg-red-100 text-red-800;
+  }
+
+  .notion-badge-purple {
+    @apply notion-badge bg-purple-100 text-purple-800;
+  }
+
+  .notion-badge-gray {
+    @apply notion-badge bg-gray-100 text-gray-800;
+  }
+
+  /* Notion-style switch */
+  .notion-switch {
+    @apply h-5 w-9;
+  }
+
+  /* Calendar picker styles - Clean, simple, Notion-inspired design */
+  .date-picker-popover .date-picker-calendar-wrapper {
+    padding: 12px;
+  }
+
+  .date-picker-popover .date-picker-calendar-wrapper .react-calendar,
+  .date-picker-calendar {
+    background: transparent !important;
+    border: none !important;
+    width: 100% !important;
+    max-width: 320px !important;
+    font-family: inherit !important;
+  }
+
+  /* Navigation header */
+  .date-picker-popover .react-calendar__navigation {
+    display: flex;
+    align-items: center;
+    margin-bottom: 20px;
+    padding: 0;
+  }
+
+  .date-picker-popover .react-calendar__navigation__arrow {
+    font-size: 18px;
+    font-weight: 600;
+    color: rgb(var(--muted-foreground));
+    padding: 8px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: all 0.15s ease;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .date-picker-popover .react-calendar__navigation__label {
+    font-size: 15px;
+    font-weight: 600;
+    color: rgb(var(--foreground));
+    padding: 6px 12px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    flex: 1;
+    text-align: center;
+    transition: background-color 0.15s ease;
+  }
+
+  .date-picker-popover .react-calendar__navigation__label:hover {
+    background: #EFF6FF !important;
+    border-radius: 4px;
+    color: rgb(var(--foreground)) !important;
+  }
+
+  .date-picker-popover .react-calendar__navigation__arrow:hover {
+    background: #EFF6FF !important;
+    color: rgb(var(--foreground)) !important;
+  }
+
+  .date-picker-popover .react-calendar__navigation__arrow:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+
+  /* Weekdays header */
+  .date-picker-popover .react-calendar__month-view__weekdays {
+    margin-bottom: 12px;
+  }
+
+  .date-picker-popover .react-calendar__month-view__weekdays__weekday {
+    font-size: 12px;
+    font-weight: 600;
+    color: rgb(var(--muted-foreground));
+    text-align: center;
+    padding: 10px 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+
+  .date-picker-popover .react-calendar__month-view__weekdays__weekday abbr {
+    text-decoration: none;
+  }
+
+  /* Calendar grid */
+  .date-picker-popover .react-calendar__month-view__days {
+    gap: 4px;
+  }
+
+  /* Date tiles */
+  .date-picker-popover .react-calendar__tile {
+    border: none !important;
+    background: transparent !important;
+    padding: 10px 6px !important;
+    min-height: 40px !important;
+    font-size: 14px !important;
+    font-weight: 400 !important;
+    color: rgb(var(--foreground)) !important;
+    border-radius: 8px !important;
+    transition: all 0.15s ease !important;
+    cursor: pointer !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  .date-picker-popover .react-calendar__tile abbr {
+    color: inherit !important;
+    text-decoration: none !important;
+    font-weight: inherit !important;
+    display: block !important;
+  }
+
+  /* Hover state */
+  .date-picker-popover .react-calendar__tile:hover {
+    background: #EFF6FF !important;
+    color: rgb(var(--foreground)) !important;
+  }
+
+  /* Today's date - subtle styling, but selected date takes priority */
+  .date-picker-popover .react-calendar__tile--now:not(.react-calendar__tile--active) {
+    background: #F3F4F6 !important;
+    color: rgb(var(--foreground)) !important;
+    font-weight: 500 !important;
+    border: 1px solid #D1D5DB !important;
+  }
+
+  .date-picker-popover .react-calendar__tile--now:not(.react-calendar__tile--active):hover {
+    background: #E5E7EB !important;
+    border-color: #9CA3AF !important;
+  }
+  
+  /* Selected date takes priority over today styling */
+  .date-picker-popover .react-calendar__tile--now.react-calendar__tile--active {
+    background: #3B82F6 !important;
+    color: #FFFFFF !important;
+    border: none !important;
+  }
+
+  /* Selected date - JIRA/Notion/ClickUp style */
+  .date-picker-popover .react-calendar__tile--active {
+    background: #3B82F6 !important;
+    color: #FFFFFF !important;
+    font-weight: 500 !important;
+    border: none !important;
+  }
+
+  .date-picker-popover .react-calendar__tile--active:hover {
+    background: #2563EB !important;
+    color: #FFFFFF !important;
+  }
+
+  .date-picker-popover .react-calendar__tile--active abbr {
+    color: #FFFFFF !important;
+  }
+
+  /* Neighboring month dates */
+  .date-picker-popover .react-calendar__tile--neighboringMonth {
+    color: rgb(var(--muted-foreground)) !important;
+    opacity: 0.4;
+  }
+
+  .date-picker-popover .react-calendar__tile--neighboringMonth:hover {
+    opacity: 0.6;
+  }
+
+  /* Disabled dates */
+  .date-picker-popover .react-calendar__tile--disabled {
+    opacity: 0.3 !important;
+    cursor: not-allowed !important;
+    color: rgb(var(--muted-foreground)) !important;
+  }
+
+  .date-picker-popover .react-calendar__tile--disabled:hover {
+    background: transparent !important;
+  }
+
+  /* Language menu scrollbar - always visible */
+  .language-menu-scroll {
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    /* Enable smooth scrolling for touchpad */
+    scroll-behavior: smooth;
+    /* Allow touch/wheel events */
+    touch-action: pan-y;
+    /* Ensure the element can receive wheel events */
+    will-change: scroll-position;
+  }
+
+  .language-menu-scroll::-webkit-scrollbar {
+    width: 8px !important;
+    display: block !important;
+  }
+
+  .language-menu-scroll::-webkit-scrollbar-track {
+    background: transparent !important;
+  }
+
+  .language-menu-scroll::-webkit-scrollbar-thumb {
+    background: rgb(233 233 231) !important;
+    border-radius: 4px !important;
+  }
+
+  .language-menu-scroll::-webkit-scrollbar-thumb:hover {
+    background: rgb(200 200 200) !important;
+  }
+
+  .dark .language-menu-scroll::-webkit-scrollbar-thumb {
+    background: rgb(60 60 60) !important;
+  }
+
+  .dark .language-menu-scroll::-webkit-scrollbar-thumb:hover {
+    background: rgb(80 80 80) !important;
+  }
+}
+
+/* Duplicate color definitions removed - using the ones above */
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+
+  /* TipTap editor styles */
+  .ProseMirror {
+    outline: none;
+    color: hsl(var(--foreground));
+    /* Ensure consistent padding - default will be overridden by component classes */
+    box-sizing: border-box;
+  }
+  
+  /* Task description editor - ensure proper padding alignment */
+  .task-description .ProseMirror,
+  .task-description-editor .ProseMirror {
+    padding: 12px 16px !important;
+    box-sizing: border-box;
+  }
+  
+  /* Remove any conflicting margins/padding from prose elements inside editor */
+  .ProseMirror.prose > *:first-child {
+    margin-top: 0;
+  }
+  
+  .ProseMirror.prose > *:last-child {
+    margin-bottom: 0;
+  }
+
+  /* AI Processing Animation Styles */
+  .ai-loading-indicator {
+    background: rgba(249, 250, 251, 0.85);
+    backdrop-filter: blur(4px);
+    z-index: 10;
+  }
+
+  .dark .ai-loading-indicator {
+    background: rgba(17, 24, 39, 0.85);
+  }
+
+  .ai-loading-content {
+    background: linear-gradient(135deg, rgba(79, 70, 229, 0.1), rgba(99, 102, 241, 0.1));
+    border: 1px solid rgba(79, 70, 229, 0.2);
+    box-shadow: 0 0 12px rgba(79, 70, 229, 0.3), 0 4px 8px rgba(0, 0, 0, 0.1);
+  }
+
+  .dark .ai-loading-content {
+    background: linear-gradient(135deg, rgba(165, 180, 252, 0.1), rgba(129, 140, 248, 0.1));
+    border: 1px solid rgba(165, 180, 252, 0.3);
+    box-shadow: 0 0 12px rgba(165, 180, 252, 0.2), 0 4px 8px rgba(0, 0, 0, 0.3);
+  }
+
+  /* AI Dots Animation */
+  @keyframes ai-dot-pulse {
+    0%, 100% {
+      opacity: 0.4;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 1;
+      transform: scale(1.2);
+    }
+  }
+
+  .ai-dots .ai-dot:nth-child(1) {
+    animation: ai-dot-pulse 1.2s ease-in-out infinite;
+  }
+
+  .ai-dots .ai-dot:nth-child(2) {
+    animation: ai-dot-pulse 1.2s ease-in-out infinite 0.2s;
+  }
+
+  .ai-dots .ai-dot:nth-child(3) {
+    animation: ai-dot-pulse 1.2s ease-in-out infinite 0.4s;
+  }
+
+  /* AI Processing glow effect on editor */
+  .ai-processing::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 6px;
+    padding: 2px;
+    background: linear-gradient(90deg, #4F46E5, #6366F1, #4F46E5);
+    background-size: 200% 100%;
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    animation: ai-border-shine 2s ease-in-out infinite;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .dark .ai-processing::before {
+    background: linear-gradient(90deg, #A5B4FC, #818CF8, #A5B4FC);
+    background-size: 200% 100%;
+  }
+
+  @keyframes twinkle {
+    0%, 100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.5;
+      transform: scale(0.9);
+    }
+  }
+
+  @keyframes slideIn {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes ai-border-shine {
+    0% {
+      background-position: 0% center;
+    }
+    100% {
+      background-position: 200% center;
+    }
+  }
+
+  /* TipTap Color extension - inline styles work automatically, but prose may override */
+  /* Use higher specificity to ensure TipTap color styles are preserved */
+  .ProseMirror.prose span[style*="color"],
+  .ProseMirror.prose p[style*="color"],
+  .ProseMirror.prose *[style*="color"] {
+    /* Inline styles should work, but ensure they're not overridden */
+  }
+
+  /* Ensure TipTap highlight extension works */
+  .ProseMirror mark {
+    padding: 0 2px;
+    border-radius: 2px;
+  }
+
+  /* Remove default highlight color - TipTap will set it via inline style */
+  .ProseMirror mark:not([style*="background-color"]) {
+    background-color: transparent;
+  }
+
+  /* Ensure highlight colors from TipTap are preserved */
+  .ProseMirror.prose mark[style*="background-color"] {
+    /* Inline background-color should work automatically */
+  }
+
+  /* Hide number input spinners */
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  
+  input[type="number"] {
+    -moz-appearance: textfield;
+  }
+
+  .ProseMirror p.is-editor-empty:first-child::before {
+    content: attr(data-placeholder);
+    float: left;
+    color: hsl(var(--muted-foreground));
+    pointer-events: none;
+    height: 0;
+  }
+
+  /* Theme-aware inline code - override prose styles with higher specificity */
+  .ProseMirror code:not(pre code) {
+    background-color: rgb(var(--code-inline-bg)) !important;
+    color: rgb(var(--code-inline-text)) !important;
+    padding: 0.125rem 0.375rem !important;
+    border-radius: 0.375rem !important;
+    font-size: 0.875em !important;
+    font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', 'Roboto Mono', 'Consolas', 'Courier New', monospace !important;
+    border: 1px solid rgb(var(--code-border)) !important;
+    transition: background-color 150ms ease-in-out, color 150ms ease-in-out, border-color 150ms ease-in-out !important;
+  }
+
+  /* Theme-aware code blocks */
+  .ProseMirror pre {
+    background: rgb(var(--code-block-bg));
+    color: rgb(var(--code-block-text));
+    padding: 1rem 1.25rem;
+    border-radius: 0.5rem;
+    margin: 1.5rem 0;
+    border: 1px solid rgb(var(--code-border));
+    overflow-x: auto;
+    font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', 'Roboto Mono', 'Consolas', 'Courier New', monospace;
+    font-size: 0.875rem;
+    line-height: 1.6;
+    transition: background-color 200ms ease-in-out, color 200ms ease-in-out, border-color 200ms ease-in-out;
+  }
+
+  .ProseMirror pre code {
+    background: transparent;
+    color: inherit;
+    font-size: inherit;
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    font-family: inherit;
+  }
+  
+  /* Syntax highlighting classes (for future enhancement with Prism.js or similar) */
+  .ProseMirror code .token.keyword,
+  .ProseMirror pre .token.keyword {
+    color: rgb(var(--code-syntax-keyword));
+  }
+  
+  .ProseMirror code .token.string,
+  .ProseMirror pre .token.string {
+    color: rgb(var(--code-syntax-string));
+  }
+  
+  .ProseMirror code .token.number,
+  .ProseMirror pre .token.number {
+    color: rgb(var(--code-syntax-number));
+  }
+  
+  .ProseMirror code .token.comment,
+  .ProseMirror pre .token.comment {
+    color: rgb(var(--code-syntax-comment));
+    font-style: italic;
+  }
+
+  .ProseMirror mark {
+    background-color: #fef08a;
+    border-radius: 0.25rem;
+    padding: 0.125rem 0;
+  }
+
+  .dark .ProseMirror mark {
+    background-color: #713f12;
+  }
+
+  .ProseMirror ul,
+  .ProseMirror ol {
+    padding-left: 1.5rem;
+    margin: 0.75rem 0;
+  }
+
+  .ProseMirror ul[data-type="taskList"] {
+    list-style: none;
+    padding: 0;
+  }
+
+  .ProseMirror ul[data-type="taskList"] p {
+    margin: 0;
+  }
+
+  .ProseMirror ul[data-type="taskList"] li {
+    list-style: none;
+    display: flex;
+    align-items: start;
+  }
+
+  .ProseMirror ul[data-type="taskList"] li > label {
+    display: flex;
+    align-items: start;
+    width: 100%;
+  }
+
+  .ProseMirror ul[data-type="taskList"] li > label > input[type="checkbox"] {
+    width: 14px;
+    height: 14px;
+    margin-top: 2px;
+    margin-right: 8px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  .ProseMirror ul[data-type="taskList"] li[data-checked="true"] > label > p {
+    text-decoration: line-through;
+    opacity: 0.6;
+  }
+
+  .ProseMirror ul[data-type="taskList"] li > label > div {
+    flex: 1;
+  }
+
+  .ProseMirror .mention {
+    background-color: hsl(var(--muted));
+    border-radius: 0.25rem;
+    padding: 0.125rem 0.25rem;
+    font-weight: 500;
+    color: hsl(var(--primary));
+    cursor: pointer;
+  }
+
+  .ProseMirror table {
+    border-collapse: collapse;
+    table-layout: fixed;
+    width: 100%;
+    margin: 1.5rem 0;
+    overflow: hidden;
+  }
+
+  .ProseMirror table td,
+  .ProseMirror table th {
+    min-width: 1em;
+    border: 1px solid hsl(var(--border));
+    padding: 0.5rem;
+    vertical-align: top;
+    box-sizing: border-box;
+    position: relative;
+  }
+
+  .ProseMirror table th {
+    font-weight: bold;
+    text-align: left;
+    background-color: hsl(var(--muted));
+  }
+
+  .ProseMirror table .selectedCell:after {
+    z-index: 2;
+    position: absolute;
+    content: "";
+    left: 0; right: 0; top: 0; bottom: 0;
+    background: rgba(59, 130, 246, 0.1);
+    pointer-events: none;
+  }
+
+  .ProseMirror table .column-resize-handle {
+    position: absolute;
+    right: -2px;
+    top: 0;
+    bottom: -2px;
+    width: 4px;
+    background-color: hsl(var(--primary));
+    pointer-events: none;
+  }
+}

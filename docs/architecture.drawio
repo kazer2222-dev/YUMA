@@ -1,0 +1,82 @@
+<mxfile host="app.diagrams.net" modified="2025-10-30T10:00:00.000Z" agent="AI" version="22.0.8" type="device">
+  <diagram id="arch-1" name="App Architecture">
+    <mxGraphModel dx="1400" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1920" pageHeight="1080" background="#ffffff" math="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+
+        <!-- Client -->
+        <mxCell id="client" value="Client (React + shadcn/ui + Tailwind)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="80" y="120" width="260" height="80" as="geometry"/>
+        </mxCell>
+
+        <!-- App Router -->
+        <mxCell id="appRouter" value="Next.js App Router (app/*)\nTabs: Overview, Tasks, Board, Calendar, Roadmap, AI" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="400" y="100" width="360" height="120" as="geometry"/>
+        </mxCell>
+
+        <!-- API Routes -->
+        <mxCell id="api" value="API Routes (app/api/*)\n- Spaces / Boards / Statuses / Tasks\n- Events / Roadmap / AI" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
+          <mxGeometry x="820" y="90" width="340" height="140" as="geometry"/>
+        </mxCell>
+
+        <!-- Auth Service -->
+        <mxCell id="auth" value="AuthService (JWT in cookies)\n- getUserFromToken\n- isAdmin / membership checks" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="820" y="270" width="340" height="100" as="geometry"/>
+        </mxCell>
+
+        <!-- Prisma -->
+        <mxCell id="prisma" value="Prisma ORM" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="1220" y="90" width="180" height="60" as="geometry"/>
+        </mxCell>
+
+        <!-- Database -->
+        <mxCell id="db" value="Database (SQLite/Postgres)\nModels: Space, Board, Status, Task,\nEvent, EventParticipant, SpaceMember" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="1200" y="200" width="240" height="140" as="geometry"/>
+        </mxCell>
+
+        <!-- SSE -->
+        <mxCell id="sse" value="SSE (Realtime updates)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="460" y="260" width="220" height="60" as="geometry"/>
+        </mxCell>
+
+        <!-- AI Assistant -->
+        <mxCell id="aiui" value="AI Assistant UI\ncomponents/ai/*" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="400" y="380" width="220" height="80" as="geometry"/>
+        </mxCell>
+        <mxCell id="aiapi" value="/api/ai/suggestions (mock)\n- task/status/priority/mockup\n- rule-based heuristics" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="820" y="400" width="340" height="100" as="geometry"/>
+        </mxCell>
+
+        <!-- Edges -->
+        <mxCell id="e1" edge="1" parent="1" source="client" target="appRouter" style="endArrow=block;strokeColor=#6c8ebf;"/>
+        <mxCell id="e2" edge="1" parent="1" source="appRouter" target="api" style="endArrow=block;strokeColor=#9673a6;"/>
+        <mxCell id="e3" edge="1" parent="1" source="api" target="prisma" style="endArrow=block;strokeColor=#d79b00;"/>
+        <mxCell id="e4" edge="1" parent="1" source="prisma" target="db" style="endArrow=block;strokeColor=#82b366;"/>
+        <mxCell id="e5" edge="1" parent="1" source="api" target="auth" style="endArrow=block;dashed=1;strokeColor=#b85450;"/>
+        <mxCell id="e6" edge="1" parent="1" source="appRouter" target="sse" style="endArrow=block;dashed=1;strokeColor=#666666;"/>
+        <mxCell id="e7" edge="1" parent="1" source="client" target="aiui" style="endArrow=block;strokeColor=#d6b656;"/>
+        <mxCell id="e8" edge="1" parent="1" source="aiui" target="aiapi" style="endArrow=block;strokeColor=#d6b656;"/>
+        <mxCell id="e9" edge="1" parent="1" source="aiapi" target="api" style="endArrow=block;dashed=1;strokeColor=#d6b656;"/>
+
+        <!-- Notes -->
+        <mxCell id="notes" value="Notes:\n- Statuses are board-specific\n- Last board per space stored in localStorage\n- Roadmap: day=px columns, others=%\n- Infinite timeline via range extension" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="80" y="360" width="260" height="160" as="geometry"/>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
+
+
+
+
+
+
+
+
+
+
+
+
+

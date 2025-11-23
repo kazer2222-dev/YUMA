@@ -1,0 +1,148 @@
+{
+  "layoutStructure": {
+    
+    "mainLayout": {
+      "description": "Root application layout",
+      "structure": "flex h-screen",
+      "sections": [
+        {
+          "name": "sidebar",
+          "width": "256px",
+          "class": "w-64",
+          "background": "#0C0D11",
+          "position": "fixed left",
+          "height": "100vh"
+        },
+        {
+          "name": "mainContent",
+          "class": "flex-1 flex flex-col ml-64",
+          "children": [
+            {
+              "name": "header",
+              "height": "56px",
+              "class": "h-14",
+              "background": "#0F1014",
+              "position": "sticky top-0"
+            },
+            {
+              "name": "viewNavigation",
+              "height": "48px",
+              "class": "h-12",
+              "background": "#0F1014",
+              "position": "sticky top-14"
+            },
+            {
+              "name": "contentArea",
+              "class": "flex-1 overflow-auto",
+              "minHeight": "calc(100vh - 104px)"
+            }
+          ]
+        }
+      ]
+    },
+    
+    "sidebar": {
+      "width": "256px",
+      "background": "#0C0D11",
+      "borderRight": "1px solid #1E1F24",
+      "sections": {
+        "header": {
+          "height": "56px",
+          "padding": "1rem",
+          "contains": "Logo and brand"
+        },
+        "navigation": {
+          "padding": "1rem",
+          "gap": "0.25rem",
+          "items": [
+            { "label": "Home", "icon": "Home", "color": "#4353FF" },
+            { "label": "Inbox", "icon": "Inbox", "color": "#10B981" },
+            { "label": "Tasks", "icon": "CheckSquare", "color": "#8B5CF6" },
+            { "label": "Documents", "icon": "FileText", "color": "#F59E0B" },
+            { "label": "Goals", "icon": "Target", "color": "#EC4899" },
+            { "label": "Dashboards", "icon": "LayoutDashboard", "color": "#06B6D4" }
+          ]
+        }
+      }
+    },
+    
+    "header": {
+      "height": "56px",
+      "padding": "0 1.5rem",
+      "background": "#0F1014",
+      "borderBottom": "1px solid #1E1F24",
+      "layout": "flex justify-between items-center",
+      "sections": {
+        "search": {
+          "maxWidth": "672px",
+          "height": "36px",
+          "background": "#1A1B20"
+        },
+        "actions": {
+          "gap": "0.75rem",
+          "items": ["New Task Button", "Notifications", "Avatar"]
+        }
+      }
+    },
+    
+    "viewNavigation": {
+      "height": "48px",
+      "padding": "0 1.5rem",
+      "background": "#0F1014",
+      "borderBottom": "1px solid #1E1F24",
+      "layout": "flex justify-between items-center",
+      "tabs": [
+        { "label": "Overview", "icon": "LayoutGrid", "color": "#4353FF" },
+        { "label": "Tasks", "icon": "CheckSquare", "color": "#10B981" },
+        { "label": "Board", "icon": "Trello", "color": "#8B5CF6" },
+        { "label": "Roadmap", "icon": "Map", "color": "#EC4899" }
+      ]
+    },
+    
+    "contentArea": {
+      "padding": "1.5rem",
+      "overflow": "auto",
+      "minHeight": "calc(100vh - 104px)",
+      "background": "#0F1014"
+    },
+    
+    "responsive": {
+      "mobile": {
+        "maxWidth": "1024px",
+        "sidebar": "Sheet drawer (hidden by default)",
+        "padding": "0.75rem (12px)",
+        "header": {
+          "showMenuButton": true,
+          "hideSearch": "below 768px",
+          "compactButtons": true,
+          "hideButtonText": "below 640px"
+        },
+        "viewNavigation": {
+          "horizontalScroll": true,
+          "hideLabels": "below 640px",
+          "hideActions": "below 768px"
+        }
+      },
+      "tablet": {
+        "minWidth": "768px",
+        "maxWidth": "1024px",
+        "sidebar": "Sheet drawer",
+        "padding": "1.5rem (24px)"
+      },
+      "desktop": {
+        "minWidth": "1024px",
+        "sidebar": "always visible (w-60 expanded, w-16 collapsed)",
+        "padding": "1.5rem (24px)",
+        "sidebarToggle": {
+          "location": "header left side",
+          "icon": "PanelLeftClose / PanelLeftOpen",
+          "expandedWidth": "240px (w-60)",
+          "collapsedWidth": "64px (w-16)",
+          "transition": "300ms smooth",
+          "collapsedView": "icons only with tooltips",
+          "expandedView": "full navigation tree"
+        }
+      }
+    }
+  }
+}
