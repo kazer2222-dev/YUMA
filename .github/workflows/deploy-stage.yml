@@ -1,0 +1,50 @@
+name: Deploy to Staging
+
+on:
+  push:
+    branches: [ stage ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: staging
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Generate Prisma Client
+      run: npm run db:generate
+
+    - name: Run tests
+      run: npm test
+      env:
+        CI: true
+
+    - name: Build application
+      run: npm run build
+      env:
+        DATABASE_URL: ${{ secrets.STAGE_DATABASE_URL }}
+        NEXTAUTH_SECRET: ${{ secrets.STAGE_NEXTAUTH_SECRET }}
+        NEXTAUTH_URL: ${{ secrets.STAGE_NEXTAUTH_URL || 'https://stage.yourdomain.com' }}
+        OPENAI_API_KEY: ${{ secrets.STAGE_OPENAI_API_KEY }}
+
+    - name: Deploy to Staging
+      run: |
+        echo "Deploying to staging environment..."
+        # Add your deployment commands here
+        # Examples:
+        # - vercel --prod --token ${{ secrets.VERCEL_TOKEN }}
+        # - railway up
+        # - docker build -t app:stage . && docker push app:stage
+
