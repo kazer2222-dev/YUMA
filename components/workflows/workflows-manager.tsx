@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Badge } from '@/components/ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Plus, GitBranch, Edit, Copy, Trash2, MoreVertical, Zap } from 'lucide-react';
+import { Plus, GitBranch, Edit, Copy, Trash2, MoreVertical, Zap, ArrowLeft } from 'lucide-react';
 import { WorkflowDesignerDialog } from '@/components/templates/workflow-designer-dialog';
 import type { WorkflowDetail, WorkflowSummary } from '@/lib/workflows/types';
 import { useToastHelpers } from '@/components/toast';
@@ -13,15 +13,25 @@ import { useToastHelpers } from '@/components/toast';
 interface WorkflowsManagerProps {
   spaceId: string;
   spaceSlug: string;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  standalone?: boolean;
+  onBack?: () => void;
 }
 
-export function WorkflowsManager({ spaceId, spaceSlug, open, onOpenChange }: WorkflowsManagerProps) {
+export function WorkflowsManager({ 
+  spaceId, 
+  spaceSlug, 
+  open, 
+  onOpenChange,
+  standalone = false,
+  onBack,
+}: WorkflowsManagerProps) {
   const { success, error: showError } = useToastHelpers();
   const [workflows, setWorkflows] = useState<WorkflowSummary[]>([]);
   const [loading, setLoading] = useState(false);
   const [designerOpen, setDesignerOpen] = useState(false);
+  const [showWorkflowEditor, setShowWorkflowEditor] = useState(standalone); // Show editor directly in standalone mode
   const [designerWorkflowId, setDesignerWorkflowId] = useState<string | null>(null);
   const [designerSeedWorkflow, setDesignerSeedWorkflow] = useState<WorkflowDetail | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -55,22 +65,32 @@ export function WorkflowsManager({ spaceId, spaceSlug, open, onOpenChange }: Wor
   }, [spaceId, showError]);
 
   useEffect(() => {
-    if (!open) {
-      return;
+    if (standalone || open) {
+      fetchWorkflows();
     }
-    fetchWorkflows();
-  }, [open, fetchWorkflows]);
+  }, [standalone, open, fetchWorkflows]);
+
+  // In standalone mode, show workflow editor directly when component mounts (matching design pattern)
+  useEffect(() => {
+    if (standalone && !showWorkflowEditor && !designerOpen) {
+      // Auto-open workflow editor in standalone mode to match design pattern
+      setShowWorkflowEditor(true);
+      setDesignerOpen(true);
+    }
+  }, [standalone]);
 
   const handleCreate = () => {
     setDesignerWorkflowId(null);
     setDesignerSeedWorkflow(null);
     setDesignerOpen(true);
+    setShowWorkflowEditor(true);
   };
 
   const handleEdit = (workflowId: string) => {
     setDesignerWorkflowId(workflowId);
     setDesignerSeedWorkflow(null);
     setDesignerOpen(true);
+    setShowWorkflowEditor(true);
   };
 
   const handleDuplicate = async (workflowId: string) => {
@@ -123,6 +143,7 @@ export function WorkflowsManager({ spaceId, spaceSlug, open, onOpenChange }: Wor
   const handleDesignerSaved = useCallback(
     async (workflow: WorkflowSummary) => {
       setDesignerOpen(false);
+      setShowWorkflowEditor(false);
       setDesignerWorkflowId(null);
       setDesignerSeedWorkflow(null);
       await fetchWorkflows();
@@ -138,25 +159,26 @@ export function WorkflowsManager({ spaceId, spaceSlug, open, onOpenChange }: Wor
     return defaultWorkflow?.id ?? null;
   }, [workflows]);
 
-  return (
-    <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Workflows</DialogTitle>
-            <DialogDescription>Define and maintain the lifecycle rules used across this space.</DialogDescription>
-          </DialogHeader>
-
+  const content = (
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">
-                {openWorkflowsCount} workflow{openWorkflowsCount === 1 ? '' : 's'} available
-              </p>
-              <Button onClick={handleCreate}>
-                <Plus className="mr-2 h-4 w-4" />
-                Create Workflow
-              </Button>
-            </div>
+            {!standalone && (
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-muted-foreground">
+                  {openWorkflowsCount} workflow{openWorkflowsCount === 1 ? '' : 's'} available
+                </p>
+                <Button onClick={handleCreate}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Create Workflow
+                </Button>
+              </div>
+            )}
+            {standalone && (
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-muted-foreground">
+                  {openWorkflowsCount} workflow{openWorkflowsCount === 1 ? '' : 's'} available
+                </p>
+              </div>
+            )}
 
             {errorMessage && (
               <Alert>
@@ -251,6 +273,64 @@ export function WorkflowsManager({ spaceId, spaceSlug, open, onOpenChange }: Wor
               </div>
             )}
           </div>
+  );
+
+  if (standalone) {
+    // In standalone mode, show workflow editor directly in place of overview (matching design pattern)
+    return (
+      <>
+        <WorkflowDesignerDialog
+          open={designerOpen || showWorkflowEditor}
+          onOpenChange={(value) => {
+            setDesignerOpen(value);
+            setShowWorkflowEditor(value);
+            if (!value) {
+              setDesignerWorkflowId(null);
+              setDesignerSeedWorkflow(null);
+              if (onBack) {
+                onBack();
+              }
+            }
+          }}
+          spaceId={spaceId}
+          workflowId={designerWorkflowId}
+          initialWorkflow={designerSeedWorkflow ?? undefined}
+          draftWorkflow={designerSeedWorkflow ?? undefined}
+          assignOnSave={false}
+          onSaved={(detail) => handleDesignerSaved(detail)}
+          standalone={true}
+        />
+        <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Delete Workflow</DialogTitle>
+              <DialogDescription>
+                Are you sure you want to delete "{workflowToDelete?.name}"? This action cannot be undone.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setDeleteConfirmOpen(false)}>
+                Cancel
+              </Button>
+              <Button variant="destructive" onClick={confirmDelete}>
+                Delete
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <Dialog open={open ?? false} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Workflows</DialogTitle>
+            <DialogDescription>Define and maintain the lifecycle rules used across this space.</DialogDescription>
+          </DialogHeader>
+          {content}
         </DialogContent>
       </Dialog>
 

@@ -241,7 +241,7 @@ export function SpaceOverviewContent({
       description: 'Customize workflows of templates',
       icon: Workflow,
       color: '#10B981',
-      onClick: onOpenWorkflows,
+      onClick: () => onOpenWorkflows(),
     },
     {
       id: 'automations',
@@ -456,7 +456,6 @@ export function SpaceOverviewContent({
             })}
           </div>
         </div>
-      </div>
       </div>
     </div>
   );

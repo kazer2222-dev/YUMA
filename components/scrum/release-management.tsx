@@ -1145,6 +1145,11 @@ function PendingTasksDroppable({
 }
 
 const TaskCard = React.memo(function TaskCard({ task, spaceTicker, isExternalDrag = false }: { task: Task; spaceTicker: string; isExternalDrag?: boolean }) {
+  const sortable = useSortable({ 
+    id: task.id,
+    disabled: isExternalDrag
+  });
+
   const {
     attributes,
     listeners,
@@ -1152,46 +1157,9 @@ const TaskCard = React.memo(function TaskCard({ task, spaceTicker, isExternalDra
     transform,
     transition,
     isDragging,
-  } = useSortable({ 
-    id: task.id,
-    disabled: isExternalDrag
-  });
+  } = sortable;
 
-  // When external drag, render static card without sortable refs/attributes
-  if (isExternalDrag) {
-    return (
-      <div className="pointer-events-none rounded-2xl border border-[var(--border)]/60 bg-[var(--card)]/70 p-4 shadow-sm">
-        <div className="flex items-center gap-3">
-          <div className="rounded-full bg-[var(--muted)]/50 p-2">
-            <GripVertical className="h-5 w-5 text-muted-foreground" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold text-muted-foreground">
-                {spaceTicker && task.number ? `${spaceTicker}-${task.number}` : task.number}
-              </span>
-              <span className="font-medium truncate">{task.summary}</span>
-            </div>
-            {task.status && (
-              <Badge
-                variant="outline"
-                className="mt-1 rounded-full text-[11px]"
-                style={{
-                  borderColor: task.status.color || 'var(--border)',
-                  color: task.status.color || 'var(--foreground)',
-                  backgroundColor: getStatusTint(task.status.color),
-                }}
-              >
-                {task.status.name}
-              </Badge>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  const style = {
+  const style = isExternalDrag ? {} : {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0 : 1,
@@ -1199,14 +1167,15 @@ const TaskCard = React.memo(function TaskCard({ task, spaceTicker, isExternalDra
 
   return (
     <div
-      ref={setNodeRef}
+      ref={isExternalDrag ? undefined : setNodeRef}
       style={style}
-      className="cursor-pointer rounded-2xl border border-[var(--border)]/60 bg-[var(--card)]/80 p-4 shadow-sm transition-all hover:border-[var(--primary)]/40 hover:shadow-lg"
+      className={isExternalDrag 
+        ? "pointer-events-none rounded-2xl border border-[var(--border)]/60 bg-[var(--card)]/70 p-4 shadow-sm"
+        : "cursor-pointer rounded-2xl border border-[var(--border)]/60 bg-[var(--card)]/80 p-4 shadow-sm transition-all hover:border-[var(--primary)]/40 hover:shadow-lg"}
     >
       <div className="flex items-center gap-3">
         <div
-          {...attributes}
-          {...listeners}
+          {...(isExternalDrag ? {} : { ...attributes, ...listeners })}
           className="cursor-move rounded-full bg-[var(--muted)]/50 p-2 text-muted-foreground"
         >
           <GripVertical className="h-5 w-5" />

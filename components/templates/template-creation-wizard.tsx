@@ -23,6 +23,7 @@ interface TemplateCreationWizardProps {
   open: boolean;
   onComplete: () => void;
   onCancel: () => void;
+  standalone?: boolean;
 }
 
 const FIELD_TYPES = [
@@ -116,6 +117,7 @@ export function TemplateCreationWizard({
   open,
   onComplete,
   onCancel,
+  standalone = false,
 }: TemplateCreationWizardProps) {
   const router = useRouter();
   const { success, error: showError } = useToastHelpers();
@@ -146,12 +148,10 @@ export function TemplateCreationWizard({
 
   const handleFieldSaved = (field: TemplateField) => {
     if (editingField) {
-      // Update existing field
       setFields((prev) =>
         prev.map((f) => (f.id === editingField.id ? { ...field, id: editingField.id } : f))
       );
     } else {
-      // Add new field
       const newField = {
         ...field,
         id: `field-${Date.now()}`,
@@ -181,7 +181,6 @@ export function TemplateCreationWizard({
       setSelectedWorkflowId(workflowId);
       handleSaveTemplate(workflowId);
     } else {
-      // Custom workflow selected but no workflowId yet - open selection screen
       setWorkflowSelectionOpen(true);
     }
   };
@@ -218,7 +217,6 @@ export function TemplateCreationWizard({
       if (data.success) {
         success('Template created successfully');
         onComplete();
-        // Redirect to Board Tab
         router.push(`/spaces/${spaceSlug}?view=board`);
       } else {
         showError(data.message || 'Failed to create template');
@@ -239,11 +237,205 @@ export function TemplateCreationWizard({
     }
   };
 
+  const content = (
+    <div className="flex-1 flex flex-col overflow-hidden">
+      {/* Header */}
+      <div className="flex-shrink-0 px-6 py-4 border-b border-[var(--border)] bg-[var(--background)]">
+        {standalone && (
+          <div className="mb-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleCancel}
+              className="h-8 px-3 text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--card)] gap-2"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Back</span>
+            </Button>
+          </div>
+        )}
+        <div>
+          <h2 className="text-[var(--foreground)] m-0 text-xl font-semibold">
+            {step === 1 ? 'Create Template – Configure Fields' : 'Create Template – Select Workflow'}
+          </h2>
+          <p className="text-[var(--muted-foreground)] text-xs leading-relaxed m-0 mt-1">
+            {step === 1
+              ? 'Configure the fields for your template. Add, edit, or remove fields as needed.'
+              : 'Choose how the template workflow will behave.'}
+          </p>
+        </div>
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto px-6 pb-6">
+        {step === 1 ? (
+          <div className="space-y-6 pt-6">
+            {/* Template Basic Info */}
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="template-name">Template Name *</Label>
+                <Input
+                  id="template-name"
+                  value={templateName}
+                  onChange={(e) => setTemplateName(e.target.value)}
+                  placeholder="Enter template name"
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label htmlFor="template-description">Description</Label>
+                <Textarea
+                  id="template-description"
+                  value={templateDescription}
+                  onChange={(e) => setTemplateDescription(e.target.value)}
+                  placeholder="Enter template description (optional)"
+                  className="mt-1"
+                  rows={3}
+                />
+              </div>
+            </div>
+
+            {/* Fields Section */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold">Fields</h3>
+                  <p className="text-sm text-muted-foreground">Configure the fields that will appear when creating tasks from this template</p>
+                </div>
+                <Button onClick={handleAddField} size="sm">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Field
+                </Button>
+              </div>
+
+              {fields.length === 0 ? (
+                <Card>
+                  <CardContent className="py-8 text-center text-muted-foreground">
+                    <p>No fields added yet. Click "Add Field" to get started.</p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="space-y-2">
+                  {fields.map((field) => (
+                    <Card key={field.id}>
+                      <CardContent className="p-4">
+                        <div className="flex items-center gap-4">
+                          <GripVertical className="h-5 w-5 text-muted-foreground" />
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="font-medium">{field.label}</span>
+                              {field.required && (
+                                <Badge variant="outline" className="text-xs">
+                                  Required
+                                </Badge>
+                              )}
+                              <Badge variant="secondary" className="text-xs">
+                                {FIELD_TYPES.find((t) => t.value === field.type)?.label || field.type}
+                              </Badge>
+                            </div>
+                            {field.helpText && (
+                              <p className="text-sm text-muted-foreground">{field.helpText}</p>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleEditField(field)}
+                            >
+                              <Settings className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleDeleteField(field.id)}
+                              className="text-destructive"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="pt-6">
+            <WorkflowSelection
+              onSelect={handleWorkflowSelected}
+              spaceSlug={spaceSlug}
+              saving={saving}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Footer */}
+      <div className="flex-shrink-0 border-t border-[var(--border)] px-6 py-4 bg-[var(--background)]">
+        <div className="flex items-center justify-between">
+          <Button variant="outline" onClick={handleCancel}>
+            {step === 1 ? (
+              <>
+                <X className="h-4 w-4 mr-2" />
+                Cancel
+              </>
+            ) : (
+              <>
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back
+              </>
+            )}
+          </Button>
+          {step === 1 && (
+            <Button onClick={handleContinue}>
+              Continue
+              <ArrowRight className="h-4 w-4 ml-2" />
+            </Button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
+  if (standalone) {
+    return (
+      <>
+        {content}
+        {/* Field Configuration Modal */}
+        {fieldConfigOpen && (
+          <FieldConfigurationModal
+            open={fieldConfigOpen}
+            field={editingField}
+            onSave={handleFieldSaved}
+            onCancel={() => {
+              setFieldConfigOpen(false);
+              setEditingField(null);
+            }}
+          />
+        )}
+
+        {/* Workflow Selection Screen */}
+        {workflowSelectionOpen && (
+          <WorkflowSelection
+            open={workflowSelectionOpen}
+            onSelect={handleWorkflowFromSelection}
+            onCancel={() => setWorkflowSelectionOpen(false)}
+            spaceSlug={spaceSlug}
+            mode="select"
+          />
+        )}
+      </>
+    );
+  }
+
   return (
     <>
       <Dialog open={open && !workflowSelectionOpen} onOpenChange={() => {}}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
-          <DialogHeader>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col p-0">
+          <DialogHeader className="px-6 py-4 border-b">
             <DialogTitle>
               {step === 1 ? 'Create Template – Configure Fields' : 'Create Template – Select Workflow'}
             </DialogTitle>
@@ -253,133 +445,7 @@ export function TemplateCreationWizard({
                 : 'Choose how the template workflow will behave.'}
             </DialogDescription>
           </DialogHeader>
-
-          {step === 1 ? (
-            <div className="flex-1 overflow-y-auto space-y-6">
-              {/* Template Basic Info */}
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="template-name">Template Name *</Label>
-                  <Input
-                    id="template-name"
-                    value={templateName}
-                    onChange={(e) => setTemplateName(e.target.value)}
-                    placeholder="Enter template name"
-                    className="mt-1"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="template-description">Description</Label>
-                  <Textarea
-                    id="template-description"
-                    value={templateDescription}
-                    onChange={(e) => setTemplateDescription(e.target.value)}
-                    placeholder="Enter template description (optional)"
-                    className="mt-1"
-                    rows={3}
-                  />
-                </div>
-              </div>
-
-              {/* Fields Section */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-lg font-semibold">Fields</h3>
-                    <p className="text-sm text-muted-foreground">Configure the fields that will appear when creating tasks from this template</p>
-                  </div>
-                  <Button onClick={handleAddField} size="sm">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Field
-                  </Button>
-                </div>
-
-                {fields.length === 0 ? (
-                  <Card>
-                    <CardContent className="py-8 text-center text-muted-foreground">
-                      <p>No fields added yet. Click "Add Field" to get started.</p>
-                    </CardContent>
-                  </Card>
-                ) : (
-                  <div className="space-y-2">
-                    {fields.map((field, index) => (
-                      <Card key={field.id}>
-                        <CardContent className="p-4">
-                          <div className="flex items-center gap-4">
-                            <GripVertical className="h-5 w-5 text-muted-foreground" />
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-1">
-                                <span className="font-medium">{field.label}</span>
-                                {field.required && (
-                                  <Badge variant="outline" className="text-xs">
-                                    Required
-                                  </Badge>
-                                )}
-                                <Badge variant="secondary" className="text-xs">
-                                  {FIELD_TYPES.find((t) => t.value === field.type)?.label || field.type}
-                                </Badge>
-                              </div>
-                              {field.helpText && (
-                                <p className="text-sm text-muted-foreground">{field.helpText}</p>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handleEditField(field)}
-                              >
-                                <Settings className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handleDeleteField(field.id)}
-                                className="text-destructive"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          ) : (
-            <div className="flex-1 overflow-y-auto">
-              <WorkflowSelection
-                onSelect={handleWorkflowSelected}
-                spaceSlug={spaceSlug}
-                saving={saving}
-              />
-            </div>
-          )}
-
-          {/* Footer */}
-          <div className="border-t pt-4 flex items-center justify-between">
-            <Button variant="outline" onClick={handleCancel}>
-              {step === 1 ? (
-                <>
-                  <X className="h-4 w-4 mr-2" />
-                  Cancel
-                </>
-              ) : (
-                <>
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  Back
-                </>
-              )}
-            </Button>
-            {step === 1 && (
-              <Button onClick={handleContinue}>
-                Continue
-                <ArrowRight className="h-4 w-4 ml-2" />
-              </Button>
-            )}
-          </div>
+          {content}
         </DialogContent>
       </Dialog>
 
@@ -409,4 +475,3 @@ export function TemplateCreationWizard({
     </>
   );
 }
-

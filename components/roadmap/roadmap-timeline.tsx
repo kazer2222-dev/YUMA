@@ -49,6 +49,9 @@ export function RoadmapTimeline({ tasks, spaceSlug, statuses = [], users = [], o
   const resizeStartX = useRef<number>(0);
   const resizeStartDate = useRef<Date | null>(null);
   const resizeEndDate = useRef<Date | null>(null);
+  const resizeStartLeft = useRef<number>(0);
+  const resizeStartWidth = useRef<number>(0);
+  const resizeStartStyle = useRef<{ left: string; width: string } | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const scrollAnimationFrameRef = useRef<number | null>(null);
   const pendingTaskUpdate = useRef<{ taskId: string; startDate?: string; dueDate?: string } | null>(null);
@@ -56,6 +59,7 @@ export function RoadmapTimeline({ tasks, spaceSlug, statuses = [], users = [], o
   const taskBarRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const resizeHandleRefs = useRef<Map<string, { left: HTMLDivElement | null; right: HTMLDivElement | null }>>(new Map());
   const isMouseUpHandled = useRef<boolean>(false);
+  const resizingTaskRef = useRef<{ taskId: string; edge: 'left' | 'right' } | null>(null);
 
   // Sync roadmapTasks with tasks prop
   useEffect(() => {
@@ -102,8 +106,8 @@ export function RoadmapTimeline({ tasks, spaceSlug, statuses = [], users = [], o
   const headerScrollRef = useRef<HTMLDivElement>(null);
   const contentScrollRef = useRef<HTMLDivElement>(null);
 
-  const today = new Date();
-
+    const today = new Date();
+    
   // Generate days for the timeline (±2 years from today)
   const generateDays = () => {
     const days = [];
@@ -264,62 +268,75 @@ export function RoadmapTimeline({ tasks, spaceSlug, statuses = [], users = [], o
     edge: 'left' | 'right',
     task: Task
   ) => {
-    console.log('[RESIZE START] Event details:', {
-      type: e.type,
-      target: (e.target as HTMLElement)?.tagName,
-      currentTarget: (e.currentTarget as HTMLElement)?.tagName,
-      defaultPrevented: e.defaultPrevented,
-      isPropagationStopped: e.isPropagationStopped(),
-      clientX: e.clientX,
-      clientY: e.clientY
-    });
-    
-    // CRITICAL: Stop ALL event propagation FIRST
-    const nativeEvent = e.nativeEvent || e;
-    
-    // Prevent default at native event level immediately
-    if (nativeEvent.preventDefault) {
-      nativeEvent.preventDefault();
-      console.log('[RESIZE START] Called nativeEvent.preventDefault()');
-    }
-    if (nativeEvent.stopPropagation) {
-      nativeEvent.stopPropagation();
-      console.log('[RESIZE START] Called nativeEvent.stopPropagation()');
-    }
-    if (nativeEvent.stopImmediatePropagation) {
-      nativeEvent.stopImmediatePropagation();
-      console.log('[RESIZE START] Called nativeEvent.stopImmediatePropagation()');
-    }
-    
-    // Also prevent on React synthetic event
-    e.stopPropagation();
+    // CRITICAL: Stop ALL event propagation FIRST - before anything else
     e.preventDefault();
-    console.log('[RESIZE START] Called e.stopPropagation() and e.preventDefault()');
-    
+    e.stopPropagation();
     if ((e as any).stopImmediatePropagation) {
       (e as any).stopImmediatePropagation();
-      console.log('[RESIZE START] Called e.stopImmediatePropagation()');
     }
     
-    // Prevent form submissions
-    const target = nativeEvent.target as HTMLElement;
-    if (target) {
-      const form = target.closest('form');
-      const button = target.closest('button[type="submit"]');
-      const link = target.closest('a');
-      
-      if (form || button || link) {
-        console.warn('[RESIZE START] Found form/button/link, preventing:', { form: !!form, button: !!button, link: !!link });
-        if (nativeEvent.preventDefault) nativeEvent.preventDefault();
-        if (nativeEvent.stopPropagation) nativeEvent.stopPropagation();
-        if (nativeEvent.stopImmediatePropagation) nativeEvent.stopImmediatePropagation();
+    const nativeEvent = e.nativeEvent;
+    if (nativeEvent) {
+      if (nativeEvent.preventDefault) nativeEvent.preventDefault();
+      if (nativeEvent.stopPropagation) nativeEvent.stopPropagation();
+      if ((nativeEvent as any).stopImmediatePropagation) {
+        (nativeEvent as any).stopImmediatePropagation();
       }
     }
     
-    console.log('[RESIZE START] Starting resize:', { taskId, edge, clientX: e.clientX });
+    // Prevent any form submissions or link clicks
+    const target = e.target as HTMLElement;
+    if (target) {
+      // Find any parent form, button, or link
+      let element: HTMLElement | null = target;
+      while (element && element !== document.body) {
+        if (element.tagName === 'FORM' || 
+            (element.tagName === 'BUTTON' && (element as HTMLButtonElement).type === 'submit') ||
+            element.tagName === 'A') {
+          e.preventDefault();
+          e.stopPropagation();
+          if ((e as any).stopImmediatePropagation) {
+            (e as any).stopImmediatePropagation();
+          }
+          break;
+        }
+        element = element.parentElement;
+      }
+    }
     
     isMouseUpHandled.current = false;
-    setResizingTask({ taskId, edge });
+    resizingTaskRef.current = { taskId, edge };
+    
+    // Get initial position and size from DOM to preserve during resize
+    const taskBarElement = taskBarRefs.current.get(taskId);
+    if (taskBarElement) {
+      // Capture current computed styles to preserve them
+      const computedStyle = window.getComputedStyle(taskBarElement);
+      resizeStartStyle.current = {
+        left: computedStyle.left || taskBarElement.style.left || '0%',
+        width: computedStyle.width || taskBarElement.style.width || '0%'
+      };
+      
+      // Ensure element has valid styles before resize starts
+      if (!taskBarElement.style.left || !taskBarElement.style.width) {
+        // Calculate initial style if not set
+        const initialStyle = getTaskBarStyle(task);
+        taskBarElement.style.left = initialStyle.left;
+        taskBarElement.style.width = initialStyle.width;
+        resizeStartStyle.current = {
+          left: initialStyle.left,
+          width: initialStyle.width
+        };
+      }
+      
+      // Disable transitions immediately
+      taskBarElement.style.transition = 'none';
+      taskBarElement.style.willChange = 'left, width';
+    }
+    
+    // Set state AFTER capturing styles to trigger re-render
+    setResizingTask({ taskId, edge }); // Keep for UI feedback
+    
     resizeStartX.current = e.clientX;
     resizeStartDate.current = task.startDate ? new Date(task.startDate) : new Date();
     resizeEndDate.current = task.dueDate ? new Date(task.dueDate) : new Date();
@@ -329,13 +346,11 @@ export function RoadmapTimeline({ tasks, spaceSlug, statuses = [], users = [], o
   };
 
   const handleTaskResizeMove = (e: MouseEvent) => {
-    if (!resizingTask) {
-      console.log('[RESIZE MOVE] No resizing task in move handler');
+    if (!resizingTaskRef.current) {
       return;
     }
     
     if (!contentScrollRef.current) {
-      console.log('[RESIZE MOVE] No content scroll ref in move handler');
       return;
     }
     
@@ -348,20 +363,6 @@ export function RoadmapTimeline({ tasks, spaceSlug, statuses = [], users = [], o
 
     const deltaX = e.clientX - resizeStartX.current;
     
-    let pixelsPerDay: number;
-    
-    if (viewType === 'day') {
-      pixelsPerDay = 120;
-    } else if (viewType === 'week') {
-      pixelsPerDay = 150 / 7;
-    } else if (viewType === 'month') {
-      pixelsPerDay = 180 / 30;
-        } else {
-      pixelsPerDay = 240 / 90;
-    }
-    
-    const daysChange = deltaX / pixelsPerDay;
-    
     // Cancel any pending animation frame
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
@@ -369,41 +370,36 @@ export function RoadmapTimeline({ tasks, spaceSlug, statuses = [], users = [], o
     
     // Use requestAnimationFrame for smooth 60fps updates
     animationFrameRef.current = requestAnimationFrame(() => {
-      if (!resizingTask) return; // Check again inside RAF
+      const currentResizingTask = resizingTaskRef.current;
+      if (!currentResizingTask) return;
       
       // Get the task bar element directly to update styles without React re-render
-      const taskBarElement = taskBarRefs.current.get(resizingTask.taskId);
+      const taskBarElement = taskBarRefs.current.get(currentResizingTask.taskId);
       if (!taskBarElement) return;
       
-      // Calculate new style values
-      const task = roadmapTasks.find(t => t.id === resizingTask.taskId);
-      if (!task) return;
+      // Get parent container for relative positioning
+      const parentElement = taskBarElement.parentElement;
+      if (!parentElement) return;
       
-      let timelineStart: Date;
-      let timelineEnd: Date;
+      let pixelsPerDay: number;
       
-      if (viewType === "day") {
-        timelineStart = days[0];
-        timelineEnd = days[days.length - 1];
-      } else if (viewType === "week") {
-        timelineStart = weeks[0];
-        const lastWeek = weeks[weeks.length - 1];
-        timelineEnd = new Date(lastWeek);
-        timelineEnd.setDate(lastWeek.getDate() + 6);
-      } else if (viewType === "month") {
-        timelineStart = months[0];
-        timelineEnd = new Date(months[months.length - 1].getFullYear(), months[months.length - 1].getMonth() + 1, 0);
+      if (viewType === 'day') {
+        pixelsPerDay = 120;
+      } else if (viewType === 'week') {
+        pixelsPerDay = 150 / 7;
+      } else if (viewType === 'month') {
+        pixelsPerDay = 180 / 30;
       } else {
-        timelineStart = quarters[0];
-        const lastQuarter = quarters[quarters.length - 1];
-        timelineEnd = new Date(lastQuarter.getFullYear(), lastQuarter.getMonth() + 3, 0);
+        pixelsPerDay = 240 / 90;
       }
+      
+      const daysChange = deltaX / pixelsPerDay;
       
       // Calculate new dates
       let newStartDate: Date;
       let newEndDate: Date;
       
-      if (resizingTask.edge === 'left') {
+      if (currentResizingTask.edge === 'left') {
         newStartDate = new Date(resizeStartDate.current!);
         newStartDate.setTime(newStartDate.getTime() + daysChange * 24 * 60 * 60 * 1000);
         
@@ -427,28 +423,67 @@ export function RoadmapTimeline({ tasks, spaceSlug, statuses = [], users = [], o
         newStartDate = new Date(resizeStartDate.current!);
       }
       
-      // Calculate position and width percentages
-      const totalDays = Math.floor((timelineEnd.getTime() - timelineStart.getTime()) / (1000 * 60 * 60 * 24));
-      const startDays = Math.floor((newStartDate.getTime() - timelineStart.getTime()) / (1000 * 60 * 60 * 24));
-      const duration = Math.floor((newEndDate.getTime() - newStartDate.getTime()) / (1000 * 60 * 60 * 24));
+      // Calculate timeline bounds
+      let timelineStart: Date;
+      let timelineEnd: Date;
       
-      const leftPercent = Math.max(0, (startDays / totalDays) * 100);
-      const widthPercent = Math.min((duration / totalDays) * 100, 100 - leftPercent);
+      if (viewType === "day") {
+        timelineStart = days[0];
+        timelineEnd = days[days.length - 1];
+      } else if (viewType === "week") {
+        timelineStart = weeks[0];
+        const lastWeek = weeks[weeks.length - 1];
+        timelineEnd = new Date(lastWeek);
+        timelineEnd.setDate(lastWeek.getDate() + 6);
+      } else if (viewType === "month") {
+        timelineStart = months[0];
+        timelineEnd = new Date(months[months.length - 1].getFullYear(), months[months.length - 1].getMonth() + 1, 0);
+      } else {
+        timelineStart = quarters[0];
+        const lastQuarter = quarters[quarters.length - 1];
+        timelineEnd = new Date(lastQuarter.getFullYear(), lastQuarter.getMonth() + 3, 0);
+      }
       
-      // Update DOM directly to avoid React re-render (prevents blinking)
-      taskBarElement.style.left = `${leftPercent}%`;
-      taskBarElement.style.width = `${widthPercent}%`;
-      taskBarElement.style.transition = 'none'; // Disable transitions during resize
+      // Calculate position and width percentages with high precision to prevent shaking
+      const totalDays = (timelineEnd.getTime() - timelineStart.getTime()) / (1000 * 60 * 60 * 24);
+      const startDays = (newStartDate.getTime() - timelineStart.getTime()) / (1000 * 60 * 60 * 24);
+      const duration = (newEndDate.getTime() - newStartDate.getTime()) / (1000 * 60 * 60 * 24);
+      
+      // Calculate percentages with high precision
+      const leftPercent = Math.max(0, Math.min((startDays / totalDays) * 100, 100));
+      const endPercent = Math.max(0, Math.min((newEndDate.getTime() - timelineStart.getTime()) / (1000 * 60 * 60 * 24) / totalDays * 100, 100));
+      
+      // Calculate width based on the difference between end and start positions
+      // This ensures the right edge stays stable when resizing from the left
+      const widthPercent = Math.max(0.1, Math.min(endPercent - leftPercent, 100 - leftPercent));
+      
+      // Round to 4 decimal places to prevent sub-pixel rendering issues that cause shaking
+      const roundedLeftPercent = Math.round(leftPercent * 10000) / 10000;
+      const roundedWidthPercent = Math.round(widthPercent * 10000) / 10000;
+      
+      // Update DOM directly for smooth updates
+      // Use rounded values to prevent sub-pixel rendering issues
+      taskBarElement.style.left = `${roundedLeftPercent}%`;
+      taskBarElement.style.width = `${roundedWidthPercent}%`;
+      taskBarElement.style.transition = 'none';
+      taskBarElement.style.willChange = 'left, width';
+      
+      // CRITICAL: Update the preserved style immediately to prevent React from overwriting
+      // This must match the DOM values exactly to prevent shaking
+      if (resizeStartStyle.current) {
+        resizeStartStyle.current.left = `${roundedLeftPercent}%`;
+        resizeStartStyle.current.width = `${roundedWidthPercent}%`;
+      }
       
       // Store pending update for when resize ends
-      if (resizingTask.edge === 'left') {
+      if (currentResizingTask.edge === 'left') {
         pendingTaskUpdate.current = { 
-          taskId: resizingTask.taskId, 
+          taskId: currentResizingTask.taskId, 
           startDate: newStartDate.toISOString().split('T')[0] 
         };
       } else {
         pendingTaskUpdate.current = { 
-          taskId: resizingTask.taskId, 
+          taskId: currentResizingTask.taskId, 
           dueDate: newEndDate.toISOString().split('T')[0] 
         };
       }
@@ -471,18 +506,18 @@ export function RoadmapTimeline({ tasks, spaceSlug, statuses = [], users = [], o
       console.log('[RESIZE END] Already handled, returning');
       if (e) {
         e.stopPropagation();
-        e.preventDefault();
+      e.preventDefault();
       }
       return;
     }
     
     // Store current resizing task before nulling
-    const currentResizingTask = resizingTask;
+    const currentResizingTask = resizingTaskRef.current;
     if (!currentResizingTask) {
       console.log('[RESIZE END] No resizing task, returning');
       if (e) {
         e.stopPropagation();
-        e.preventDefault();
+      e.preventDefault();
       }
       return;
     }
@@ -496,13 +531,26 @@ export function RoadmapTimeline({ tasks, spaceSlug, statuses = [], users = [], o
       animationFrameRef.current = null;
     }
     
-    // Re-enable transitions on the task bar element
+    // Re-enable transitions on the task bar element and restore will-change
     const taskBarElement = taskBarRefs.current.get(currentResizingTask.taskId);
     if (taskBarElement) {
+      // Ensure final styles are set before restoring transitions
+      const currentLeft = taskBarElement.style.left;
+      const currentWidth = taskBarElement.style.width;
+      if (currentLeft && currentWidth) {
+        // Keep the final resize position
+        taskBarElement.style.left = currentLeft;
+        taskBarElement.style.width = currentWidth;
+      }
       taskBarElement.style.transition = ''; // Restore default transitions
+      taskBarElement.style.willChange = ''; // Remove will-change
     }
     
-    // Immediately stop resizing to prevent further updates
+    // Clear resizing refs
+    resizingTaskRef.current = null;
+    resizeStartStyle.current = null; // Clear preserved style
+    
+    // Update UI state (triggers re-render to update class names)
     setResizingTask(null);
     
     // Use pending update if available, otherwise use current task state
@@ -515,7 +563,8 @@ export function RoadmapTimeline({ tasks, spaceSlug, statuses = [], users = [], o
     
     if (update && onTaskUpdate) {
       try {
-        // Update state to match the visual changes made during resize
+        // Update local state to match the visual changes made during resize
+        // This ensures the UI stays in sync without waiting for API response
         setRoadmapTasks(prevTasks => 
           prevTasks.map(t => {
             if (t.id !== update.taskId) return t;
@@ -527,16 +576,17 @@ export function RoadmapTimeline({ tasks, spaceSlug, statuses = [], users = [], o
           })
         );
         
+        // Call onTaskUpdate which handles optimistic updates in the parent
+        // The parent component already updates its state optimistically, so no refetch needed
         await onTaskUpdate(update.taskId, {
           startDate: update.startDate ? new Date(update.startDate) : undefined,
           dueDate: update.dueDate ? new Date(update.dueDate) : undefined,
         });
-        if (onTasksChange) {
-          onTasksChange();
-        }
+        // No need to call onTasksChange - parent component handles state updates optimistically
+        // This prevents the full page refresh/flash
       } catch (error) {
         console.error('Failed to update task:', error);
-        // Rollback state on error
+        // On error, trigger a refetch to sync with server state
         if (onTasksChange) {
           onTasksChange();
         }
@@ -677,22 +727,35 @@ export function RoadmapTimeline({ tasks, spaceSlug, statuses = [], users = [], o
     
     // CRITICAL: Prevent ALL clicks on buttons and links during resize
     const globalClickHandler = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      if (target.closest('[data-resize-handle]') || 
-          target.closest('.task-bar[data-resizing]') ||
-          resizingTask) {
+      // If we're resizing, prevent ALL clicks globally
+      if (resizingTaskRef.current) {
         e.preventDefault();
         e.stopPropagation();
         if (e.stopImmediatePropagation) {
           e.stopImmediatePropagation();
         }
-        console.warn('Click prevented during resize');
+        return false;
+      }
+      
+      const target = e.target as HTMLElement;
+      if (target.closest('[data-resize-handle]') || 
+          target.closest('.task-bar[data-resizing]')) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.stopImmediatePropagation) {
+          e.stopImmediatePropagation();
+        }
         return false;
       }
     };
     
     // Use capture phase to catch mouseup early, but don't use once: true
     const mouseMoveHandler = (e: MouseEvent) => {
+      // Only handle if we're actually resizing
+      if (!resizingTaskRef.current) {
+          return;
+        }
+        
       // CRITICAL: Prevent default to stop page refresh
       e.preventDefault();
       e.stopPropagation();
@@ -714,40 +777,35 @@ export function RoadmapTimeline({ tasks, spaceSlug, statuses = [], users = [], o
     };
     
     const mouseUpHandler = (e: MouseEvent) => {
-      console.log('[MOUSE UP] Mouse up event:', {
-        type: e.type,
-        target: (e.target as HTMLElement)?.tagName,
-        defaultPrevented: e.defaultPrevented,
-        clientX: e.clientX,
-        clientY: e.clientY
-      });
-      
-      // CRITICAL: Prevent default to stop page refresh
+      // CRITICAL: Prevent default FIRST - before any other logic
       e.preventDefault();
       e.stopPropagation();
       if (e.stopImmediatePropagation) {
         e.stopImmediatePropagation();
       }
       
-      console.log('[MOUSE UP] After preventDefault:', { defaultPrevented: e.defaultPrevented });
-      
-      // Also prevent form submission
+      // Prevent any form submissions or link navigations
       const target = e.target as HTMLElement;
       if (target) {
-        const form = target.closest('form');
-        const button = target.closest('button');
-        const link = target.closest('a');
-        if (form || button || link) {
-          console.warn('[MOUSE UP] Found form/button/link, preventing:', { form: !!form, button: !!button, link: !!link });
-          e.preventDefault();
-          e.stopPropagation();
-          if (e.stopImmediatePropagation) {
-            e.stopImmediatePropagation();
+        // Check if clicking on a form, button, or link
+        let element: HTMLElement | null = target;
+        while (element && element !== document.body) {
+          if (element.tagName === 'FORM' || 
+              element.tagName === 'BUTTON' ||
+              element.tagName === 'A' ||
+              element.hasAttribute('type') && (element as HTMLButtonElement).type === 'submit') {
+            e.preventDefault();
+            e.stopPropagation();
+            if (e.stopImmediatePropagation) {
+              e.stopImmediatePropagation();
+            }
+            break;
           }
+          element = element.parentElement;
         }
       }
       
-      console.log('[MOUSE UP] Calling handleTaskResizeEnd');
+      // Call resize end handler
       handleTaskResizeEnd(e);
       return false;
     };
@@ -787,8 +845,9 @@ export function RoadmapTimeline({ tasks, spaceSlug, statuses = [], users = [], o
     
     // Use capture phase to catch events early, but not passive for mousemove
     // IMPORTANT: passive: false allows preventDefault to work
-    // CRITICAL: Use capture: true AND phase: true to catch events BEFORE they bubble
+    // CRITICAL: Use capture: true to catch events BEFORE they bubble
     console.log('[SETUP LISTENERS] Adding event listeners');
+    // Throttle mousemove with RAF for better performance
     document.addEventListener('mousemove', mouseMoveHandler, { passive: false, capture: true });
     document.addEventListener('mouseup', mouseUpHandler, { passive: false, capture: true });
     // Use separate mouseleave handler that checks relatedTarget
@@ -919,7 +978,7 @@ export function RoadmapTimeline({ tasks, spaceSlug, statuses = [], users = [], o
     } else if (viewType === "month") {
       timelineStart = months[0];
       timelineEnd = new Date(months[months.length - 1].getFullYear(), months[months.length - 1].getMonth() + 1, 0);
-    } else {
+      } else {
       timelineStart = quarters[0];
       const lastQuarter = quarters[quarters.length - 1];
       timelineEnd = new Date(lastQuarter.getFullYear(), lastQuarter.getMonth() + 3, 0);
@@ -1448,7 +1507,9 @@ export function RoadmapTimeline({ tasks, spaceSlug, statuses = [], users = [], o
                         {/* Task Rows */}
                         {!isCollapsed && statusTasks.map((task, index) => {
                         const color = getTaskColor(task);
-                        const style = getTaskBarStyle(task);
+                        const isResizingThisTask = resizingTask?.taskId === task.id;
+                        // Calculate style, but don't apply it during resize (we'll use DOM manipulation)
+                        const calculatedStyle = getTaskBarStyle(task);
 
                         return (
                           <div
@@ -1461,54 +1522,119 @@ export function RoadmapTimeline({ tasks, spaceSlug, statuses = [], users = [], o
                               ref={(el) => {
                                 if (el) {
                                   taskBarRefs.current.set(task.id, el);
+                                  
+                                  // During resize, preserve DOM styles and prevent React from overwriting
+                                  if (isResizingThisTask && resizingTaskRef.current?.taskId === task.id) {
+                                    // During resize, always use the preserved style from resize handler
+                                    // This prevents React from overwriting with stale calculated styles
+                                    if (resizeStartStyle.current) {
+                                      // Use the latest preserved style to prevent shaking
+                                      el.style.left = resizeStartStyle.current.left;
+                                      el.style.width = resizeStartStyle.current.width;
+                                      el.style.transition = 'none';
+                                    } else {
+                                      // Fallback to current DOM style if preserved style not available
+                                      const currentLeft = el.style.left;
+                                      const currentWidth = el.style.width;
+                                      if (currentLeft && currentWidth && 
+                                          currentLeft !== '0%' && currentWidth !== '0%' &&
+                                          currentWidth !== '0px') {
+                                        el.style.transition = 'none';
+                                      } else {
+                                        // Last resort: use calculated style
+                                        el.style.left = calculatedStyle.left;
+                                        el.style.width = calculatedStyle.width;
+                                        el.style.transition = 'none';
+                                      }
+                                    }
+                                    
+                                    // Preserve styles after React tries to update (double-check)
+                                    requestAnimationFrame(() => {
+                                      if (resizingTaskRef.current?.taskId === task.id && resizeStartStyle.current) {
+                                        // Always use the preserved style during resize to prevent shaking
+                                        el.style.left = resizeStartStyle.current.left;
+                                        el.style.width = resizeStartStyle.current.width;
+                                        el.style.transition = 'none';
+                                      }
+                                    });
+                                  } else {
+                                    // When not resizing, let React control the styles
+                                    el.style.transition = '';
+                                  }
                                 } else {
                                   taskBarRefs.current.delete(task.id);
                                 }
                               }}
                               className={`absolute top-1/2 -translate-y-1/2 h-7 rounded-lg px-3 flex items-center cursor-pointer group ${
-                                resizingTask?.taskId === task.id 
+                                isResizingThisTask
                                   ? 'task-bar-resizing' 
                                   : 'transition-all hover:shadow-xl hover:scale-[1.03]'
-                              }`}
+                                  }`}
                                   style={{
-                                    ...style,
+                                    // CRITICAL: During resize, use preserved style to prevent disappearing
+                                    // This ensures the task bar always has valid position/size
+                                    ...(isResizingThisTask ? {
+                                      // Use preserved style or calculated style as fallback
+                                      left: resizeStartStyle.current?.left || calculatedStyle.left,
+                                      width: resizeStartStyle.current?.width || calculatedStyle.width,
+                                    } : calculatedStyle),
                                 background: `linear-gradient(135deg, ${color} 0%, ${color}dd 100%)`,
                                 boxShadow: `0 2px 8px ${color}40, 0 0 0 1px ${color}20`,
-                                willChange: resizingTask?.taskId === task.id ? 'left, width' : 'auto',
+                                willChange: isResizingThisTask ? 'left, width' : 'auto',
                                 transform: 'translateZ(0)', // Force hardware acceleration
-                                zIndex: resizingTask?.taskId === task.id ? 15 : 5, // Ensure resizing task is always on top
+                                zIndex: isResizingThisTask ? 15 : 5, // Ensure resizing task is always on top
                                 contain: 'layout style paint', // Isolate rendering
+                                // Preserve inline styles set by DOM manipulation
+                                ...(isResizingThisTask ? {
+                                  pointerEvents: 'auto' as const,
+                                } : {})
                               }}
                               onClick={(e) => {
-                                // Don't trigger click if clicking on resize handle or if resizing
-                                if (resizingTask) {
-                                  e.stopPropagation();
+                                // CRITICAL: Don't trigger click if resizing or clicking on resize handle
+                                const target = e.target as HTMLElement;
+                                
+                                // Check if clicking on any resize handle first (before other checks)
+                                if (target.closest('[data-resize-handle]')) {
                                   e.preventDefault();
+                                  e.stopPropagation();
+                                  if ((e as any).stopImmediatePropagation) {
+                                    (e as any).stopImmediatePropagation();
+                                  }
                                   const nativeEvent = e.nativeEvent;
-                                  if (nativeEvent.preventDefault) nativeEvent.preventDefault();
-                                  if (nativeEvent.stopPropagation) nativeEvent.stopPropagation();
-                                  return;
+                                  if (nativeEvent) {
+                                    if (nativeEvent.preventDefault) nativeEvent.preventDefault();
+                                    if (nativeEvent.stopPropagation) nativeEvent.stopPropagation();
+                                    if ((nativeEvent as any).stopImmediatePropagation) {
+                                      (nativeEvent as any).stopImmediatePropagation();
+                                    }
+                                  }
+                                  return false;
                                 }
                                 
-                                const target = e.target as HTMLElement;
-                                if (target.closest('[data-resize-handle]')) {
-                                  e.stopPropagation();
+                                if (resizingTask || resizingTaskRef.current) {
                                   e.preventDefault();
-                                  const nativeEvent = e.nativeEvent;
-                                  if (nativeEvent.preventDefault) nativeEvent.preventDefault();
-                                  if (nativeEvent.stopPropagation) nativeEvent.stopPropagation();
-                                  if ('stopImmediatePropagation' in nativeEvent && typeof (nativeEvent as any).stopImmediatePropagation === 'function') {
-                                    (nativeEvent as any).stopImmediatePropagation();
+                                  e.stopPropagation();
+                                  if ((e as any).stopImmediatePropagation) {
+                                    (e as any).stopImmediatePropagation();
                                   }
-                                  return;
+                                  const nativeEvent = e.nativeEvent;
+                                  if (nativeEvent) {
+                                    if (nativeEvent.preventDefault) nativeEvent.preventDefault();
+                                    if (nativeEvent.stopPropagation) nativeEvent.stopPropagation();
+                                    if ((nativeEvent as any).stopImmediatePropagation) {
+                                      (nativeEvent as any).stopImmediatePropagation();
+                                    }
+                                  }
+                                  return false;
                                 }
+                                
                                 handleTaskClick(task);
                               }}
                               onMouseUp={(e) => {
                                 // Prevent any default behavior on mouse up if we were resizing
                                 if (resizingTask) {
-                                  e.stopPropagation();
-                                  e.preventDefault();
+                                    e.stopPropagation();
+                                      e.preventDefault();
                                   const nativeEvent = e.nativeEvent;
                                   if (nativeEvent.preventDefault) nativeEvent.preventDefault();
                                   if (nativeEvent.stopPropagation) nativeEvent.stopPropagation();
@@ -1520,15 +1646,20 @@ export function RoadmapTimeline({ tasks, spaceSlug, statuses = [], users = [], o
                                 data-resize-handle="left"
                                 className="absolute left-0 top-0 bottom-0 w-3 cursor-ew-resize z-20 flex items-center justify-center pointer-events-auto"
                                 onMouseDown={(e: React.MouseEvent) => {
-                                  // CRITICAL: Prevent everything immediately
-                                  e.preventDefault();
+                                  // CRITICAL: Prevent everything immediately - FIRST THING
+                                      e.preventDefault();
                                   e.stopPropagation();
+                                  if ((e as any).stopImmediatePropagation) {
+                                    (e as any).stopImmediatePropagation();
+                                  }
                                   
                                   const nativeEvent = e.nativeEvent;
-                                  if (nativeEvent.preventDefault) nativeEvent.preventDefault();
-                                  if (nativeEvent.stopPropagation) nativeEvent.stopPropagation();
-                                  if ('stopImmediatePropagation' in nativeEvent && typeof (nativeEvent as any).stopImmediatePropagation === 'function') {
-                                    (nativeEvent as any).stopImmediatePropagation();
+                                  if (nativeEvent) {
+                                    if (nativeEvent.preventDefault) nativeEvent.preventDefault();
+                                    if (nativeEvent.stopPropagation) nativeEvent.stopPropagation();
+                                    if ((nativeEvent as any).stopImmediatePropagation) {
+                                      (nativeEvent as any).stopImmediatePropagation();
+                                    }
                                   }
                                   
                                   // Call handler
@@ -1536,8 +1667,8 @@ export function RoadmapTimeline({ tasks, spaceSlug, statuses = [], users = [], o
                                   return false;
                                 }}
                                 onClick={(e: React.MouseEvent) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
+                                    e.preventDefault();
+                                    e.stopPropagation();
                                   const nativeEvent = e.nativeEvent;
                                   if (nativeEvent.preventDefault) nativeEvent.preventDefault();
                                   if (nativeEvent.stopPropagation) nativeEvent.stopPropagation();
@@ -1551,7 +1682,7 @@ export function RoadmapTimeline({ tasks, spaceSlug, statuses = [], users = [], o
                                   e.stopPropagation();
                                   return false;
                                 }}
-                                style={{
+                      style={{
                                   background: 'transparent',
                                   opacity: 0.7,
                                   transition: 'opacity 0.2s',
@@ -1567,80 +1698,16 @@ export function RoadmapTimeline({ tasks, spaceSlug, statuses = [], users = [], o
                                 }}
                               >
                                 <div className="w-1 h-4 bg-white/80 rounded-full shadow-sm pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity" />
-                              </div>
+                      </div>
                               
-                              <span className="text-xs text-white font-medium truncate drop-shadow-sm">
+                              <span className="text-xs text-white font-medium truncate drop-shadow-sm pointer-events-none mr-3">
                                   {task.summary}
                                 </span>
                               
                               {/* Right Resize Handle */}
                               <div
-                                ref={(el) => {
-                                  if (!resizeHandleRefs.current.has(task.id)) {
-                                    resizeHandleRefs.current.set(task.id, { left: null, right: null });
-                                  }
-                                  const handles = resizeHandleRefs.current.get(task.id)!;
-                                  handles.right = el;
-                                  resizeHandleRefs.current.set(task.id, handles);
-                                  
-                                  // CRITICAL: Attach direct DOM event listener to bypass React
-                                  if (el) {
-                                    const directHandler = (e: MouseEvent) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      e.stopImmediatePropagation?.();
-                                      // Prevent any form submission
-                                      const target = e.target as HTMLElement;
-                                      if (target?.closest('form')) {
-                                        e.preventDefault();
-                                      }
-                                    };
-                                    
-                                    el.addEventListener('mousedown', directHandler, { capture: true, passive: false });
-                                    el.addEventListener('click', directHandler, { capture: true, passive: false });
-                                    el.addEventListener('contextmenu', directHandler, { capture: true, passive: false });
-                                    
-                                    return () => {
-                                      el.removeEventListener('mousedown', directHandler, { capture: true });
-                                      el.removeEventListener('click', directHandler, { capture: true });
-                                      el.removeEventListener('contextmenu', directHandler, { capture: true });
-                                    };
-                                  }
-                                }}
                                 data-resize-handle="right"
-                                className="absolute right-0 top-0 bottom-0 w-3 cursor-ew-resize z-20 flex items-center justify-center pointer-events-auto"
-                                onMouseDown={(e: React.MouseEvent) => {
-                                  // CRITICAL: Prevent everything immediately
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  
-                                  const nativeEvent = e.nativeEvent;
-                                  if (nativeEvent.preventDefault) nativeEvent.preventDefault();
-                                  if (nativeEvent.stopPropagation) nativeEvent.stopPropagation();
-                                  if ('stopImmediatePropagation' in nativeEvent && typeof (nativeEvent as any).stopImmediatePropagation === 'function') {
-                                    (nativeEvent as any).stopImmediatePropagation();
-                                  }
-                                  
-                                  // Call handler
-                                  handleTaskResizeStart(e, task.id, 'right', task);
-                                  return false;
-                                }}
-                                onClick={(e: React.MouseEvent) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  const nativeEvent = e.nativeEvent;
-                                  if (nativeEvent.preventDefault) nativeEvent.preventDefault();
-                                  if (nativeEvent.stopPropagation) nativeEvent.stopPropagation();
-                                  if ('stopImmediatePropagation' in nativeEvent && typeof (nativeEvent as any).stopImmediatePropagation === 'function') {
-                                    (nativeEvent as any).stopImmediatePropagation();
-                                  }
-                                  return false;
-                                }}
-                                onContextMenu={(e: React.MouseEvent) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  return false;
-                                }}
+                                className="absolute right-0 top-0 bottom-0 w-3 cursor-ew-resize z-30 flex items-center justify-center pointer-events-auto"
                                 style={{
                                   background: 'transparent',
                                   opacity: 0.7,
@@ -1648,6 +1715,48 @@ export function RoadmapTimeline({ tasks, spaceSlug, statuses = [], users = [], o
                                   touchAction: 'none',
                                   WebkitUserSelect: 'none',
                                   userSelect: 'none',
+                                }}
+                                onMouseDown={(e: React.MouseEvent) => {
+                                  // CRITICAL: Prevent everything immediately - FIRST THING
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  if ((e as any).stopImmediatePropagation) {
+                                    (e as any).stopImmediatePropagation();
+                                  }
+                                  
+                                  const nativeEvent = e.nativeEvent;
+                                  if (nativeEvent) {
+                                    if (nativeEvent.preventDefault) nativeEvent.preventDefault();
+                                    if (nativeEvent.stopPropagation) nativeEvent.stopPropagation();
+                                    if ((nativeEvent as any).stopImmediatePropagation) {
+                                      (nativeEvent as any).stopImmediatePropagation();
+                                    }
+                                  }
+                                  
+                                  // Call handler with right edge
+                                  handleTaskResizeStart(e, task.id, 'right', task);
+                                  return false;
+                                }}
+                                onClick={(e: React.MouseEvent) => {
+                                    e.preventDefault();
+                                  e.stopPropagation();
+                                  if ((e as any).stopImmediatePropagation) {
+                                    (e as any).stopImmediatePropagation();
+                                  }
+                                  const nativeEvent = e.nativeEvent;
+                                  if (nativeEvent) {
+                                    if (nativeEvent.preventDefault) nativeEvent.preventDefault();
+                                    if (nativeEvent.stopPropagation) nativeEvent.stopPropagation();
+                                    if ((nativeEvent as any).stopImmediatePropagation) {
+                                      (nativeEvent as any).stopImmediatePropagation();
+                                    }
+                                  }
+                                  return false;
+                                }}
+                                onContextMenu={(e: React.MouseEvent) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  return false;
                                 }}
                                 onMouseEnter={(e) => {
                                   e.currentTarget.style.opacity = '1';
@@ -1692,9 +1801,8 @@ export function RoadmapTimeline({ tasks, spaceSlug, statuses = [], users = [], o
           setSelectedTask(null);
         }}
         onSave={() => {
-          if (onTasksChange) {
-            onTasksChange();
-          }
+          // Don't refetch on save - let the parent handle optimistic updates
+          // Only refetch if explicitly needed (e.g., after creating new tasks)
         }}
         onNavigateToFullPage={() => {
           if (selectedTask) {

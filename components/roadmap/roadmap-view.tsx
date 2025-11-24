@@ -138,7 +138,7 @@ export function RoadmapView({ spaceSlug }: RoadmapViewProps) {
 
       {/* Timeline Component */}
       <div className="flex-1 overflow-hidden">
-        <RoadmapTimeline 
+          <RoadmapTimeline 
           tasks={roadmapItems.map(item => {
             // Map the item to match the Task type expected by RoadmapTimeline
             const taskStartDate = item.startDate ? new Date(item.startDate) : (item.dueDate ? new Date(item.dueDate) : new Date());
@@ -170,139 +170,143 @@ export function RoadmapView({ spaceSlug }: RoadmapViewProps) {
               }
             };
           })}
-          spaceSlug={spaceSlug || ''}
-          statuses={statuses}
-          users={users}
-          onTasksChange={fetchRoadmapData}
-          onTaskUpdate={async (taskId, updates) => {
-            // Store original values for rollback
-            const originalItem = roadmapItems.find(item => item.id === taskId);
-            const rollbackData = originalItem ? {
-              startDate: originalItem.startDate,
-              endDate: originalItem.endDate,
-              dueDate: originalItem.dueDate
-            } : null;
-            
-            // Update local state immediately (optimistic update)
-            setRoadmapItems(prevItems => {
-              return prevItems.map(item => {
-                if (item.id === taskId) {
-                  const updated = { ...item };
-                  if (updates.startDate) {
+            spaceSlug={spaceSlug || ''}
+            statuses={statuses}
+            users={users}
+            onTasksChange={() => {
+            // Only refetch on explicit refresh, not after every update
+            // Optimistic updates handle the UI, so we don't need to refetch
+            // This prevents the screen refresh/flash
+          }}
+            onTaskUpdate={async (taskId, updates) => {
+              // Store original values for rollback
+              const originalItem = roadmapItems.find(item => item.id === taskId);
+              const rollbackData = originalItem ? {
+                startDate: originalItem.startDate,
+                endDate: originalItem.endDate,
+                dueDate: originalItem.dueDate
+              } : null;
+              
+              // Update local state immediately (optimistic update)
+              setRoadmapItems(prevItems => {
+                return prevItems.map(item => {
+                  if (item.id === taskId) {
+                    const updated = { ...item };
+                    if (updates.startDate) {
                     // Convert Date to ISO string for storage
                     updated.startDate = typeof updates.startDate === 'string' 
                       ? updates.startDate 
                       : updates.startDate.toISOString();
-                  }
-                  if (updates.dueDate) {
+                    }
+                    if (updates.dueDate) {
                     // Convert Date to ISO string for storage
                     const dueDateStr = typeof updates.dueDate === 'string'
                       ? updates.dueDate
                       : updates.dueDate.toISOString();
                     updated.dueDate = dueDateStr;
                     updated.endDate = dueDateStr; // Keep endDate in sync
+                    }
+                    return updated;
                   }
-                  return updated;
-                }
-                // Recursively update children
-                if (item.children && item.children.length > 0) {
-                  return {
-                    ...item,
-                    children: item.children.map(child => {
-                      if (child.id === taskId) {
-                        const updated = { ...child };
-                        if (updates.startDate) {
+                  // Recursively update children
+                  if (item.children && item.children.length > 0) {
+                    return {
+                      ...item,
+                      children: item.children.map(child => {
+                        if (child.id === taskId) {
+                          const updated = { ...child };
+                          if (updates.startDate) {
                           // Convert Date to ISO string for storage
                           updated.startDate = typeof updates.startDate === 'string'
                             ? updates.startDate
                             : updates.startDate.toISOString();
-                        }
-                        if (updates.dueDate) {
+                          }
+                          if (updates.dueDate) {
                           // Convert Date to ISO string for storage
                           const dueDateStr = typeof updates.dueDate === 'string'
                             ? updates.dueDate
                             : updates.dueDate.toISOString();
                           updated.dueDate = dueDateStr;
                           updated.endDate = dueDateStr;
-                        }
-                        return updated;
-                      }
-                      return child;
-                    })
-                  };
-                }
-                return item;
-              });
-            });
-            
-            // Send async API request in background
-            try {
-              const updateBody: any = {};
-              if (updates.dueDate) {
-                updateBody.dueDate = updates.dueDate.toISOString().split('T')[0];
-              }
-              if (updates.startDate) {
-                updateBody.startDate = updates.startDate.toISOString().split('T')[0];
-              }
-              
-              const response = await fetch(`/api/spaces/${spaceSlug}/tasks/${taskId}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify(updateBody)
-              });
-              
-              if (response.ok) {
-                const data = await response.json();
-                if (!data.success) {
-                  throw new Error(data.message || 'Failed to update task dates');
-                }
-                // Success - no need to refetch, state already updated
-              } else {
-                const errorData = await response.json();
-                throw new Error(errorData.message || 'Unknown error');
-              }
-            } catch (err: any) {
-              console.error('Failed to update task:', err);
-              
-              // Rollback to original values on error
-              if (rollbackData) {
-                setRoadmapItems(prevItems => {
-                  return prevItems.map(item => {
-                    if (item.id === taskId) {
-                      return {
-                        ...item,
-                        startDate: rollbackData.startDate,
-                        endDate: rollbackData.endDate,
-                        dueDate: rollbackData.dueDate
-                      };
-                    }
-                    if (item.children && item.children.length > 0) {
-                      return {
-                        ...item,
-                        children: item.children.map(child => {
-                          if (child.id === taskId) {
-                            return {
-                              ...child,
-                              startDate: rollbackData.startDate,
-                              endDate: rollbackData.endDate,
-                              dueDate: rollbackData.dueDate
-                            };
                           }
-                          return child;
-                        })
-                      };
-                    }
-                    return item;
-                  });
+                          return updated;
+                        }
+                        return child;
+                      })
+                    };
+                  }
+                  return item;
                 });
-              }
+              });
               
-              throw err; // Re-throw so the timeline component can handle it
-            }
-          }}
-        />
-      </div>
+              // Send async API request in background
+              try {
+                const updateBody: any = {};
+                if (updates.dueDate) {
+                  updateBody.dueDate = updates.dueDate.toISOString().split('T')[0];
+                }
+                if (updates.startDate) {
+                  updateBody.startDate = updates.startDate.toISOString().split('T')[0];
+                }
+                
+                const response = await fetch(`/api/spaces/${spaceSlug}/tasks/${taskId}`, {
+                  method: 'PATCH',
+                  headers: { 'Content-Type': 'application/json' },
+                  credentials: 'include',
+                  body: JSON.stringify(updateBody)
+                });
+                
+                if (response.ok) {
+                  const data = await response.json();
+                  if (!data.success) {
+                    throw new Error(data.message || 'Failed to update task dates');
+                  }
+                  // Success - no need to refetch, state already updated
+                } else {
+                  const errorData = await response.json();
+                  throw new Error(errorData.message || 'Unknown error');
+                }
+              } catch (err: any) {
+                console.error('Failed to update task:', err);
+                
+                // Rollback to original values on error
+                if (rollbackData) {
+                  setRoadmapItems(prevItems => {
+                    return prevItems.map(item => {
+                      if (item.id === taskId) {
+                        return {
+                          ...item,
+                          startDate: rollbackData.startDate,
+                          endDate: rollbackData.endDate,
+                          dueDate: rollbackData.dueDate
+                        };
+                      }
+                      if (item.children && item.children.length > 0) {
+                        return {
+                          ...item,
+                          children: item.children.map(child => {
+                            if (child.id === taskId) {
+                              return {
+                                ...child,
+                                startDate: rollbackData.startDate,
+                                endDate: rollbackData.endDate,
+                                dueDate: rollbackData.dueDate
+                              };
+                            }
+                            return child;
+                          })
+                        };
+                      }
+                      return item;
+                    });
+                  });
+                }
+                
+                throw err; // Re-throw so the timeline component can handle it
+              }
+            }}
+          />
+        </div>
     </div>
   );
 }

@@ -1,0 +1,23 @@
+# Default owners for everything in the repo
+* @YOUR_GITHUB_USERNAME
+
+# Specific paths
+/app/ @YOUR_GITHUB_USERNAME
+/components/ @YOUR_GITHUB_USERNAME
+/lib/ @YOUR_GITHUB_USERNAME
+/prisma/ @YOUR_GITHUB_USERNAME
+
+# Documentation
+*.md @YOUR_GITHUB_USERNAME
+/docs/ @YOUR_GITHUB_USERNAME
+
+# Configuration files
+package.json @YOUR_GITHUB_USERNAME
+tsconfig.json @YOUR_GITHUB_USERNAME
+next.config.js @YOUR_GITHUB_USERNAME
+
+# GitHub workflows
+/.github/ @YOUR_GITHUB_USERNAME
+
+
+

@@ -339,6 +339,8 @@ export default function SpacePage() {
   const [createBoardOpen, setCreateBoardOpen] = useState(false);
   const [templatesOpen, setTemplatesOpen] = useState(false);
   const [workflowsOpen, setWorkflowsOpen] = useState(false);
+  const [showTemplatesView, setShowTemplatesView] = useState(false);
+  const [showWorkflowsView, setShowWorkflowsView] = useState(false);
   const userInitiatedTabChange = useRef<string | null>(null);
   const loadedTabs = useRef<Set<string>>(new Set(['overview']));
   const prefetchCache = useRef<Set<string>>(new Set());
@@ -1006,7 +1008,7 @@ export default function SpacePage() {
     </div>
 
         {/* Tab Content */}
-        <div className="flex-1 min-h-0 p-8">
+        <div className={`flex-1 min-h-0 ${activeTab === 'overview' && (showTemplatesView || showWorkflowsView) ? 'p-0' : 'p-8'}`}>
           {/* Show skeleton only if tab is loading AND not previously loaded */}
           {tabLoading && !loadedTabs.current.has(activeTab) ? (
             <div className="p-6 space-y-6">
@@ -1097,14 +1099,39 @@ export default function SpacePage() {
           ) : null}
           {/* Only render active tab for better performance - lazy loading handles caching */}
           {activeTab === 'overview' && (
-            <SpaceOverviewContent
-              space={space}
-              boards={boards}
-              onOpenCreateBoard={() => setCreateBoardOpen(true)}
-              onOpenTemplates={() => setTemplatesOpen(true)}
-              onOpenWorkflows={() => setWorkflowsOpen(true)}
-              onNavigateToTab={navigateFromOverview}
-            />
+            <>
+              {showTemplatesView ? (
+                <div className="flex-1 min-h-0">
+                  <TemplatesManager
+                    spaceSlug={space.slug}
+                    standalone={true}
+                    onBack={() => setShowTemplatesView(false)}
+                    onSuccess={() => {
+                      setShowTemplatesView(false);
+                      // Optionally redirect to board after template creation
+                    }}
+                  />
+                </div>
+              ) : showWorkflowsView ? (
+                <div className="flex-1 min-h-0">
+                  <WorkflowsManager
+                    spaceId={space.id}
+                    spaceSlug={space.slug}
+                    standalone={true}
+                    onBack={() => setShowWorkflowsView(false)}
+                  />
+                </div>
+              ) : (
+                <SpaceOverviewContent
+                  space={space}
+                  boards={boards}
+                  onOpenCreateBoard={() => setCreateBoardOpen(true)}
+                  onOpenTemplates={() => setShowTemplatesView(true)}
+                  onOpenWorkflows={() => setShowWorkflowsView(true)}
+                  onNavigateToTab={navigateFromOverview}
+                />
+              )}
+            </>
           )}
 
           {activeTab === 'tasks' && (
@@ -1297,8 +1324,8 @@ export default function SpacePage() {
           />
         )}
 
-        {/* Templates Manager */}
-        {space && (
+        {/* Templates Manager - Only show as dialog if not in standalone mode */}
+        {space && !showTemplatesView && (
           <TemplatesManager
             spaceSlug={space.slug}
             open={templatesOpen}

@@ -9,6 +9,7 @@ import {
   ReactFlow,
   ReactFlowProvider,
   addEdge,
+  useReactFlow,
   type Connection,
   type Edge,
   type EdgeChange,
@@ -36,7 +37,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, Plus, Trash2 } from 'lucide-react';
+import { Loader2, Plus, Trash2, ArrowLeft } from 'lucide-react';
 import type {
   WorkflowCategory,
   WorkflowDetail,
@@ -275,6 +276,72 @@ function StartNode() {
   );
 }
 
+// Boundary Frame Component - shows workspace boundaries like JIRA
+function WorkspaceBoundary() {
+  const { getViewport } = useReactFlow();
+  const [boundaryStyle, setBoundaryStyle] = useState<React.CSSProperties>({});
+  
+  useEffect(() => {
+    const updateBoundary = () => {
+      try {
+        const viewport = getViewport();
+        const pane = document.querySelector('.wf-designer-flow .react-flow__pane') as HTMLElement;
+        
+        if (!pane) return;
+        
+        const viewportWidth = pane.clientWidth || 1000;
+        const viewportHeight = pane.clientHeight || 600;
+        
+        // Calculate workspace boundaries (2x viewport size)
+        const workspaceWidth = (viewportWidth / viewport.zoom) * 2;
+        const workspaceHeight = (viewportHeight / viewport.zoom) * 2;
+        
+        // Center the workspace around the current viewport center
+        const centerX = -viewport.x / viewport.zoom;
+        const centerY = -viewport.y / viewport.zoom;
+        
+        const minX = centerX - workspaceWidth / 2;
+        const minY = centerY - workspaceHeight / 2;
+        
+        setBoundaryStyle({
+          position: 'absolute',
+          left: `${minX}px`,
+          top: `${minY}px`,
+          width: `${workspaceWidth}px`,
+          height: `${workspaceHeight}px`,
+          border: '2px dashed rgba(128, 128, 128, 0.3)',
+          borderRadius: '8px',
+          pointerEvents: 'none',
+          zIndex: 0,
+          boxShadow: 'inset 0 0 0 1px rgba(128, 128, 128, 0.1)',
+        });
+      } catch (error) {
+        // Silently fail if viewport is not available
+      }
+    };
+    
+    updateBoundary();
+    
+    // Update on viewport changes
+    const interval = setInterval(updateBoundary, 200);
+    const pane = document.querySelector('.wf-designer-flow .react-flow__pane');
+    if (pane) {
+      const resizeObserver = new ResizeObserver(updateBoundary);
+      resizeObserver.observe(pane);
+      return () => {
+        clearInterval(interval);
+        resizeObserver.disconnect();
+      };
+    }
+    
+    return () => clearInterval(interval);
+  }, [getViewport]);
+  
+  if (!boundaryStyle.width) return null;
+  
+  return <div className="workspace-boundary" style={boundaryStyle} />;
+}
+
 interface WorkflowDesignerDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -284,6 +351,7 @@ interface WorkflowDesignerDialogProps {
   draftWorkflow?: WorkflowDetail;
   assignOnSave?: boolean;
   onSaved: (workflow: WorkflowDetail, options?: { assign?: boolean }) => void;
+  standalone?: boolean; // If true, render without Dialog wrapper
 }
 
 export function WorkflowDesignerDialog({
@@ -295,6 +363,7 @@ export function WorkflowDesignerDialog({
   draftWorkflow,
   assignOnSave = false,
   onSaved,
+  standalone = false,
 }: WorkflowDesignerDialogProps) {
   const [initializing, setInitializing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -727,9 +796,126 @@ export function WorkflowDesignerDialog({
 
   const handleNodesChangeInternal = useCallback(
     (changes: NodeChange[]) => {
-      onNodesChange(changes);
+      // Calculate dynamic boundaries based on viewport (similar to JIRA workflow)
+      // Allow nodes to move until they fit the screen
+      let minX = -2000;
+      let maxX = 2000;
+      let minY = -2000;
+      let maxY = 2000;
+      
+      if (reactFlowInstance) {
+        const pane = document.querySelector('.wf-designer-flow .react-flow__pane') as HTMLElement;
+        if (pane) {
+          const viewportWidth = pane.clientWidth || 1000;
+          const viewportHeight = pane.clientHeight || 600;
+          const viewport = reactFlowInstance.getViewport();
+          
+          // Calculate workspace boundaries based on viewport size
+          // Convert viewport dimensions to flow coordinates
+          const workspaceWidth = viewportWidth / viewport.zoom;
+          const workspaceHeight = viewportHeight / viewport.zoom;
+          
+          // Center the workspace around the current viewport center
+          const centerX = -viewport.x / viewport.zoom;
+          const centerY = -viewport.y / viewport.zoom;
+          
+          // Allow nodes to move within the viewport bounds with some padding
+          const padding = 100; // Padding in flow coordinates
+          minX = centerX - workspaceWidth / 2 + padding;
+          maxX = centerX + workspaceWidth / 2 - padding;
+          minY = centerY - workspaceHeight / 2 + padding;
+          maxY = centerY + workspaceHeight / 2 - padding;
+        }
+      }
+      
+      // Apply damping to position changes to slow down drag speed
+      const dampedChanges = changes.map((change) => {
+        if (change.type === 'position' && change.position) {
+          // Get current node position
+          const currentNode = nodes.find((n) => n.id === change.id);
+          if (currentNode) {
+            // Calculate movement delta
+            const deltaX = change.position.x - currentNode.position.x;
+            const deltaY = change.position.y - currentNode.position.y;
+            
+            // Apply damping factor (0.5 = 50% speed, making it slower)
+            const dampingFactor = 0.5;
+            let newX = currentNode.position.x + deltaX * dampingFactor;
+            let newY = currentNode.position.y + deltaY * dampingFactor;
+            
+            // Constrain position within viewport boundaries (like JIRA workflow)
+            // Allow nodes to move until they fit the screen
+            newX = Math.max(minX, Math.min(maxX, newX));
+            newY = Math.max(minY, Math.min(maxY, newY));
+            
+            return {
+              ...change,
+              position: {
+                x: newX,
+                y: newY,
+              },
+              dragging: change.dragging,
+            };
+          }
+        }
+        return change;
+      });
+      
+      onNodesChange(dampedChanges);
+      
+      // Check if any node is being dragged and if it's outside viewport
+      const draggedNode = changes.find((change) => change.type === 'position' && change.dragging);
+      if (draggedNode && reactFlowInstance) {
+        // Use setTimeout to check viewport after position update has been applied
+        setTimeout(() => {
+          if (!reactFlowInstance) return;
+          
+          // Get current nodes from ReactFlow instance (after the change)
+          const currentNodes = reactFlowInstance.getNodes();
+          
+          // Get the ReactFlow container element to get viewport dimensions
+          const pane = document.querySelector('.wf-designer-flow .react-flow__pane') as HTMLElement;
+          if (!pane) return;
+          
+          const viewportWidth = pane.clientWidth || 1000;
+          const viewportHeight = pane.clientHeight || 600;
+          
+          // Get all node positions in screen/viewport coordinates
+          const nodePositions = currentNodes.map((node) => {
+            const screenPos = reactFlowInstance.project({
+              x: node.position.x,
+              y: node.position.y,
+            });
+            return {
+              id: node.id,
+              screenX: screenPos.x,
+              screenY: screenPos.y,
+            };
+          });
+          
+          // Check if any node is outside the visible viewport (with some padding)
+          const padding = 150;
+          
+          const nodesOutsideViewport = nodePositions.filter(
+            (pos) =>
+              pos.screenX < -padding ||
+              pos.screenX > viewportWidth + padding ||
+              pos.screenY < -padding ||
+              pos.screenY > viewportHeight + padding
+          );
+          
+          // If nodes are outside viewport, fit view to show all nodes
+          if (nodesOutsideViewport.length > 0) {
+            reactFlowInstance.fitView({
+              padding: 0.2,
+              duration: 300,
+              maxZoom: 1.5,
+            });
+          }
+        }, 50);
+      }
     },
-    [onNodesChange],
+    [onNodesChange, nodes, reactFlowInstance],
   );
 
   const handleEdgesChangeInternal = useCallback(
@@ -937,6 +1123,40 @@ export function WorkflowDesignerDialog({
       if (!sourceNode || !targetNode) {
         return;
       }
+      
+      // Check if an edge already exists with the same source, target, and handles
+      const existingEdges = edges.filter(
+        (edge) =>
+          edge.source === sourceId &&
+          edge.target === targetId &&
+          edge.sourceHandle === sourceHandle &&
+          edge.targetHandle === targetHandle &&
+          edge.data.kind !== 'start'
+      );
+      
+      // If an edge exists with the same handles, use different handles for the new edge
+      let finalSourceHandle = sourceHandle;
+      let finalTargetHandle = targetHandle;
+      
+      if (existingEdges.length > 0 && sourceNode.type === 'status' && targetNode.type === 'status') {
+        const sourceData = sourceNode.data as StatusNodeData;
+        const targetData = targetNode.data as StatusNodeData;
+        
+        // Try to use different handles - if right handle was used, try bottom
+        if (sourceHandle === `${sourceData.tempId}-source-right`) {
+          finalSourceHandle = `${sourceData.tempId}-source-bottom`;
+        } else if (sourceHandle === `${sourceData.tempId}-source-bottom`) {
+          finalSourceHandle = `${sourceData.tempId}-source-right`;
+        }
+        
+        // For target, try different handles too
+        if (targetHandle === `${targetData.tempId}-target-left`) {
+          finalTargetHandle = `${targetData.tempId}-target-top`;
+        } else if (targetHandle === `${targetData.tempId}-target-top`) {
+          finalTargetHandle = `${targetData.tempId}-target-left`;
+        }
+      }
+      
       const edgeData: TransitionEdgeData = {
         tempId: makeTempId('transition'),
         name: `Move to ${targetNode.data.name}`,
@@ -947,10 +1167,27 @@ export function WorkflowDesignerDialog({
         preventOpenSubtasks: targetNode.data.category === 'DONE',
       };
       const newEdge = createTransitionEdge(sourceId, targetId, edgeData, {
-        sourceHandle,
-        targetHandle,
+        sourceHandle: finalSourceHandle,
+        targetHandle: finalTargetHandle,
       });
-      setEdges((prev) => addEdge(newEdge, prev));
+      
+      // Manually add the edge instead of using addEdge to allow duplicates
+      setEdges((prev) => {
+        // Check if this exact edge already exists
+        const duplicate = prev.find(
+          (edge) =>
+            edge.id === newEdge.id ||
+            (edge.source === newEdge.source &&
+              edge.target === newEdge.target &&
+              edge.sourceHandle === newEdge.sourceHandle &&
+              edge.targetHandle === newEdge.targetHandle &&
+              edge.data.kind !== 'start')
+        );
+        if (duplicate) {
+          return prev;
+        }
+        return [...prev, newEdge];
+      });
     },
     [nodes, setEdges, setInitialStatus],
   );
@@ -1307,17 +1544,10 @@ export function WorkflowDesignerDialog({
     };
   }, [selectedEdge, nodes]);
 
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        className="workflow-designer max-w-6xl flex h-[85vh] flex-col overflow-hidden"
-        onInteractOutside={(event) => event.preventDefault()}
-      >
-        <DialogHeader className="space-y-4">
-          <DialogTitle className="sr-only">Workflow designer</DialogTitle>
-          <DialogDescription className="sr-only">
-            Configure statuses and transitions for this workflow.
-          </DialogDescription>
+  const mainContent = (
+    <>
+      {!standalone && (
+        <div className="space-y-4">
           <div className="space-y-2">
             <Label className="text-sm text-muted-foreground" htmlFor="workflow-name-input">
               Workflow name
@@ -1332,9 +1562,10 @@ export function WorkflowDesignerDialog({
               required
             />
           </div>
-        </DialogHeader>
+        </div>
+      )}
 
-        {error && (
+      {error && !standalone && (
           <Alert variant="destructive" className="mb-4">
             <AlertDescription>{error}</AlertDescription>
           </Alert>
@@ -1343,17 +1574,23 @@ export function WorkflowDesignerDialog({
         <div className="grid flex-1 gap-6 overflow-hidden pr-2 lg:grid-cols-[minmax(0,1fr)_300px]">
           <ReactFlowProvider>
             <div className="flex h-full flex-col space-y-4 overflow-hidden">
-              <div className="flex flex-col gap-4">
-                <div className="flex w/full max-w-4xl flex-col gap-2">
+              <div className="flex flex-col gap-4 flex-shrink-0">
+                <div className="flex w-full max-w-4xl flex-col gap-2">
                   <Label className="text-sm font-medium" htmlFor="workflow-ai-prompt">
                     AI workflow prompt
                   </Label>
                   <Textarea
                     id="workflow-ai-prompt"
                     value={aiPrompt}
-                    onChange={(event) => setAiPrompt(event.target.value)}
+                    onChange={(event) => {
+                      setAiPrompt(event.target.value);
+                      // Auto-resize textarea
+                      event.target.style.height = 'auto';
+                      event.target.style.height = `${Math.min(event.target.scrollHeight, 120)}px`;
+                    }}
                     placeholder="Describe the workflow you want. Mention stages like design, review, QA, deployment..."
-                    rows={3}
+                    rows={1}
+                    className="min-h-[38px] max-h-[120px] resize-none overflow-y-auto"
                     disabled={saving || aiGenerating}
                   />
                   <div className="flex flex-wrap items-center gap-2">
@@ -1388,7 +1625,7 @@ export function WorkflowDesignerDialog({
                 </div>
               </div>
 
-              <div className="wf-designer-flow relative flex-1 overflow-hidden rounded-lg border bg-card">
+              <div className="wf-designer-flow relative flex-1 overflow-hidden rounded-lg border bg-card" style={{ minHeight: '500px', height: '100%' }}>
                 <ReactFlow
                   nodes={nodes}
                   edges={edges}
@@ -1410,9 +1647,14 @@ export function WorkflowDesignerDialog({
                   selectionKeyCode={null}
                   nodeTypes={nodeTypes}
                   onInit={setReactFlowInstance}
+                  fitView
+                  panOnDrag={false}
+                  panOnScroll={true}
+                  style={{ width: '100%', height: '100%' }}
                 >
                   <Background variant="dots" gap={16} size={1} />
                   <Controls showInteractive={false} />
+                  <WorkspaceBoundary />
                 </ReactFlow>
               </div>
             </div>
@@ -1615,7 +1857,8 @@ export function WorkflowDesignerDialog({
           </aside>
         </div>
 
-        <DialogFooter className="mt-4">
+      {!standalone && (
+        <div className="mt-4 flex justify-end gap-2">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
             Cancel
           </Button>
@@ -1623,7 +1866,440 @@ export function WorkflowDesignerDialog({
             {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Save Workflow
           </Button>
-        </DialogFooter>
+        </div>
+      )}
+    </>
+  );
+
+  if (standalone) {
+    if (!open) return null;
+    return (
+      <div className="flex flex-col h-full overflow-hidden bg-[var(--background)]">
+        {/* Header - matching design pattern */}
+        <div className="flex items-center justify-between px-6 py-3 border-b border-[var(--border)] bg-[var(--background)]">
+          <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onOpenChange(false)}
+              className="h-8 px-2 text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--muted)]"
+            >
+              <ArrowLeft className="w-4 h-4 mr-1" />
+              Back
+            </Button>
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="text-lg bg-[var(--input)] border-[var(--border)] text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:border-[#4353ff] focus:ring-1 focus:ring-[#4353ff] h-9 w-[300px]"
+              placeholder="Workflow name"
+              disabled={saving}
+            />
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              onClick={handleSave}
+              disabled={saving}
+              className="h-8 px-4 bg-gradient-to-r from-[#4353ff] via-[#5b5fed] to-[#7c5ff0] hover:from-[#3343ef] hover:via-[#4b4fdd] hover:to-[#6c4fe0] text-white shadow-lg shadow-[#4353ff]/20 hover:shadow-[#4353ff]/40 transition-all"
+            >
+              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Save Workflow
+            </Button>
+          </div>
+        </div>
+        
+        {/* Main Content Area */}
+        <div className="flex-1 flex flex-col overflow-hidden workflow-designer p-6" style={{ minHeight: 0 }}>
+          {error && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+          
+          <div className="grid flex-1 gap-6 overflow-hidden pr-2 lg:grid-cols-[minmax(0,1fr)_300px]" style={{ minHeight: 0 }}>
+            <ReactFlowProvider>
+              <div className="flex flex-1 flex-col space-y-4 overflow-hidden" style={{ minHeight: 0 }}>
+                <div className="flex flex-col gap-4 flex-shrink-0">
+                  <div className="flex w-full max-w-4xl flex-col gap-2">
+                    <Label className="text-sm font-medium" htmlFor="workflow-ai-prompt">
+                      AI workflow prompt
+                    </Label>
+                    <Textarea
+                      id="workflow-ai-prompt"
+                      value={aiPrompt}
+                      onChange={(event) => {
+                        setAiPrompt(event.target.value);
+                        // Auto-resize textarea
+                        event.target.style.height = 'auto';
+                        event.target.style.height = `${Math.min(event.target.scrollHeight, 120)}px`;
+                      }}
+                      placeholder="Describe the workflow you want. Mention stages like design, review, QA, deployment..."
+                      rows={1}
+                      className="min-h-[38px] max-h-[120px] resize-none overflow-y-auto"
+                      disabled={saving || aiGenerating}
+                    />
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={handleGenerateFromPrompt}
+                        disabled={saving || aiGenerating}
+                      >
+                        {aiGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
+                        Generate workflow from prompt
+                      </Button>
+                      {aiOptimized && !aiGenerating ? (
+                        <span className="text-xs font-medium text-primary">AI generated</span>
+                      ) : null}
+                    </div>
+                    {aiPromptError ? (
+                      <p className="text-xs text-destructive">{aiPromptError}</p>
+                    ) : null}
+                    {aiPromptMessage ? (
+                      <p className="text-xs text-muted-foreground">{aiPromptMessage}</p>
+                    ) : null}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button type="button" variant="outline" size="sm" onClick={handleAddStatus} disabled={saving}>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Add Status
+                    </Button>
+                    <Button type="button" variant="ghost" size="sm" onClick={handleFitView}>
+                      Fit to view
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="wf-designer-flow relative flex-1 overflow-hidden rounded-lg border bg-card" style={{ minHeight: '500px', height: '100%' }}>
+                  <ReactFlow
+                    nodes={nodes}
+                    edges={edges}
+                    onNodesChange={handleNodesChangeInternal}
+                    onEdgesChange={handleEdgesChangeInternal}
+                    onConnect={handleConnect}
+                    onNodeClick={handleNodeClick}
+                    onEdgeClick={handleEdgeClick}
+                    onPaneClick={handlePaneClick}
+                    onEdgeUpdate={handleEdgeUpdate}
+                    onEdgeUpdateEnd={handleEdgeUpdateEnd}
+                    onConnectStart={handleConnectStart}
+                    onConnectEnd={handleConnectEnd}
+                    connectionMode="loose"
+                    nodesDraggable={!saving}
+                    nodesConnectable={!saving}
+                    elementsSelectable
+                    selectNodesOnDrag={false}
+                    selectionKeyCode={null}
+                    nodeTypes={nodeTypes}
+                    onInit={setReactFlowInstance}
+                    fitView
+                    panOnDrag={false}
+                  panOnScroll={true}
+                    style={{ width: '100%', height: '100%' }}
+                  >
+                    <Background variant="dots" gap={16} size={1} />
+                    <Controls showInteractive={false} />
+                    <WorkspaceBoundary />
+                  </ReactFlow>
+                </div>
+              </div>
+            </ReactFlowProvider>
+
+            <aside className="space-y-4 overflow-y-auto rounded-lg border p-4">
+              {!selectedNode && !selectedEdge && (
+                <p className="text-sm text-muted-foreground">
+                  Select a status node or a transition edge to configure details.
+                </p>
+              )}
+
+              {selectedNode && (
+                <div className="space-y-3 text-sm">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-semibold">Status</h3>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleRemoveStatus(selectedNode.id)}
+                      disabled={saving}
+                    >
+                      <Trash2 className="mr-1 h-4 w-4" />
+                      Remove
+                    </Button>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs uppercase text-muted-foreground">Name</Label>
+                    <Input
+                      value={selectedNode.data.name}
+                      onChange={(event) => handleNodeNameChange(selectedNode.id, event.target.value)}
+                      disabled={saving}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs uppercase text-muted-foreground">Flags</Label>
+                    <div className="space-y-2 rounded-md border p-2">
+                      <label className="flex items-center gap-2">
+                        <Switch
+                          checked={selectedNode.data.isFinal}
+                          onCheckedChange={() => handleToggleFinal(selectedNode.id)}
+                          disabled={saving}
+                        />
+                        Final status
+                      </label>
+                      {selectedNode.data.isInitial && (
+                        <p className="text-[11px] text-muted-foreground">Initial status is linked to the start arrow.</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {selectedEdge && (
+                <div className="space-y-3 text-sm">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-semibold">
+                      {selectedEdge.data.kind === 'start' ? 'Start Arrow' : 'Transition'}
+                    </h3>
+                    {selectedEdge.data.kind !== 'start' && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleRemoveTransition(selectedEdge.id)}
+                        disabled={saving}
+                      >
+                        <Trash2 className="mr-1 h-4 w-4" />
+                        Remove
+                      </Button>
+                    )}
+                  </div>
+                  {selectedEdge.data.kind !== 'start' && (
+                    <>
+                      <div className="space-y-1">
+                        <Label className="text-xs uppercase text-muted-foreground">Name</Label>
+                        <Input
+                          value={selectedEdge.data.name}
+                          onChange={(event) => handleTransitionNameChange(selectedEdge.id, event.target.value)}
+                          disabled={saving}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs uppercase text-muted-foreground">Trigger</Label>
+                        <Select
+                          value={selectedEdge.data.uiTrigger}
+                          onValueChange={(value) => handleTransitionTriggerChange(selectedEdge.id, value)}
+                          disabled={saving}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {TRIGGER_OPTIONS.map((option) => (
+                              <SelectItem key={option.value} value={option.value}>
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </>
+                  )}
+                  <div className="grid gap-3">
+                    <div className="space-y-1 text-xs uppercase text-muted-foreground">
+                      <Label>From</Label>
+                      <Select
+                        value={selectedEdge.source}
+                        onValueChange={(value) => handleChangeTransitionEndpoints(selectedEdge.id, { from: value })}
+                        disabled={saving || selectedEdge.data.kind === 'start'}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {nodes
+                            .filter((node) => node.type === 'status' || node.id === START_NODE_ID)
+                            .map((node) => (
+                              <SelectItem key={node.id} value={node.id}>
+                                {node.id === START_NODE_ID ? 'Start' : node.data.name}
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1 text-xs uppercase text-muted-foreground">
+                      <Label>To</Label>
+                      <Select
+                        value={selectedEdge.target}
+                        onValueChange={(value) => handleChangeTransitionEndpoints(selectedEdge.id, { to: value })}
+                        disabled={saving}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {nodes
+                            .filter((node) => node.type === 'status')
+                            .map((node) => (
+                              <SelectItem key={node.id} value={node.id}>
+                                {node.data.name}
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  {selectedEdge.data.kind !== 'start' && (
+                    <>
+                      <div className="space-y-1">
+                        <Label className="text-xs uppercase text-muted-foreground">Permissions</Label>
+                        <div className="space-y-2 rounded-md border p-2">
+                          <label className="flex items-center gap-2">
+                            <Switch
+                              checked={selectedEdge.data.assigneeOnly}
+                              onCheckedChange={(checked) => handleTransitionToggle(selectedEdge.id, 'assigneeOnly', checked)}
+                              disabled={saving}
+                            />
+                            Assignee only
+                          </label>
+                          <label className="flex items-center gap-2">
+                            <Switch
+                              checked={selectedEdge.data.adminOnly}
+                              onCheckedChange={(checked) => handleTransitionToggle(selectedEdge.id, 'adminOnly', checked)}
+                              disabled={saving}
+                            />
+                            Admin / owner only
+                          </label>
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs uppercase text-muted-foreground">Validators</Label>
+                        <div className="space-y-2 rounded-md border p-2">
+                          <label className="flex items-center gap-2">
+                            <Switch
+                              checked={selectedEdge.data.requirePriority}
+                              onCheckedChange={(checked) => handleTransitionToggle(selectedEdge.id, 'requirePriority', checked)}
+                              disabled={saving}
+                            />
+                            Require priority
+                          </label>
+                          <label className="flex items-center gap-2">
+                            <Switch
+                              checked={selectedEdge.data.preventOpenSubtasks}
+                              onCheckedChange={(checked) => handleTransitionToggle(selectedEdge.id, 'preventOpenSubtasks', checked)}
+                              disabled={saving}
+                            />
+                            Prevent open subtasks
+                          </label>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                  <p className="text-[11px] text-muted-foreground">
+                    {sourceTargetLabels.source} → {sourceTargetLabels.target}
+                  </p>
+                </div>
+              )}
+            </aside>
+          </div>
+        </div>
+
+      <style jsx>{`
+        .wf-designer-flow :global(.react-flow__pane:focus),
+        .wf-designer-flow :global(.react-flow__pane:focus-visible) {
+          outline: none;
+        }
+
+        .wf-designer-flow :global(.react-flow__node.selected),
+        .wf-designer-flow :global(.react-flow__node.selected *),
+        .wf-designer-flow :global(.react-flow__edge.selected),
+        .wf-designer-flow :global(.react-flow__edge.selected *),
+        .wf-designer-flow :global(.react-flow__pane.dragging) {
+          opacity: 1 !important;
+          filter: none !important;
+        }
+
+        .wf-designer-flow :global(.react-flow__pane) {
+          transition: none;
+        }
+
+        .wf-designer-flow :global(.react-flow__node) {
+          transition: transform 0.2s ease-out;
+        }
+
+        .wf-designer-flow :global(.react-flow__node.dragging) {
+          transition: none;
+        }
+
+        .wf-designer-flow :global(.workspace-boundary) {
+          position: absolute;
+          pointer-events: none;
+        }
+      `}</style>
+      <style jsx global>{`
+        .react-flow__selection,
+        .react-flow__nodesselection-rect {
+          background: transparent !important;
+          border: none !important;
+        }
+
+        .workflow-designer,
+        .workflow-designer * {
+          user-select: none;
+        }
+
+        .workflow-designer input,
+        .workflow-designer textarea,
+        .workflow-designer input *,
+        .workflow-designer textarea * {
+          user-select: text;
+        }
+
+        .workflow-designer ::selection {
+          background: transparent;
+          color: inherit;
+        }
+
+        .workflow-designer .status-node {
+          padding: 8px;
+        }
+
+        .workflow-designer .status-node .status-node-content {
+          border-radius: 14px;
+          padding: 14px 18px;
+          box-shadow: 0 6px 16px rgba(15, 23, 42, 0.18);
+        }
+
+        .workflow-designer .status-node--diamond .status-node-content {
+          clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+          padding: 44px 36px;
+        }
+
+        .workflow-designer .status-node--diamond .status-node-meta {
+          justify-content: center;
+        }
+
+        .workflow-designer .status-node--diamond .status-node-content > div:first-child {
+          justify-content: center;
+        }
+      `}</style>
+      </div>
+    );
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent
+        className="workflow-designer max-w-6xl flex h-[85vh] flex-col overflow-hidden"
+        onInteractOutside={(event) => event.preventDefault()}
+      >
+        <DialogHeader className="space-y-4">
+          <DialogTitle className="sr-only">Workflow designer</DialogTitle>
+          <DialogDescription className="sr-only">
+            Configure statuses and transitions for this workflow.
+          </DialogDescription>
+        </DialogHeader>
+        {mainContent}
       </DialogContent>
 
       <style jsx>{`
@@ -1643,6 +2319,19 @@ export function WorkflowDesignerDialog({
 
         .wf-designer-flow :global(.react-flow__pane) {
           transition: none;
+        }
+
+        .wf-designer-flow :global(.react-flow__node) {
+          transition: transform 0.2s ease-out;
+        }
+
+        .wf-designer-flow :global(.react-flow__node.dragging) {
+          transition: none;
+        }
+
+        .wf-designer-flow :global(.workspace-boundary) {
+          position: absolute;
+          pointer-events: none;
         }
       `}</style>
       <style jsx global>{`
