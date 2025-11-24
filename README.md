@@ -134,22 +134,31 @@ npm run test:coverage
 
 ## 📦 Deployment
 
-### Vercel (Recommended)
+**See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed deployment instructions.**
+
+### Quick Start (Vercel - Recommended)
 
 1. Push your code to GitHub
-2. Import your repository in Vercel
-3. Configure environment variables
+2. Import your repository in [Vercel](https://vercel.com)
+3. Configure environment variables in Vercel dashboard:
+   - `OPENAI_API_KEY`
+   - `DATABASE_URL` (use production database)
+   - `SESSION_SECRET`
+   - `NEXTAUTH_URL`
 4. Deploy
 
 ### Other Platforms
 
 The application can be deployed to any platform that supports Next.js:
-- AWS
-- Google Cloud Platform
-- Azure
-- DigitalOcean
-- Railway
-- Render
+- **Vercel** (Recommended) - See [DEPLOYMENT.md](./DEPLOYMENT.md)
+- **Railway** - See [DEPLOYMENT.md](./DEPLOYMENT.md)
+- **AWS** (Elastic Beanstalk, EC2, App Runner) - See [DEPLOYMENT.md](./DEPLOYMENT.md)
+- **Google Cloud Platform** (Cloud Run, App Engine) - See [DEPLOYMENT.md](./DEPLOYMENT.md)
+- **DigitalOcean** App Platform - See [DEPLOYMENT.md](./DEPLOYMENT.md)
+- **Render** - See [DEPLOYMENT.md](./DEPLOYMENT.md)
+- **Heroku** - See [DEPLOYMENT.md](./DEPLOYMENT.md)
+
+**Important:** Never upload `.env` files to production! Use your platform's environment variable management system instead.
 
 ## 🤝 Contributing
 
