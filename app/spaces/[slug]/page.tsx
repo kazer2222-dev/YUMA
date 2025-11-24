@@ -24,6 +24,7 @@ import {
   PackageOpen,
   X,
   GripVertical,
+  FileText,
 } from 'lucide-react';
 import { ClickUpAppShell } from '@/components/layout/clickup-app-shell';
 import { Loading, Skeleton, CardSkeleton, TableSkeleton } from '@/components/loading';
@@ -37,6 +38,7 @@ import {
 import { useUser, useSpaces, useSpace, useBoards, useRefreshSpaces, useRefreshSpace } from '@/lib/hooks/use-spaces';
 import { TemplatesManager } from '@/components/templates/templates-manager';
 import { WorkflowsManager } from '@/components/workflows/workflows-manager';
+import { useQueryClient } from '@tanstack/react-query';
 import { SpaceOverviewContent } from '@/components/spaces/space-overview-content';
 import {
   Select,
@@ -58,6 +60,7 @@ const SPACE_TABS: TabDefinition[] = [
   { id: 'overview', label: 'Overview', deletable: false },
   { id: 'tasks', label: 'Tasks', icon: CheckSquare, color: '#10B981', deletable: true },
   { id: 'board', label: 'Board', icon: LayoutGrid, color: '#3B82F6', deletable: false },
+  { id: 'documents', label: 'Documents', icon: FileText, color: '#8B5CF6', deletable: true },
   { id: 'calendar', label: 'Calendar', icon: Calendar, color: '#F59E0B', deletable: true },
   { id: 'roadmap', label: 'Roadmap', icon: TrendingUp, color: '#EF4444', deletable: true },
   { id: 'reports', label: 'Reports', icon: BarChart3, color: '#F59E0B', deletable: true },
@@ -207,6 +210,7 @@ function SortableTab({
 // Lazy load all heavy tab components for better performance
 const TasksTable = lazy(() => import('@/components/tasks/tasks-table').then(mod => ({ default: mod.TasksTable })));
 const BoardView = lazy(() => import('@/components/board/board-view').then(mod => ({ default: mod.BoardView })));
+const DocumentsPage = lazy(() => import('@/components/documents/documents-page').then(mod => ({ default: mod.DocumentsPage })));
 const CalendarView = lazy(() => import('@/components/calendar/calendar-view').then(mod => ({ default: mod.CalendarView })));
 const RoadmapView = lazy(() => import('@/components/roadmap/roadmap-view').then(mod => ({ default: mod.RoadmapView })));
 const IntegrationsManager = lazy(() => import('@/components/integrations/integrations-manager').then(mod => ({ default: mod.IntegrationsManager })));
@@ -267,6 +271,7 @@ export default function SpacePage() {
   const searchParams = useSearchParams();
   const pathname = usePathname();
   const spaceSlug = params.slug as string;
+  const queryClient = useQueryClient();
   
   // React Query hooks for data fetching
   const { data: user, isLoading: userLoading } = useUser();
@@ -339,8 +344,6 @@ export default function SpacePage() {
   const [createBoardOpen, setCreateBoardOpen] = useState(false);
   const [templatesOpen, setTemplatesOpen] = useState(false);
   const [workflowsOpen, setWorkflowsOpen] = useState(false);
-  const [showTemplatesView, setShowTemplatesView] = useState(false);
-  const [showWorkflowsView, setShowWorkflowsView] = useState(false);
   const userInitiatedTabChange = useRef<string | null>(null);
   const loadedTabs = useRef<Set<string>>(new Set(['overview']));
   const prefetchCache = useRef<Set<string>>(new Set());
@@ -418,10 +421,44 @@ export default function SpacePage() {
         url.searchParams.delete('boardId');
       } else {
         url.searchParams.set('view', tabName);
-        if (boardId || (tabName === 'board' && selectedBoardId)) {
-          url.searchParams.set('boardId', boardId || selectedBoardId!);
+        // For board-related tabs, always try to preserve boardId
+        if (tabName === 'board' || tabName === 'sprints' || tabName === 'releases' || tabName === 'backlog') {
+          // Priority: passed boardId > selectedBoardId > URL boardId > localStorage > first board
+          let finalBoardId = boardId || selectedBoardId;
+          if (!finalBoardId && typeof window !== 'undefined') {
+            const urlBoardId = url.searchParams.get('boardId');
+            if (urlBoardId && boards.some((b: any) => b.id === urlBoardId)) {
+              finalBoardId = urlBoardId;
+            } else {
+              const lastBoardId = localStorage.getItem(`lastBoard_${spaceSlug}`);
+              if (lastBoardId && boards.some((b: any) => b.id === lastBoardId)) {
+                finalBoardId = lastBoardId;
+              } else if (boards.length > 0) {
+                finalBoardId = boards[0].id;
+              }
+            }
+          }
+          if (finalBoardId) {
+            url.searchParams.set('boardId', finalBoardId);
+            // Ensure state is synced
+            if (finalBoardId !== selectedBoardId) {
+              setSelectedBoardId(finalBoardId);
+              if (typeof window !== 'undefined') {
+                localStorage.setItem(`lastBoard_${spaceSlug}`, finalBoardId);
+              }
+            }
+          } else {
+            url.searchParams.delete('boardId');
+          }
         } else {
-          url.searchParams.delete('boardId');
+          // For non-board tabs, only set boardId if explicitly provided
+          if (boardId) {
+            url.searchParams.set('boardId', boardId);
+          } else if (selectedBoardId && (tabName === 'board')) {
+            url.searchParams.set('boardId', selectedBoardId);
+          } else {
+            url.searchParams.delete('boardId');
+          }
         }
       }
       router.replace(url.pathname + (url.searchParams.toString() ? '?' + url.searchParams.toString() : ''));
@@ -429,7 +466,7 @@ export default function SpacePage() {
         userInitiatedTabChange.current = null;
       }, 100);
     },
-    [activeTab, selectedBoardId, router, addTabToVisible, spaceSlug],
+    [activeTab, selectedBoardId, router, addTabToVisible, spaceSlug, boards, setSelectedBoardId],
   );
 
   const selectBoard = useCallback(
@@ -458,6 +495,17 @@ export default function SpacePage() {
     (tab: TabDefinition) => {
       if (tab.id === 'board' || tab.id === 'sprints' || tab.id === 'releases' || tab.id === 'backlog') {
         let nextBoardId = selectedBoardId;
+        
+        // First, try to get boardId from URL if not in state
+        if (!nextBoardId && typeof window !== 'undefined') {
+          const urlParams = new URLSearchParams(window.location.search);
+          const urlBoardId = urlParams.get('boardId');
+          if (urlBoardId && boards.some((b: any) => b.id === urlBoardId)) {
+            nextBoardId = urlBoardId;
+          }
+        }
+        
+        // Fallback to localStorage or first board
         if (!nextBoardId && boards.length > 0) {
           const lastBoardId =
             typeof window !== 'undefined'
@@ -662,6 +710,18 @@ export default function SpacePage() {
       }
     }
   }, [searchParams, pathname, params.slug, activeTab, selectedBoardId, validTabs, selectBoard]);
+
+  useEffect(() => {
+    if (activeTab !== 'board' || !selectedBoardId) {
+      return;
+    }
+
+    queryClient.invalidateQueries({
+      queryKey: ['board-data', selectedBoardId, params.slug],
+    }).catch(() => {
+      /* noop */
+    });
+  }, [activeTab, selectedBoardId, params.slug, queryClient]);
 
   // Optimized: Sync URL when selectedBoardId changes (only if on board-related tabs)
   useEffect(() => {
@@ -1008,7 +1068,7 @@ export default function SpacePage() {
     </div>
 
         {/* Tab Content */}
-        <div className={`flex-1 min-h-0 ${activeTab === 'overview' && (showTemplatesView || showWorkflowsView) ? 'p-0' : 'p-8'}`}>
+        <div className="flex-1 min-h-0 p-8">
           {/* Show skeleton only if tab is loading AND not previously loaded */}
           {tabLoading && !loadedTabs.current.has(activeTab) ? (
             <div className="p-6 space-y-6">
@@ -1099,39 +1159,14 @@ export default function SpacePage() {
           ) : null}
           {/* Only render active tab for better performance - lazy loading handles caching */}
           {activeTab === 'overview' && (
-            <>
-              {showTemplatesView ? (
-                <div className="flex-1 min-h-0">
-                  <TemplatesManager
-                    spaceSlug={space.slug}
-                    standalone={true}
-                    onBack={() => setShowTemplatesView(false)}
-                    onSuccess={() => {
-                      setShowTemplatesView(false);
-                      // Optionally redirect to board after template creation
-                    }}
-                  />
-                </div>
-              ) : showWorkflowsView ? (
-                <div className="flex-1 min-h-0">
-                  <WorkflowsManager
-                    spaceId={space.id}
-                    spaceSlug={space.slug}
-                    standalone={true}
-                    onBack={() => setShowWorkflowsView(false)}
-                  />
-                </div>
-              ) : (
-                <SpaceOverviewContent
-                  space={space}
-                  boards={boards}
-                  onOpenCreateBoard={() => setCreateBoardOpen(true)}
-                  onOpenTemplates={() => setShowTemplatesView(true)}
-                  onOpenWorkflows={() => setShowWorkflowsView(true)}
-                  onNavigateToTab={navigateFromOverview}
-                />
-              )}
-            </>
+            <SpaceOverviewContent
+              space={space}
+              boards={boards}
+              onOpenCreateBoard={() => setCreateBoardOpen(true)}
+              onOpenTemplates={() => setTemplatesOpen(true)}
+              onOpenWorkflows={() => setWorkflowsOpen(true)}
+              onNavigateToTab={navigateFromOverview}
+            />
           )}
 
           {activeTab === 'tasks' && (
@@ -1181,6 +1216,21 @@ export default function SpacePage() {
                 </CardContent>
               </Card>
             </div>
+          )}
+
+          {activeTab === 'documents' && (
+            <Suspense fallback={
+              <div className="space-y-4 p-6">
+                <Skeleton className="h-10 w-48" />
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {[1, 2, 3, 4, 5, 6].map((i) => (
+                    <CardSkeleton key={i} />
+                  ))}
+                </div>
+              </div>
+            }>
+              <DocumentsPage />
+            </Suspense>
           )}
 
           {activeTab === 'calendar' && (
@@ -1324,8 +1374,8 @@ export default function SpacePage() {
           />
         )}
 
-        {/* Templates Manager - Only show as dialog if not in standalone mode */}
-        {space && !showTemplatesView && (
+        {/* Templates Manager */}
+        {space && (
           <TemplatesManager
             spaceSlug={space.slug}
             open={templatesOpen}

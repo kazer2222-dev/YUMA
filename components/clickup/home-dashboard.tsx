@@ -181,9 +181,9 @@ export function ClickUpHomeDashboard({
           <span className="px-2 py-0.5 rounded bg-[#8B5CF620] text-[#8B5CF6]">Powered by AI</span>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {aiInsights.map((insight, index) => (
+          {aiInsights.map((insight) => (
             <div
-              key={index}
+              key={insight.title}
               className="p-4 rounded-lg border border-[var(--border)] hover:bg-[var(--muted)]/50 transition-colors cursor-pointer"
             >
               <div className="flex items-start gap-3">

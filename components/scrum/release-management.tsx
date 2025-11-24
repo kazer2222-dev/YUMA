@@ -538,16 +538,6 @@ export function ReleaseManagement({ boardId, spaceSlug }: ReleaseManagementProps
   // Check if the active drag is from a release (external drag)
   const isExternalDrag = activeTaskId && !allTasks.filter(t => !t.releaseVersion).some(t => t.id === activeTaskId);
 
-  if (loading) {
-    return (
-      <div className="space-y-4">
-        {[1, 2, 3].map((i) => (
-          <Skeleton key={i} className="h-32 w-full" />
-        ))}
-      </div>
-    );
-  }
-
   const statusMeta = useMemo(() => {
     return statuses.reduce(
       (acc: Record<string, { name: string; color?: string }>, status: any) => {
@@ -565,6 +555,16 @@ export function ReleaseManagement({ boardId, spaceSlug }: ReleaseManagementProps
     }
     return `${selectedStatusFilters.length} statuses`;
   }, [selectedStatusFilters, statuses]);
+
+  if (loading) {
+    return (
+      <div className="space-y-4">
+        {[1, 2, 3].map((i) => (
+          <Skeleton key={i} className="h-32 w-full" />
+        ))}
+      </div>
+    );
+  }
 
   const accent = activeTab === 'pending'
     ? { from: '#EC4899', to: '#DB2777' }

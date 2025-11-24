@@ -38,6 +38,13 @@ model User {
   eventParticipants EventParticipant[]
   createdEvents     Event[]            @relation("EventCreator")
 
+  // Documents
+  createdDocuments     Document[]            @relation("DocumentCreator")
+  documentAccess       DocumentAccess[]
+  documentComments     DocumentComment[]
+  documentActivities   DocumentActivity[]
+  documentShareLinks   DocumentShareLink[]
+
   // Admin
   adminRole AdminRole?
 
@@ -115,6 +122,9 @@ model Space {
   // Templates
   templates Template[]
   Workflow  Workflow[]
+
+  // Documents
+  documents Document[]
 
   @@map("spaces")
 }
@@ -242,6 +252,9 @@ model Task {
 
   // Events
   events Event[]
+
+  // Documents
+  linkedDocuments DocumentLink[]
 
   @@unique([spaceId, number])
   @@map("tasks")
@@ -591,4 +604,198 @@ model WorkflowAudit {
 
   @@index([workflowId, version])
   @@map("workflow_audit")
+}
+
+// Document Management Models
+
+model Document {
+  id          String   @id @default(cuid())
+  spaceId     String
+  title       String
+  description String?
+  summary     String? // Brief summary of the document
+  type        String   @default("RICH_TEXT") // RICH_TEXT, PDF, DOCX, XLSX, PPTX, TXT, IMAGE, ARCHIVE
+  status      String   @default("DRAFT") // DRAFT, PUBLISHED, ARCHIVED
+  content     String? // For rich text documents (HTML/Markdown)
+  fileUrl     String? // For uploaded files (PDF, DOCX, etc.)
+  fileSize    Int? // File size in bytes
+  mimeType    String?
+  tags        String // JSON string for SQLite
+  metadata    String? // JSON string for extracted metadata
+  structure   String? // JSON string for TOC/outline
+  authorId    String
+  projectId   String? // Optional project reference
+  order       Int      @default(0) // For manual ordering
+  isPinned    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime? // Soft delete
+
+  // Relationships
+  space           Space                @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  author          User                 @relation("DocumentCreator", fields: [authorId], references: [id], onDelete: Cascade)
+  versions        DocumentVersion[]
+  access          DocumentAccess[]
+  comments        DocumentComment[]
+  activities      DocumentActivity[]
+  shareLinks      DocumentShareLink[]
+  linkedTasks     DocumentLink[]
+  vectors         DocumentVector[]
+  redactions      DocumentRedaction[]
+
+  @@index([spaceId])
+  @@index([authorId])
+  @@index([status])
+  @@index([type])
+  @@index([createdAt])
+  @@map("documents")
+}
+
+model DocumentVersion {
+  id          String   @id @default(cuid())
+  documentId  String
+  version     Int
+  content     String? // For rich text
+  fileUrl     String? // For file-based documents
+  fileSize    Int?
+  changeNote  String? // User-provided change note
+  changeSummary String? // AI-generated change summary
+  label       String? // Version label (e.g., "draft", "approved")
+  createdBy   String
+  createdAt   DateTime @default(now())
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, version])
+  @@index([documentId])
+  @@map("document_versions")
+}
+
+model DocumentAccess {
+  id         String   @id @default(cuid())
+  documentId String
+  userId     String?
+  role       String   @default("VIEW") // OWNER, ADMIN, EDIT, COMMENT, VIEW, RESTRICTED
+  grantedBy  String
+  expiresAt  DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  user     User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, userId])
+  @@index([documentId])
+  @@index([userId])
+  @@map("document_access")
+}
+
+model DocumentComment {
+  id          String   @id @default(cuid())
+  documentId  String
+  userId      String
+  content     String
+  parentId    String? // For threaded comments
+  resolved    Boolean  @default(false)
+  resolvedBy  String?
+  resolvedAt  DateTime?
+  position    String? // JSON string for inline comment position
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  document Document           @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  user     User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent   DocumentComment?   @relation("CommentThread", fields: [parentId], references: [id], onDelete: Cascade)
+  replies  DocumentComment[]  @relation("CommentThread")
+
+  @@index([documentId])
+  @@index([userId])
+  @@index([parentId])
+  @@map("document_comments")
+}
+
+model DocumentActivity {
+  id         String   @id @default(cuid())
+  documentId String
+  userId     String
+  type       String // CREATED, UPDATED, VIEWED, SHARED, COMMENTED, VERSION_CREATED, ACCESS_CHANGED, etc.
+  data       String? // JSON string for SQLite
+  createdAt  DateTime @default(now())
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
+  @@index([userId])
+  @@index([type])
+  @@index([createdAt])
+  @@map("document_activities")
+}
+
+model DocumentShareLink {
+  id          String   @id @default(cuid())
+  documentId  String
+  token       String   @unique
+  createdBy   String
+  accessLevel String   @default("VIEW") // VIEW, COMMENT, EDIT
+  password    String? // Hashed password
+  expiresAt   DateTime?
+  maxViews    Int?
+  viewCount   Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
+  @@index([token])
+  @@map("document_share_links")
+}
+
+model DocumentLink {
+  id         String   @id @default(cuid())
+  documentId String
+  taskId     String
+  createdAt  DateTime @default(now())
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  task     Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, taskId])
+  @@index([documentId])
+  @@index([taskId])
+  @@map("document_links")
+}
+
+model DocumentVector {
+  id         String   @id @default(cuid())
+  documentId String
+  chunkIndex Int      @default(0)
+  content    String // Text chunk
+  vector     String // JSON string for embedding vector
+  metadata   String? // JSON string for chunk metadata (section, page, etc.)
+  createdAt  DateTime @default(now())
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
+  @@index([chunkIndex])
+  @@map("document_vectors")
+}
+
+model DocumentRedaction {
+  id         String   @id @default(cuid())
+  documentId String
+  field      String? // Field name if field-level redaction
+  position   String // JSON string for position/range
+  reason     String? // Reason for redaction
+  redactedBy String
+  redactedAt DateTime @default(now())
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
+  @@map("document_redactions")
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef, useMemo, Fragment } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -10,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { AITextEditor } from '@/components/ai/ai-text-editor';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Settings, Plus, Loader2, Calendar as CalendarIcon, Save, X, Trash, Edit2, GitBranch, AlertCircle, Search, Filter, SlidersHorizontal, Sparkles, ChevronDown, ChevronRight, Flag, GripVertical, MoreHorizontal } from 'lucide-react';
+import { Settings, Plus, Loader2, Calendar as CalendarIcon, Save, X, Trash, Edit2, GitBranch, AlertCircle, Search, Filter, SlidersHorizontal, Sparkles, ChevronDown, ChevronRight } from 'lucide-react';
 import {
   DndContext,
   DragEndEvent,
@@ -25,13 +26,7 @@ import {
   useDroppable,
   rectIntersection,
 } from '@dnd-kit/core';
-import {
-  SortableContext,
-  verticalListSortingStrategy,
-  useSortable,
-  arrayMove,
-} from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
+import { arrayMove } from '@dnd-kit/sortable';
 import { BoardConfiguration } from './board-configuration';
 import { CreateTaskDialogUnified } from '@/components/tasks/create-task-dialog-unified';
 import { useServerSentEvents } from '@/lib/realtime';
@@ -71,56 +66,13 @@ import { TemplateFieldRenderer } from '@/components/templates/template-field-ren
 import { TemplateField, Template } from '@/components/templates/template-types';
 import type { WorkflowDetail } from '@/lib/workflows/types';
 import { useToastHelpers } from '@/components/toast';
+import { useBoardData } from '@/lib/hooks/use-board-data';
+import { Task, Status } from './board-types';
+import { BoardColumn } from './board-column';
+import { formatDateDDMMYYYY, getTaskPriorityClasses } from './utils';
+import { useBoardFilters } from './hooks/use-board-filters';
 
 const MIN_AI_TRANSITION_CONFIDENCE = 0.6;
-
-interface Task {
-  id: string;
-  number: number;
-  summary: string;
-  description?: string;
-  priority: string;
-  tags: string[];
-  dueDate?: string;
-  estimate?: string;
-  createdAt: string;
-  updatedAt: string;
-  sprintId?: string | null;
-  assignee?: {
-    id: string;
-    name?: string;
-    email: string;
-    avatar?: string;
-  };
-  workflowId?: string | null;
-  workflowStatusId?: string | null;
-  workflowStatus?: {
-    id: string;
-    key: string;
-    name: string;
-    category: string;
-    color?: string | null;
-    statusRefId?: string | null;
-  } | null;
-  status: {
-    id: string;
-    name: string;
-    key: string;
-    color?: string;
-  };
-}
-
-interface Status {
-  id: string;
-  name: string;
-  key: string;
-  color?: string;
-  order: number;
-  isStart: boolean;
-  isDone: boolean;
-  wipLimit?: number;
-  hidden?: boolean;
-}
 
 interface BoardViewProps {
   boardId: string;
@@ -128,15 +80,6 @@ interface BoardViewProps {
   sprintFilter?: string;
   hideBacklog?: boolean;
   hideHeader?: boolean;
-}
-
-// Helper function to format date as DD/MM/YYYY
-function formatDateDDMMYYYY(dateString: string): string {
-  const date = new Date(dateString);
-  const day = date.getDate().toString().padStart(2, '0');
-  const month = (date.getMonth() + 1).toString().padStart(2, '0');
-  const year = date.getFullYear();
-  return `${day}/${month}/${year}`;
 }
 
 // Helper function to format priority for display
@@ -157,8 +100,6 @@ export function BoardView({ boardId, spaceSlug, sprintFilter, hideBacklog = fals
   const [spaceId, setSpaceId] = useState<string | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [statuses, setStatuses] = useState<Status[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const [configOpen, setConfigOpen] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [isDropping, setIsDropping] = useState(false);
@@ -192,23 +133,6 @@ export function BoardView({ boardId, spaceSlug, sprintFilter, hideBacklog = fals
   const [aiTransitionLoading, setAiTransitionLoading] = useState(false);
   const [aiTransitionError, setAiTransitionError] = useState('');
   const [dropPosition, setDropPosition] = useState<{ columnId: string; index: number } | null>(null);
-  const [searchInput, setSearchInput] = useState('');
-  const [activeSearchQuery, setActiveSearchQuery] = useState('');
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [generatingText, setGeneratingText] = useState('AI is analyzing');
-  const [groupBy, setGroupBy] = useState<'none' | 'assignee' | 'template' | 'priority'>('none');
-  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
-  const [filters, setFilters] = useState<{
-    priorities: string[];
-    tags: string[];
-    showOverdue: boolean;
-  }>({
-    priorities: [],
-    tags: [],
-    showOverdue: false,
-  });
-  const [filterMenuOpen, setFilterMenuOpen] = useState(false);
-  const [groupMenuOpen, setGroupMenuOpen] = useState(false);
   const { error: showToastError } = useToastHelpers();
   const pendingUpdatesRef = useRef<Set<string>>(new Set());
   const optimisticTasksRef = useRef<Map<string, Task>>(new Map());
@@ -225,6 +149,46 @@ export function BoardView({ boardId, spaceSlug, sprintFilter, hideBacklog = fals
   const dropPositionRef = useRef<{ columnId: string; index: number } | null>(null);
   const dragOverUpdateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activeDragTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const queryClient = useQueryClient();
+  const {
+    searchInput,
+    setSearchInput,
+    activeSearchQuery,
+    setActiveSearchQuery,
+    isGenerating,
+    generatingText,
+    groupBy,
+    setGroupBy,
+    collapsedGroups,
+    setCollapsedGroups,
+    filters,
+    setFilters,
+    filterMenuOpen,
+    setFilterMenuOpen,
+    groupMenuOpen,
+    setGroupMenuOpen,
+    handleSearch,
+    handleAIFilter,
+    activeFiltersCount,
+  } = useBoardFilters();
+
+  const {
+    data: boardData,
+    isLoading: boardDataLoading,
+    error: boardDataError,
+    refetch: refetchBoardData,
+  } = useBoardData({
+    boardId,
+    spaceSlug,
+    enabled: Boolean(boardId && spaceSlug),
+  });
+
+  const initialBoardDataLoading = boardDataLoading && !boardData;
+  const boardDataErrorMessage = boardDataError
+    ? boardDataError instanceof Error
+      ? boardDataError.message
+      : String(boardDataError)
+    : '';
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -263,6 +227,30 @@ export function BoardView({ boardId, spaceSlug, sprintFilter, hideBacklog = fals
     },
     [spaceId],
   );
+
+  useEffect(() => {
+    if (!boardData) {
+      // Only reset if we're actually loading (not just waiting for cached data)
+      // This prevents clearing data when component remounts and data is loading
+      if (boardDataLoading) {
+        setStatuses([]);
+        setTasks([]);
+        setSprints([]);
+      }
+      return;
+    }
+
+    // Always update state when boardData is available
+    setBoardName(boardData.board?.name || 'Board');
+    setSpaceTicker(boardData.space?.ticker || '');
+    setSpaceId(boardData.space?.id || null);
+    setStatuses(boardData.statuses || []);
+    setTasks(boardData.tasks || []);
+    setSprints(boardData.sprints || []);
+
+    const activeSprint = (boardData.sprints || []).find((s: any) => s.state === 'ACTIVE');
+    setSelectedSprintId(activeSprint?.id || (boardData.sprints?.[0]?.id ?? null));
+  }, [boardData, boardDataLoading]);
 
   const resolveWorkflowTransition = useCallback(
     async (task: Task, targetStatus: Status) => {
@@ -321,102 +309,40 @@ export function BoardView({ boardId, spaceSlug, sprintFilter, hideBacklog = fals
     [getWorkflowDetailCached, showToastError],
   );
 
-  const fetchData = useCallback(async (force = false) => {
-    // NEVER fetch during active drag - causes infinite loops with dnd-kit measureRects
-    if (isDraggingRef.current) {
-      return;
-    }
-    
-    // BLOCK all fetches during drag/update operations unless force is true
-    if (!force && (isUpdatingRef.current || ssePausedRef.current || pendingUpdatesRef.current.size > 0)) {
-      return;
-    }
-    
-    // Prevent concurrent fetches
-    if (isFetchingRef.current) {
-      return;
-    }
-    
-    isFetchingRef.current = true;
-
-    try {
-      const [tasksRes, statusesRes, sprintsRes, boardRes, spaceRes] = await Promise.all([
-        fetch(`/api/spaces/${spaceSlug}/tasks`, { credentials: 'include' }),
-        fetch(`/api/boards/${boardId}/statuses`, { credentials: 'include' }),
-        fetch(`/api/boards/${boardId}/sprints`, { credentials: 'include' }),
-        fetch(`/api/spaces/${spaceSlug}/boards/${boardId}`, { credentials: 'include' }),
-        fetch(`/api/spaces/${spaceSlug}`, { credentials: 'include' })
-      ]);
-
-      const [tasksData, statusesData, sprintsData, boardData, spaceData] = await Promise.all([
-        tasksRes.json(),
-        statusesRes.json(),
-        sprintsRes.json(),
-        boardRes.json(),
-        spaceRes.json()
-      ]);
-
-      if (boardData.success) {
-        setBoardName(boardData.board.name || 'Board');
+  const fetchData = useCallback(
+    async (force = false) => {
+      if (!boardId || !spaceSlug) {
+        return;
       }
 
-      if (spaceData.success) {
-        setSpaceTicker(spaceData.space.ticker || '');
-        setSpaceId(spaceData.space.id || null);
+      if (isDraggingRef.current) {
+        return;
       }
-
-      if (statusesData.success) {
-        setStatuses(statusesData.statuses || []);
+      
+      if (!force && (isUpdatingRef.current || ssePausedRef.current || pendingUpdatesRef.current.size > 0)) {
+        return;
       }
+      
+      if (isFetchingRef.current) {
+        return;
+      }
+      
+      isFetchingRef.current = true;
 
-      if (tasksData.success) {
-        const fetchedTasks = tasksData.tasks || [];
-        
-        // NEVER update tasks during active drag operations - this causes infinite loops
-        if (isDraggingRef.current) {
-          return;
-        }
-        
-        // Only update if we're not in the middle of an update
-        if (!isUpdatingRef.current && !ssePausedRef.current && pendingUpdatesRef.current.size === 0) {
-          setTasks(fetchedTasks);
+      try {
+        if (force) {
+          await queryClient.invalidateQueries({ queryKey: ['board-data', boardId, spaceSlug] });
         } else {
-          // Merge fetched tasks with optimistic updates - ALWAYS preserve ALL optimistic state
-          console.log('[FetchData] Merging with optimistic updates. Pending:', Array.from(pendingUpdatesRef.current));
-          setTasks(prevTasks => {
-            const newTasks = [...fetchedTasks];
-            
-            // For tasks that are pending updates, ALWAYS use the optimistic version from ref
-            // This ensures multiple pending updates don't overwrite each other
-            optimisticTasksRef.current.forEach((optimisticTask, taskId) => {
-              const index = newTasks.findIndex(t => t.id === taskId);
-              if (index >= 0) {
-                // Replace with optimistic version from ref
-                console.log('[FetchData] Preserving optimistic task:', taskId, 'Status:', optimisticTask.status?.name);
-                newTasks[index] = optimisticTask;
-              } else {
-                // Add optimistic task if not in fetched results
-                console.log('[FetchData] Adding optimistic task not in fetched results:', taskId);
-                newTasks.push(optimisticTask);
-              }
-            });
-            
-            return newTasks;
-          });
+          await refetchBoardData();
         }
+      } catch (err) {
+        console.error('Failed to refresh board data', err);
+      } finally {
+        isFetchingRef.current = false;
       }
-      if (sprintsData?.success) {
-        setSprints(sprintsData.sprints || []);
-        const active = (sprintsData.sprints || []).find((s: any) => s.state === 'ACTIVE');
-        setSelectedSprintId(active?.id || (sprintsData.sprints?.[0]?.id ?? null));
-      }
-    } catch (err) {
-      setError('Failed to fetch data');
-    } finally {
-      setLoading(false);
-      isFetchingRef.current = false;
-    }
-  }, [spaceSlug, boardId]);
+    },
+    [boardId, spaceSlug, queryClient, refetchBoardData],
+  );
 
   const handleTaskCreated = useCallback((createdTask: Task | null | undefined) => {
     if (createdTask) {
@@ -584,16 +510,17 @@ export function BoardView({ boardId, spaceSlug, sprintFilter, hideBacklog = fals
 
   useEffect(() => {
     // Reset board-scoped state when switching boards to avoid visual leaks
-    setLoading(true);
-    setStatuses([]);
-    setSprints([]);
-    fetchData();
-  }, [fetchData, boardId]);
+    // Only reset if boardId actually changed (not on initial mount)
+    setActiveTask(null);
+    setActiveTaskColumnId(null);
+    // Don't reset statuses/tasks/sprints here - let boardData effect handle it
+    // This prevents clearing data when component remounts with same boardId
+  }, [boardId]);
 
   // Handle tasks with statuses from other boards
   useEffect(() => {
     // Only migrate if we have both tasks and statuses loaded
-    if (tasks.length === 0 || statuses.length === 0 || loading || migratingRef.current) {
+    if (tasks.length === 0 || statuses.length === 0 || initialBoardDataLoading || migratingRef.current) {
       return;
     }
 
@@ -625,7 +552,7 @@ export function BoardView({ boardId, spaceSlug, sprintFilter, hideBacklog = fals
         });
       }
     }
-  }, [tasks, statuses, spaceSlug, loading, fetchData]);
+  }, [tasks, statuses, spaceSlug, initialBoardDataLoading, fetchData]);
 
   // Sync column heights - make all columns equal to the tallest
   const syncColumnHeights = useCallback(() => {
@@ -2026,85 +1953,6 @@ export function BoardView({ boardId, spaceSlug, sprintFilter, hideBacklog = fals
     return filterTasks(statusTasks);
   }, [filterTasks]);
 
-  const handleSearch = useCallback(() => {
-    setActiveSearchQuery(searchInput);
-  }, [searchInput]);
-
-  const handleAIFilter = useCallback(async () => {
-    if (!searchInput.trim()) return;
-    
-    setIsGenerating(true);
-    setGeneratingText('AI is analyzing');
-    
-    try {
-      const response = await fetch('/api/ai/parse-filter', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ 
-          query: searchInput, 
-          fields: [
-            { key: 'summary', label: 'Summary' },
-            { key: 'status', label: 'Status' },
-            { key: 'assignee', label: 'Assignee' },
-            { key: 'priority', label: 'Priority' },
-            { key: 'dueDate', label: 'Due Date' },
-            { key: 'tags', label: 'Tags' },
-          ]
-        }),
-      });
-
-      const data = await response.json();
-      if (data.success && data.filters) {
-        // Apply AI filters
-        const newFilters = { ...filters };
-        data.filters.forEach((filter: any) => {
-          if (filter.field === 'priority') {
-            const priorityMap: Record<string, string> = {
-              'Highest': 'HIGHEST',
-              'High': 'HIGH',
-              'Normal': 'NORMAL',
-              'Low': 'LOW',
-              'Lowest': 'LOWEST',
-            };
-            const mappedPriority = priorityMap[filter.value] || filter.value.toUpperCase();
-            if (!newFilters.priorities.includes(mappedPriority)) {
-              newFilters.priorities.push(mappedPriority);
-            }
-          } else if (filter.field === 'tags') {
-            if (!newFilters.tags.includes(filter.value)) {
-              newFilters.tags.push(filter.value);
-            }
-          }
-        });
-        setFilters(newFilters);
-        setActiveSearchQuery('');
-        setSearchInput('');
-      } else {
-        // Fallback to regular search
-        setActiveSearchQuery(searchInput);
-      }
-    } catch (err) {
-      console.error('AI filter error:', err);
-      // Fallback to regular search
-      setActiveSearchQuery(searchInput);
-    } finally {
-      setTimeout(() => setIsGenerating(false), 1000);
-    }
-  }, [searchInput, filters]);
-
-  useEffect(() => {
-    if (!isGenerating) return;
-    const texts = ['AI is analyzing', 'AI is analyzing.', 'AI is analyzing..', 'AI is analyzing...'];
-    let index = 0;
-    const interval = setInterval(() => {
-      index = (index + 1) % texts.length;
-      setGeneratingText(texts[index]);
-    }, 400);
-    return () => clearInterval(interval);
-  }, [isGenerating]);
-
-  const activeFiltersCount = filters.priorities.length + filters.tags.length + (filters.showOverdue ? 1 : 0);
   const swimlanes = getSwimlanes();
 
   // Get all unique tags from tasks
@@ -2118,7 +1966,7 @@ export function BoardView({ boardId, spaceSlug, sprintFilter, hideBacklog = fals
     return Array.from(tagSet).sort();
   }, [tasks]);
 
-  if (loading) {
+  if (initialBoardDataLoading) {
     return (
       <div className="flex items-center justify-center p-8">
         <Loader2 className="h-8 w-8 animate-spin" />
@@ -2126,10 +1974,10 @@ export function BoardView({ boardId, spaceSlug, sprintFilter, hideBacklog = fals
     );
   }
 
-  if (error) {
+  if (boardDataErrorMessage) {
     return (
       <div className="p-8">
-        <div className="text-red-600">{error}</div>
+        <div className="text-red-600">{boardDataErrorMessage}</div>
       </div>
     );
   }
@@ -2137,7 +1985,7 @@ export function BoardView({ boardId, spaceSlug, sprintFilter, hideBacklog = fals
   return (
     <div className="flex flex-col h-full bg-gradient-to-br from-[var(--background)] via-[var(--background)] to-[var(--muted)]/30 relative">
       {/* Search and Filter Bar */}
-      <div className="px-6 py-4 border-b border-[var(--border)] bg-[var(--card)]/80 backdrop-blur-sm sticky top-0 z-20">
+      <div className="px-3 sm:px-6 py-3 border-b border-[var(--border)] bg-[var(--card)]/95 backdrop-blur-sm sticky top-0 z-30">
           <div className="flex items-center gap-2">
           <div className="flex-1 relative">
             <Input
@@ -2420,7 +2268,7 @@ export function BoardView({ boardId, spaceSlug, sprintFilter, hideBacklog = fals
           <div className="relative z-10">
             {swimlanes ? (
               // Swimlane View (JIRA-style with collapsible groups)
-              <div className="flex flex-col p-6">
+              <div className="flex flex-col p-3 sm:p-6">
                 {swimlanes.map((swimlane, swimlaneIndex) => {
                   const isCollapsed = collapsedGroups.has(swimlane);
                   const totalTasksInGroup = statuses
@@ -2471,30 +2319,36 @@ export function BoardView({ boardId, spaceSlug, sprintFilter, hideBacklog = fals
 
                       {/* Group Content - Columns */}
                       {!isCollapsed && (
-                        <div className="flex gap-4 items-start overflow-x-auto pb-4">
+                        <div className="flex gap-3 sm:gap-4 items-start overflow-x-auto pb-2">
                           {statuses
                             .filter(status => !status.hidden)
                             .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
                             .map((status, index) => {
                               const tasks = getTasksForSwimlaneAndColumn(swimlane, status.id);
                               return (
-                    <StatusColumn
-                      key={`${swimlane}-${status.id}`}
-                      status={status}
-                      tasks={tasks}
-                      isDragging={isDragging}
-                      isDropping={isDropping}
-                      onTaskClick={handleTaskClick}
-                      onCreateTask={(statusId) => setCreateTaskStatusId(statusId)}
-                      onEditStatus={handleEditStatus}
-                      onColumnRef={handleColumnRef}
-                      dragOverStatusId={dragOverStatusId}
-                      dragOverTaskId={dragOverTaskId}
-                      dropPosition={dropPosition?.columnId === status.id ? dropPosition.index : null}
-                      spaceTicker={spaceTicker}
-                      activeTask={activeTask}
-                      activeTaskColumnId={activeTaskColumnId}
-                    />
+                                <div
+                                  key={`${swimlane}-${status.id}`}
+                                  style={{
+                                    animation: `fadeIn 0.4s ease-out ${index * 0.1}s both`
+                                  }}
+                                >
+                                  <BoardColumn
+                                    status={status}
+                                    tasks={tasks}
+                                    isDragging={isDragging}
+                                    isDropping={isDropping}
+                                    onTaskClick={handleTaskClick}
+                                    onCreateTask={(statusId) => setCreateTaskStatusId(statusId)}
+                                    onEditStatus={handleEditStatus}
+                                    onColumnRef={handleColumnRef}
+                                    dragOverStatusId={dragOverStatusId}
+                                    dragOverTaskId={dragOverTaskId}
+                                    dropPosition={dropPosition?.columnId === status.id ? dropPosition.index : null}
+                                    spaceTicker={spaceTicker}
+                                    activeTask={activeTask}
+                                    activeTaskColumnId={activeTaskColumnId}
+                                  />
+                                </div>
                               );
                             })}
                         </div>
@@ -2505,28 +2359,34 @@ export function BoardView({ boardId, spaceSlug, sprintFilter, hideBacklog = fals
               </div>
             ) : (
               // Regular Board View (no grouping)
-              <div className="flex gap-4 overflow-x-auto overflow-y-auto p-6 min-h-[calc(100vh-180px)]">
+              <div className="flex gap-3 sm:gap-4 items-start overflow-x-auto p-3 sm:p-6 pb-2">
           {statuses
             .filter(status => !status.hidden)
             .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
-            .map((status) => (
-              <StatusColumn
+            .map((status, index) => (
+              <div
                 key={status.id}
-                status={status}
-                      tasks={filteredTasksForStatus(status.id)}
-                isDragging={isDragging}
-                      isDropping={isDropping}
-                onTaskClick={handleTaskClick}
-                onCreateTask={(statusId) => setCreateTaskStatusId(statusId)}
-                onEditStatus={handleEditStatus}
-                onColumnRef={handleColumnRef}
-                dragOverStatusId={dragOverStatusId}
-                dragOverTaskId={dragOverTaskId}
-                dropPosition={dropPosition?.columnId === status.id ? dropPosition.index : null}
-                spaceTicker={spaceTicker}
-                      activeTask={activeTask}
-                      activeTaskColumnId={activeTaskColumnId}
-              />
+                style={{
+                  animation: `fadeIn 0.4s ease-out ${index * 0.1}s both`
+                }}
+              >
+                <BoardColumn
+                  status={status}
+                  tasks={filteredTasksForStatus(status.id)}
+                  isDragging={isDragging}
+                  isDropping={isDropping}
+                  onTaskClick={handleTaskClick}
+                  onCreateTask={(statusId) => setCreateTaskStatusId(statusId)}
+                  onEditStatus={handleEditStatus}
+                  onColumnRef={handleColumnRef}
+                  dragOverStatusId={dragOverStatusId}
+                  dragOverTaskId={dragOverTaskId}
+                  dropPosition={dropPosition?.columnId === status.id ? dropPosition.index : null}
+                  spaceTicker={spaceTicker}
+                  activeTask={activeTask}
+                  activeTaskColumnId={activeTaskColumnId}
+                />
+              </div>
             ))}
         </div>
             )}
@@ -3109,697 +2969,6 @@ function BacklogColumn({ sprints, selectedSprintId, setSelectedSprintId, boardId
   );
 }
 
-interface StatusColumnProps {
-  status: Status;
-  tasks: Task[];
-  isDragging: boolean;
-  isDropping?: boolean;
-  onTaskClick?: (taskId: string, isTaskNumberClick?: boolean) => void;
-  onCreateTask?: (statusId: string) => void;
-  onEditStatus?: (status: Status) => void;
-  onColumnRef?: (id: string, element: HTMLElement | null) => void;
-  dragOverStatusId?: string | null;
-  dragOverTaskId?: string | null;
-  dropPosition?: number | null;
-  spaceTicker?: string;
-  activeTask?: Task | null;
-  activeTaskColumnId?: string | null;
-}
-
-function StatusColumn({ status, tasks, isDragging, isDropping = false, onTaskClick, onCreateTask, onEditStatus, onColumnRef, dragOverStatusId, dragOverTaskId, dropPosition, spaceTicker, activeTask, activeTaskColumnId }: StatusColumnProps) {
-  const { setNodeRef, isOver } = useDroppable({
-    id: status.id,
-    data: {
-      type: 'status',
-      statusId: status.id,
-    },
-  });
-
-  useEffect(() => {
-    return () => {
-      if (onColumnRef) {
-        onColumnRef(status.id, null);
-      }
-    };
-  }, [status.id, onColumnRef]);
-
-  const getColumnColor = (statusName: string) => {
-    const name = statusName.toLowerCase();
-    if (name.includes('new')) return '#7D8089';
-    if (name.includes('backlog')) return '#F59E0B';
-    if (name.includes('to do') || name.includes('todo')) return '#4353FF';
-    if (name.includes('in progress') || name.includes('progress')) return '#8B5CF6';
-    if (name.includes('review')) return '#10B981';
-    return status.color || '#7D8089';
-  };
-
-  const columnColor = getColumnColor(status.name);
-  
-  // Show drop indicator when drag enters column boundary (using isOver from useDroppable)
-  // Show visual feedback whenever dragging over the column
-  // Prioritize isOver from useDroppable for immediate feedback when crossing column border
-  // This works in both directions (left-to-right and right-to-left) because isOver detects
-  // when the drag enters the column's bounding box from any direction
-  const isDraggingFromDifferentColumn = activeTask && activeTaskColumnId && activeTaskColumnId !== status.id;
-  // Use isOver first (immediate, works in both directions) and dragOverStatusId as fallback
-  // isOver is the most reliable for border detection as it uses rectIntersection internally
-  const isDragOverColumn = isOver || dragOverStatusId === status.id;
-  const showColumnDropIndicator = isDragOverColumn && isDraggingFromDifferentColumn;
-  // Show hover effect immediately when isOver is true (border crossed), or when dragOverStatusId matches
-  // This ensures the effect shows as soon as the drag crosses the column border in any direction
-  const showColumnHover = (isOver || dragOverStatusId === status.id) && activeTask;
-
-  return (
-    <div
-      className="flex-shrink-0 w-80 group"
-    >
-    <div
-      ref={(node) => {
-          // Set both droppable ref and column ref on the same element
-          // The custom collision detection will prioritize this column over tasks
-        if (setNodeRef) setNodeRef(node);
-          if (node && onColumnRef) {
-            onColumnRef(status.id, node);
-          }
-        }}
-        className={`flex flex-col bg-gradient-to-b from-[var(--card)] to-[var(--card)]/80 dark:from-[var(--card)] dark:to-[var(--background)] rounded-xl border backdrop-blur-sm h-full relative z-10 ${
-          showColumnHover 
-            ? `border-2 shadow-2xl transition-all duration-150` 
-            : `border border-[var(--border)] shadow-lg hover:shadow-xl transition-all duration-300`
-        }`}
-        style={showColumnHover ? {
-          borderColor: columnColor,
-          boxShadow: `0 0 20px ${columnColor}40, 0 8px 32px rgba(0,0,0,0.12)`,
-          backgroundColor: `${columnColor}05`
-        } : {}}
-      >
-        {/* Column Header with Gradient Bar */}
-        <div className="relative">
-          <div
-            className="absolute top-0 left-0 right-0 h-1 rounded-t-xl"
-        style={{ 
-              background: `linear-gradient(90deg, ${columnColor}, ${columnColor}80)`,
-              boxShadow: `0 0 10px ${columnColor}40`
-        }}
-          />
-          <div className="flex items-center justify-between px-4 py-3.5 border-b border-[var(--border)] mt-1">
-            <div className="flex items-center gap-2.5">
-        <div 
-                className="w-2.5 h-2.5 rounded-full animate-pulse"
-          style={{ 
-                  backgroundColor: columnColor,
-                  boxShadow: `0 0 8px ${columnColor}80`
-                }}
-              />
-              <span className="text-[var(--foreground)]">{status.name}</span>
-              <span
-                className="text-xs px-2 py-1 rounded-full transition-all duration-200"
-                style={{
-                  backgroundColor: `${columnColor}15`,
-                  color: columnColor,
-                  border: `1px solid ${columnColor}30`
-                }}
-              >
-                {tasks.length}
-                {status.wipLimit && ` / ${status.wipLimit}`}
-              </span>
-            </div>
-            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-              {onCreateTask && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 hover:bg-[var(--muted)] rounded-lg transition-all hover:scale-110"
-                  onClick={() => onCreateTask(status.id)}
-                >
-                  <Plus className="w-4 h-4" />
-                </Button>
-              )}
-              {onEditStatus && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 hover:bg-[var(--muted)] rounded-lg transition-all hover:scale-110"
-                  onClick={() => onEditStatus(status)}
-                >
-                  <MoreHorizontal className="w-4 h-4" />
-                </Button>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Tasks Container */}
-        <div 
-          className="flex-1 p-3 space-y-3 min-h-[200px] relative z-20"
-        >
-          {/* Column Drop Indicator - appears immediately when crossing column border */}
-          {showColumnDropIndicator && (
-            <div className="absolute inset-0 rounded-xl pointer-events-none z-10 animate-in fade-in duration-150">
-              <div
-                className="absolute inset-0 rounded-xl border-2 border-dashed"
-                style={{
-                  borderColor: columnColor,
-                  backgroundColor: `${columnColor}10`,
-                  animation: 'pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite'
-                }}
-              />
-            </div>
-          )}
-          
-          {/* Empty space droppable indicator - helps with detection when column is empty or dragging over empty area */}
-          {isDragging && tasks.length === 0 && (
-            <div className="absolute inset-0 pointer-events-none" />
-          )}
-          
-          <SortableContext items={tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
-            {tasks.length > 0 ? (
-              tasks.map((task, taskIndex) => {
-                // Calculate drop position indicators based on design pattern
-                // Show ghost placeholder when dragging from different column and hovering over this position
-                // dropPosition is the index where the task should be inserted (passed from parent)
-                const isDropPositionTop = dropPosition !== null && dropPosition === taskIndex;
-                const isDropPositionBottom = dropPosition !== null && dropPosition === taskIndex + 1;
-                
-                // Show ghost placeholder when dragging from different column
-                const showGhostPlaceholderTop = activeTask && activeTask.id !== task.id && 
-                  isDraggingFromDifferentColumn && 
-                  dragOverStatusId === status.id && 
-                  isDropPositionTop;
-                const showGhostPlaceholderBottom = activeTask && activeTask.id !== task.id && 
-                  isDraggingFromDifferentColumn && 
-                  dragOverStatusId === status.id && 
-                  isDropPositionBottom;
-                
-                // Show drop indicator line when hovering (but not showing ghost placeholder)
-                const showDropIndicatorTop = isDropPositionTop && !showGhostPlaceholderTop;
-                const showDropIndicatorBottom = isDropPositionBottom && !showGhostPlaceholderBottom;
-
-                return (
-                <Fragment key={`task-wrapper-${task.id}`}>
-                    {/* Ghost Placeholder - Top (matches design pattern) */}
-                    {showGhostPlaceholderTop && activeTask && (
-                      <div
-                        className="mb-3 opacity-40 scale-[0.98] pointer-events-none"
-                        style={{
-                          animation: 'fadeIn 0.2s ease-out',
-                          filter: 'blur(0.5px) grayscale(0.3)'
-                        }}
-                      >
-                        <div
-                          className="border-2 border-dashed rounded-xl overflow-hidden relative"
-                          style={{
-                            borderColor: columnColor,
-                            backgroundColor: `${columnColor}15`
-                          }}
-                        >
-                          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/5 z-10" />
-                          <TaskCard
-                            task={activeTask}
-                            isDragging={false}
-                            onTaskClick={undefined}
-                            isDragOver={false}
-                            showDropIndicatorAbove={false}
-                            spaceTicker={spaceTicker}
-                            columnColor={columnColor}
-                            isGhost={true}
-                          />
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Drop Indicator - Top (matches design pattern) */}
-                    {showDropIndicatorTop && (
-                      <div
-                        className="absolute -top-1 left-0 right-0 h-0.5 z-50 rounded-full pointer-events-none"
-                        style={{
-                          backgroundColor: columnColor,
-                          boxShadow: `0 0 8px ${columnColor}`
-                        }}
-                      />
-                    )}
-
-                    <div
-                      style={{
-                        animation: `slideIn 0.3s ease-out ${taskIndex * 0.05}s both`
-                      }}
-                      className="relative"
-                    >
-                      {/* Placeholder border when task is being dragged */}
-                      {activeTask?.id === task.id && (
-                        <div className="absolute inset-0 border-2 border-dashed border-[var(--border)] rounded-xl bg-[var(--muted)]/20 pointer-events-none" />
-                  )}
-                  <TaskCard 
-                    task={task} 
-                        isDragging={isDragging || isDropping}
-                    onTaskClick={onTaskClick}
-                        isDragOver={dragOverStatusId === status.id && dragOverTaskId === task.id}
-                        showDropIndicatorAbove={false}
-                        spaceTicker={spaceTicker}
-                        columnColor={columnColor}
-                        isActiveDragging={activeTask?.id === task.id}
-                        isDropping={isDropping && activeTask?.id === task.id}
-                      />
-                    </div>
-
-                    {/* Ghost Placeholder - Bottom (matches design pattern) */}
-                    {showGhostPlaceholderBottom && activeTask && (
-                      <div
-                        className="mt-3 opacity-40 scale-[0.98] pointer-events-none"
-                        style={{
-                          animation: 'fadeIn 0.2s ease-out',
-                          filter: 'blur(0.5px) grayscale(0.3)'
-                        }}
-                      >
-                        <div
-                          className="border-2 border-dashed rounded-xl overflow-hidden relative"
-                          style={{
-                            borderColor: columnColor,
-                            backgroundColor: `${columnColor}15`
-                          }}
-                        >
-                          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/5 z-10" />
-                          <TaskCard
-                            task={activeTask}
-                            isDragging={false}
-                            onTaskClick={undefined}
-                    isDragOver={false}
-                    showDropIndicatorAbove={false}
-                    spaceTicker={spaceTicker}
-                            columnColor={columnColor}
-                            isGhost={true}
-                          />
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Drop Indicator - Bottom (matches design pattern) */}
-                    {showDropIndicatorBottom && (
-                      <div
-                        className="absolute -bottom-1 left-0 right-0 h-0.5 z-50 rounded-full pointer-events-none"
-                style={{ 
-                          backgroundColor: columnColor,
-                          boxShadow: `0 0 8px ${columnColor}`
-                        }}
-                      />
-                    )}
-                  </Fragment>
-                );
-              })
-            ) : (
-              <div className="flex flex-col items-center justify-center h-full text-center text-[var(--muted-foreground)] rounded-lg border-2 border-dashed border-[var(--border)] hover:border-[var(--primary)]/30 transition-all duration-300 cursor-pointer group/empty min-h-[200px]">
-                <div
-                  className="w-16 h-16 mb-3 rounded-full flex items-center justify-center transition-all duration-300 group-hover/empty:scale-110"
-                  style={{
-                    backgroundColor: `${columnColor}10`,
-                    border: `2px dashed ${columnColor}30`
-                  }}
-                >
-                  <Plus className="w-8 h-8 opacity-30 group-hover/empty:opacity-60 transition-opacity" />
-                </div>
-                <p className="text-sm">Drop tasks here</p>
-                <p className="text-xs mt-1 opacity-60">or click to add</p>
-              </div>
-            )}
-          </SortableContext>
-          </div>
-
-        {/* Add Task Button at Bottom */}
-        <div className="p-3 pt-0 mt-auto">
-          <Button
-            variant="ghost"
-            className="w-full justify-start gap-2 hover:bg-[var(--muted)] rounded-lg transition-all duration-200 opacity-60 hover:opacity-100"
-            style={{
-              borderTop: `1px solid ${columnColor}10`
-            }}
-            onClick={() => onCreateTask?.(status.id)}
-          >
-            <Plus className="w-4 h-4" />
-            <span className="text-sm">Add Task</span>
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-const getTaskPriorityClasses = (priority: string) => {
-    switch (priority) {
-      case 'HIGHEST':
-        return 'bg-red-100 text-red-800 border-red-200';
-      case 'HIGH':
-        return 'bg-orange-100 text-orange-800 border-orange-200';
-      case 'NORMAL':
-        return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'LOW':
-        return 'bg-green-100 text-green-800 border-green-200';
-      case 'LOWEST':
-        return 'bg-gray-100 text-gray-800 border-gray-200';
-      default:
-        return 'bg-gray-100 text-gray-800 border-gray-200';
-    }
-};
-
-const allowedDescriptionTags = new Set([
-  'B',
-  'STRONG',
-  'I',
-  'EM',
-  'U',
-  'S',
-  'BR',
-  'UL',
-  'OL',
-  'LI',
-  'P',
-  'SPAN',
-  'CODE',
-  'PRE',
-  'BLOCKQUOTE',
-  'H1',
-  'H2',
-  'H3',
-  'H4',
-  'A',
-  'LABEL',
-  'INPUT',
-  'DIV',
-]);
-
-const allowedDescriptionAttributes: Record<string, Set<string>> = {
-  A: new Set(['href', 'title', 'target', 'rel']),
-  UL: new Set(['data-type', 'class']),
-  LI: new Set(['data-type', 'data-checked', 'class']),
-  LABEL: new Set(['class', 'contenteditable']),
-  INPUT: new Set(['type', 'checked', 'disabled', 'contenteditable']),
-  SPAN: new Set(['class', 'style']),
-  P: new Set(['class']),
-  DIV: new Set(['class']),
-};
-
-const globalAllowedAttributes = new Set<string>(['data-type', 'data-checked', 'class']);
-
-const sanitizeDescriptionHtml = (html: string | null | undefined): string => {
-  if (!html) return '';
-  if (typeof window === 'undefined' || typeof DOMParser === 'undefined') {
-    return html;
-  }
-
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(html, 'text/html');
-
-  const sanitizeNode = (node: Node) => {
-    Array.from(node.childNodes).forEach((child) => {
-      if (child.nodeType === Node.ELEMENT_NODE) {
-        const el = child as HTMLElement;
-        if (!allowedDescriptionTags.has(el.tagName)) {
-          sanitizeNode(el);
-          const fragment = document.createDocumentFragment();
-          while (el.firstChild) {
-            fragment.appendChild(el.firstChild);
-          }
-          el.replaceWith(fragment);
-          return;
-        }
-
-        const allowedAttrs =
-          allowedDescriptionAttributes[el.tagName] || globalAllowedAttributes;
-
-        Array.from(el.attributes).forEach((attr) => {
-          const attrName = attr.name.toLowerCase();
-          // Allow data-* attributes for TipTap task lists
-          if (attrName.startsWith('data-') || allowedAttrs.has(attrName) || globalAllowedAttributes.has(attrName)) {
-            // Keep the attribute
-          } else {
-            el.removeAttribute(attr.name);
-          }
-        });
-
-        if (el.tagName === 'A') {
-          el.setAttribute('target', '_blank');
-          el.setAttribute('rel', 'noreferrer noopener');
-        }
-
-        // Handle task list checkboxes - ensure they're disabled and non-interactive
-        if (el.tagName === 'INPUT' && el.getAttribute('type') === 'checkbox') {
-          el.setAttribute('disabled', 'true');
-          el.setAttribute('readonly', 'true');
-        }
-
-        sanitizeNode(el);
-      } else if (child.nodeType === Node.COMMENT_NODE) {
-        child.remove();
-      }
-    });
-  };
-
-  sanitizeNode(doc.body);
-  return doc.body.innerHTML.trim();
-};
-
-interface TaskCardProps {
-  task: Task;
-  isDragging: boolean;
-  onTaskClick?: (taskId: string, isTaskNumberClick?: boolean) => void;
-  isDragOver?: boolean;
-  showDropIndicatorAbove?: boolean;
-  spaceTicker?: string;
-  columnColor?: string;
-  isActiveDragging?: boolean;
-  isGhost?: boolean;
-  isDropping?: boolean;
-}
-
-function TaskCard({ task, isDragging, onTaskClick, isDragOver = false, showDropIndicatorAbove = false, spaceTicker, columnColor = '#4353FF', isActiveDragging = false, isGhost = false, isDropping = false }: TaskCardProps) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging: isCardDragging } = useSortable({
-    id: task.id,
-    data: { 
-      type: 'task',
-      taskId: task.id,
-      statusId: task.status.id,
-    },
-    disabled: isDragging,
-    // Disable default layout animation when dropping to prevent reverse animation
-    animateLayoutChanges: (args) => {
-      const { isSorting, wasDragging } = args;
-      if (isSorting || wasDragging) {
-        return false;
-      }
-      return true;
-    },
-  });
-
-  const style = {
-    transform: transform ? CSS.Transform.toString(transform) : undefined,
-    transition,
-  };
-
-  const handleClick = (e: React.MouseEvent) => {
-    if (e.target instanceof HTMLElement && e.target.closest('[data-task-number]')) {
-      return;
-    }
-    if (!isCardDragging && !isDragging && onTaskClick) {
-      e.stopPropagation();
-      onTaskClick(task.id, false);
-    }
-  };
-
-  const priorityConfig: Record<string, { color: string; label: string }> = {
-    'HIGHEST': { color: '#EF4444', label: 'Urgent' },
-    'HIGH': { color: '#FF9800', label: 'High' },
-    'NORMAL': { color: '#F59E0B', label: 'Medium' },
-    'LOW': { color: '#6B7280', label: 'Low' },
-    'LOWEST': { color: '#6B7280', label: 'Low' },
-  };
-
-  const priority = priorityConfig[task.priority] || priorityConfig['NORMAL'];
-  const isOverdue = task.dueDate && new Date(task.dueDate) < new Date();
-  // Extract template metadata first to get cleaned description (removes **Field**: value formatting)
-  const cleanedDescription = useMemo(() => {
-    if (!task.description) return '';
-    const { description: cleaned } = extractTemplateMetadata(task.description);
-    return cleaned;
-  }, [task.description]);
-  const sanitizedDescription = useMemo(() => sanitizeDescriptionHtml(cleanedDescription), [cleanedDescription]);
-
-  return (
-    <>
-      {showDropIndicatorAbove && <div className="h-0.5 bg-primary rounded-full my-1" />}
-      <div
-        ref={setNodeRef}
-        data-task-id={task.id}
-        className={`group/card relative bg-gradient-to-br from-[var(--background)] to-[var(--card)] border border-[var(--border)] rounded-xl p-4 hover:shadow-xl hover:border-[var(--primary)]/40 cursor-pointer overflow-hidden ${
-          isActiveDragging ? 'opacity-40 cursor-grabbing scale-105' : ''
-        } ${
-          isCardDragging ? 'shadow-2xl scale-105' : ''
-        } ${
-          isDragOver ? 'ring-4 ring-primary ring-offset-2 shadow-xl bg-primary/10' : ''
-        }`}
-        style={{
-          ...style,
-          boxShadow: isActiveDragging ? '0 8px 24px rgba(0,0,0,0.2)' : '0 1px 3px rgba(0,0,0,0.05)',
-          transform: isActiveDragging ? `${style.transform || ''} rotate(3deg) scale(1.05)` : style.transform,
-          cursor: isActiveDragging ? 'grabbing' : 'grab',
-          // Match design pattern: no transition when dragging or dropping
-          // This prevents reverse animation when dropping - keep transitions disabled during drop
-          transition: (isActiveDragging || isDragging || isDropping) ? 'none' : 'all 0.2s ease',
-          opacity: isActiveDragging ? 0.4 : 1
-        }}
-        onClick={handleClick}
-        {...(!isCardDragging ? attributes : {})}
-        {...(!isCardDragging ? listeners : {})}
-      >
-        {/* Accent Border on Left */}
-        <div
-          className="absolute left-0 top-0 bottom-0 w-1 transition-all duration-300 group-hover/card:w-1.5"
-          style={{
-            background: `linear-gradient(180deg, ${columnColor}, ${columnColor}60)`,
-          }}
-        />
-
-        {/* Drag Handle - appears on hover */}
-        <div className="absolute left-2 top-1/2 -translate-y-1/2 opacity-0 group-hover/card:opacity-30 transition-opacity cursor-grab active:cursor-grabbing z-10">
-          <GripVertical className="w-4 h-4 text-[var(--muted-foreground)]" />
-        </div>
-
-        <div className="space-y-3 pl-2">
-          {/* Header: ID, Checkbox, Priority */}
-          <div className="flex items-start justify-between gap-2">
-            <div className="flex items-center gap-2 flex-1 min-w-0">
-              <Checkbox className="shrink-0 mt-0.5" />
-              <div className="flex flex-col gap-1 flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-              {spaceTicker && task.number && (
-                    <span
-                  data-task-number
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (onTaskClick) {
-                      onTaskClick(task.id, true);
-                    }
-                  }}
-                      className="text-xs px-2 py-0.5 rounded-md transition-all cursor-pointer hover:underline"
-                      style={{
-                        backgroundColor: `${columnColor}15`,
-                        color: columnColor,
-                        fontFamily: 'monospace'
-                      }}
-                >
-                  {spaceTicker}-{task.number}
-                    </span>
-                  )}
-                  <div
-                    className="flex items-center gap-1 px-2 py-0.5 rounded-md text-xs transition-all"
-                    style={{
-                      backgroundColor: `${priority.color}15`,
-                      color: priority.color
-                    }}
-                  >
-                    <Flag
-                      className="w-3 h-3"
-                      fill={priority.color}
-                    />
-                    <span>{priority.label}</span>
-                </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Title and Description */}
-          <div className="space-y-1.5">
-            <h4 className="text-[var(--foreground)] leading-snug group-hover/card:text-[var(--primary)] transition-colors">
-              {task.summary}
-            </h4>
-            {sanitizedDescription && (
-              <div
-                className="text-sm text-[var(--muted-foreground)] line-clamp-3 prose prose-sm max-w-none 
-                  prose-p:my-1 prose-p:text-sm prose-p:text-[var(--muted-foreground)]
-                  prose-ul:my-1 prose-ul:pl-4 prose-ul:list-disc
-                  prose-ol:my-1 prose-ol:pl-4 prose-ol:list-decimal
-                  prose-li:my-0 prose-li:text-sm prose-li:text-[var(--muted-foreground)]
-                  prose-strong:font-semibold prose-strong:text-[var(--foreground)]
-                  prose-code:text-xs prose-code:bg-[var(--muted)] prose-code:px-1 prose-code:py-0.5 prose-code:rounded
-                  prose-a:text-[var(--primary)] prose-a:underline hover:prose-a:no-underline
-                  prose-blockquote:border-l-2 prose-blockquote:border-[var(--border)] prose-blockquote:pl-3 prose-blockquote:my-1
-                  [&_ul[data-type='taskList']]:list-none [&_ul[data-type='taskList']]:pl-0 [&_ul[data-type='taskList']]:space-y-1
-                  [&_li[data-type='taskItem']]:flex [&_li[data-type='taskItem']]:items-start [&_li[data-type='taskItem']]:gap-2 [&_li[data-type='taskItem']]:list-none
-                  [&_li[data-type='taskItem']_label]:flex [&_li[data-type='taskItem']_label]:items-start [&_li[data-type='taskItem']_label]:gap-2 [&_li[data-type='taskItem']_label]:cursor-default
-                  [&_li[data-type='taskItem']_input[type='checkbox']]:mt-0.5 [&_li[data-type='taskItem']_input[type='checkbox']]:shrink-0 [&_li[data-type='taskItem']_input[type='checkbox']]:cursor-default
-                  [&_li[data-type='taskItem']_input[type='checkbox']:checked+*]:line-through [&_li[data-type='taskItem']_input[type='checkbox']:checked+*]:opacity-60"
-                dangerouslySetInnerHTML={{ __html: sanitizedDescription }}
-              />
-            )}
-            </div>
-
-          {/* Tags */}
-          {task.tags && task.tags.length > 0 && (
-            <div className="flex gap-1.5 flex-wrap">
-              {task.tags.slice(0, 3).map((tag: string, index: number) => (
-                <Badge
-                  key={index}
-                  variant="outline"
-                  className="px-2.5 py-0.5 text-xs rounded-full hover:scale-105 transition-transform"
-                >
-                  {tag}
-                </Badge>
-              ))}
-              {task.tags.length > 3 && (
-                <Badge variant="outline" className="text-xs">+{task.tags.length - 3}</Badge>
-              )}
-          </div>
-          )}
-
-          {/* Footer: Date and Assignee */}
-          <div className="flex items-center justify-between gap-2 pt-2 border-t border-[var(--border)]/50">
-            {task.dueDate ? (
-              <div
-                className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-md transition-all ${
-                  isOverdue
-                    ? 'bg-red-500/10 text-red-500'
-                    : 'text-[var(--muted-foreground)] hover:bg-[var(--muted)]'
-                }`}
-              >
-                <CalendarIcon className="w-3.5 h-3.5" />
-                <span>{formatDateDDMMYYYY(task.dueDate)}</span>
-              </div>
-            ) : (
-              <div className="flex-1" />
-            )}
-
-            <div className="flex items-center gap-2">
-              {task.assignee && (
-                <Avatar className="h-7 w-7 border-2 border-[var(--background)] shadow-sm hover:scale-110 transition-transform">
-                  <div
-                    className="w-full h-full flex items-center justify-center text-xs text-white"
-                    style={{ 
-                      background: `linear-gradient(135deg, ${columnColor}, ${columnColor}cc)`
-                    }}
-                  >
-                    {task.assignee.name ? task.assignee.name.charAt(0).toUpperCase() : task.assignee.email.charAt(0).toUpperCase()}
-              </div>
-                </Avatar>
-            )}
-          </div>
-        </div>
-        </div>
-
-        {/* Hover Glow Effect */}
-        <div
-          className="absolute inset-0 opacity-0 group-hover/card:opacity-100 transition-opacity duration-300 pointer-events-none rounded-xl"
-          style={{
-            background: `radial-gradient(circle at top left, ${columnColor}08, transparent 70%)`
-          }}
-        />
-
-        {/* Placeholder when dragging */}
-        {isActiveDragging && (
-          <div className="absolute inset-0 border-2 border-dashed border-[var(--border)] rounded-xl bg-[var(--muted)]/20 pointer-events-none" />
-        )}
-      </div>
-    </>
-  );
-}
 
 interface TaskCardOverlayProps {
   task: Task;
@@ -3808,27 +2977,27 @@ interface TaskCardOverlayProps {
 }
 
 function TaskCardOverlay({ task, width, spaceTicker }: TaskCardOverlayProps) {
-  const getColumnColor = (statusName: string) => {
-    const name = statusName.toLowerCase();
+  const getColumnColor = (status: { name: string; color?: string }) => {
+    const name = status.name.toLowerCase();
     if (name.includes('new')) return '#7D8089';
     if (name.includes('backlog')) return '#F59E0B';
     if (name.includes('to do') || name.includes('todo')) return '#4353FF';
     if (name.includes('in progress') || name.includes('progress')) return '#8B5CF6';
     if (name.includes('review')) return '#10B981';
-    return task.status?.color || '#7D8089';
+    return status.color || '#7D8089';
   };
 
-  const columnColor = getColumnColor(task.status?.name || '');
+  const columnColor = getColumnColor(task.status || { name: '', color: undefined });
 
   return (
     <div
-      className="cursor-grabbing bg-gradient-to-br from-[var(--background)] to-[var(--card)] border-2 rounded-xl shadow-2xl opacity-95 rotate-3 scale-105"
+      className="cursor-grabbing bg-gradient-to-br from-[var(--background)] to-[var(--card)] border border-[var(--border)] rounded-xl shadow-2xl rotate-3 scale-105"
       style={{
         width: `${width}px`,
         maxWidth: `${width}px`,
         minWidth: `${width}px`,
-        borderColor: columnColor,
-        boxShadow: `0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2), 0 0 20px ${columnColor}40`,
+        boxShadow: '0 8px 24px rgba(0,0,0,0.2)',
+        opacity: 0.95,
       }}
     >
       <div className="p-4">

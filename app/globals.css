@@ -1093,9 +1093,73 @@ html {
   /* TipTap editor styles */
   .ProseMirror {
     outline: none;
-    color: hsl(var(--foreground));
+    color: hsl(var(--foreground)) !important;
     /* Ensure consistent padding - default will be overridden by component classes */
     box-sizing: border-box;
+  }
+
+  /* Ensure ProseMirror text is bright and not dim - override prose defaults */
+  .ProseMirror.prose {
+    color: hsl(var(--foreground)) !important;
+  }
+
+  .ProseMirror.prose *:not([style*="color"]) {
+    color: hsl(var(--foreground)) !important;
+  }
+
+  .ProseMirror.prose p,
+  .ProseMirror.prose li,
+  .ProseMirror.prose span:not([style*="color"]),
+  .ProseMirror.prose div:not([style*="color"]),
+  .ProseMirror.prose ol,
+  .ProseMirror.prose ul {
+    color: hsl(var(--foreground)) !important;
+    opacity: 1 !important;
+  }
+
+  .ProseMirror table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.5rem 0;
+    table-layout: auto;
+    border: 1px solid hsl(var(--border));
+    background-color: hsl(var(--card));
+  }
+
+  .ProseMirror table td,
+  .ProseMirror table th {
+    border: 1px solid hsl(var(--border));
+    padding: 0.65rem 0.75rem;
+    vertical-align: top;
+    color: hsl(var(--foreground));
+  }
+
+  .ProseMirror table th {
+    background-color: hsl(var(--muted));
+    font-weight: 600;
+  }
+
+  .ProseMirror table tbody tr:nth-child(even) {
+    background-color: hsl(var(--muted) / 0.4);
+  }
+
+  /* Dark theme - ensure text is bright and not dim */
+  .dark .ProseMirror.prose {
+    color: hsl(var(--foreground)) !important;
+  }
+
+  .dark .ProseMirror.prose *:not([style*="color"]) {
+    color: hsl(var(--foreground)) !important;
+  }
+
+  .dark .ProseMirror.prose p,
+  .dark .ProseMirror.prose li,
+  .dark .ProseMirror.prose span:not([style*="color"]),
+  .dark .ProseMirror.prose div:not([style*="color"]),
+  .dark .ProseMirror.prose ol,
+  .dark .ProseMirror.prose ul {
+    color: hsl(var(--foreground)) !important;
+    opacity: 1 !important;
   }
   
   /* Task description editor - ensure proper padding alignment */
@@ -1430,5 +1494,70 @@ html {
     width: 4px;
     background-color: hsl(var(--primary));
     pointer-events: none;
+  }
+
+  /* Ensure input text color stays consistent on focus */
+  input,
+  input:focus,
+  input:focus-visible,
+  input:active,
+  input:hover {
+    color: hsl(var(--foreground)) !important;
+  }
+
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus,
+  input:-webkit-autofill:active {
+    -webkit-text-fill-color: hsl(var(--foreground)) !important;
+    color: hsl(var(--foreground)) !important;
+  }
+
+  /* Dark theme specific input color fix */
+  .dark input,
+  .dark input:focus,
+  .dark input:focus-visible,
+  .dark input:active,
+  .dark input:hover {
+    color: hsl(var(--foreground)) !important;
+  }
+
+  .dark input:-webkit-autofill,
+  .dark input:-webkit-autofill:hover,
+  .dark input:-webkit-autofill:focus,
+  .dark input:-webkit-autofill:active {
+    -webkit-text-fill-color: hsl(var(--foreground)) !important;
+    color: hsl(var(--foreground)) !important;
+  }
+
+  /* Remove color from transition to prevent color changes on focus */
+  input[type="text"],
+  input:not([type]) {
+    transition-property: background-color, border-color, box-shadow, opacity;
+    transition-duration: 150ms;
+    transition-timing-function: ease-in-out;
+  }
+
+  /* Specific fix for document title input */
+  input.text-2xl {
+    color: hsl(var(--foreground)) !important;
+    -webkit-text-fill-color: hsl(var(--foreground)) !important;
+  }
+
+  input.text-2xl:focus,
+  input.text-2xl:focus-visible,
+  input.text-2xl:active,
+  input.text-2xl:hover {
+    color: hsl(var(--foreground)) !important;
+    -webkit-text-fill-color: hsl(var(--foreground)) !important;
+  }
+
+  .dark input.text-2xl,
+  .dark input.text-2xl:focus,
+  .dark input.text-2xl:focus-visible,
+  .dark input.text-2xl:active,
+  .dark input.text-2xl:hover {
+    color: hsl(var(--foreground)) !important;
+    -webkit-text-fill-color: hsl(var(--foreground)) !important;
   }
 }
