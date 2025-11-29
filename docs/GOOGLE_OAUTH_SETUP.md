@@ -54,10 +54,10 @@ This guide will help you set up Google OAuth authentication for YUMA.
 2. Add the following variables:
 
 ```env
-GOOGLE_CLIENT_ID=227411825220-teqdqst218jhbjjt0hofnu389kteouo5.apps.googleusercontent.com
-GOOGLE_CLIENT_SECRET=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
+GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=your-google-client-secret
 GOOGLE_REDIRECT_URI=http://localhost:3000/api/auth/google/callback
-GOOGLE_API_KEY=AIzaSyACauMiA6by066qThpZ_N8zIUswusKgFMQ
+GOOGLE_API_KEY=your-google-api-key
 ```
 
 **Note:** 
