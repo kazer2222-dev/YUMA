@@ -26,15 +26,12 @@ export interface SessionData {
 
 export class AuthService {
   static generatePIN(): string {
-    // In development, use a fixed PIN for easier testing
+    // In development, use a configurable PIN for easier testing
     const isDevelopment = process.env.NODE_ENV !== 'production';
     if (isDevelopment && process.env.DEV_PIN) {
       return process.env.DEV_PIN;
     }
-    // Use fixed PIN in development for easier testing
-    if (isDevelopment) {
-      return '123456';
-    }
+    // Generate random PIN (no hardcoded values)
     return randomInt(100000, 999999).toString();
   }
 
@@ -179,7 +176,7 @@ export class AuthService {
         console.log('═══════════════════════════════════════════════════════════════');
         console.log(`⚠️  Error occurred, but for development here's a test PIN:`);
         console.log(`   Email: ${email}`);
-        console.log(`   PIN: 123456 (use this for testing)`);
+        console.log(`   PIN: Use DEV_PIN environment variable for testing`);
         console.log('═══════════════════════════════════════════════════════════════');
         console.log('');
       }
@@ -225,9 +222,10 @@ export class AuthService {
         if (isProduction) throw dbError;
       }
 
-      // Development mode: Always allow fixed PIN 123456, regardless of database
-      if (!isProduction && pin === '123456') {
-        console.log(`[DEV MODE] Using fixed PIN bypass for ${email}`);
+      // Development mode: Allow DEV_PIN if configured, regardless of database
+      const devPIN = process.env.DEV_PIN;
+      if (!isProduction && devPIN && pin === devPIN) {
+        console.log(`[DEV MODE] Using configured DEV_PIN bypass for ${email}`);
         
         // If a PIN record exists, mark it as used to clean up
         if (pinRecord) {
@@ -490,7 +488,7 @@ export class AuthService {
         console.log(`⚠️  PIN Verification Error for ${email}:`);
         console.log(`   PIN entered: ${pin}`);
         console.log(`   Error: ${error?.message || 'Unknown error'}`);
-        console.log(`   Note: In dev mode, PIN 123456 should work even without DB record`);
+        console.log(`   Note: In dev mode, set DEV_PIN environment variable for testing`);
         console.log('═══════════════════════════════════════════════════════════════');
         console.log('');
       }
