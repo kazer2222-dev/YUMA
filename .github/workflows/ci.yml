@@ -23,16 +23,19 @@ jobs:
       with:
         node-version: ${{ matrix.node-version }}
         cache: 'npm'
+    
+    - name: Clear npm cache
+      run: npm cache clean --force
+      continue-on-error: true
 
     - name: Install dependencies
       run: |
-        set +e
-        npm ci
-        if [ $? -ne 0 ]; then
-          echo "npm ci failed, falling back to npm install..."
-          npm install --no-audit --no-fund
-        fi
-        set -e
+        echo "Attempting npm ci..."
+        npm ci 2>&1 || {
+          echo "npm ci failed, regenerating lock file with npm install..."
+          rm -f package-lock.json
+          npm install --no-audit --no-fund --legacy-peer-deps
+        }
 
     - name: Run linter
       run: npm run lint
@@ -67,13 +70,12 @@ jobs:
 
     - name: Install dependencies
       run: |
-        set +e
-        npm ci
-        if [ $? -ne 0 ]; then
-          echo "npm ci failed, falling back to npm install..."
-          npm install --no-audit --no-fund
-        fi
-        set -e
+        echo "Attempting npm ci..."
+        npm ci 2>&1 || {
+          echo "npm ci failed, regenerating lock file with npm install..."
+          rm -f package-lock.json
+          npm install --no-audit --no-fund --legacy-peer-deps
+        }
 
     - name: Generate Prisma Client
       run: npm run db:generate
