@@ -26,11 +26,7 @@ jobs:
 
     - name: Install dependencies
       run: |
-        if ! npm ci; then
-          echo "Lock file sync issue detected, regenerating lock file..."
-          npm install --package-lock-only --no-audit --no-fund
-          npm ci
-        fi
+        npm ci || (echo "npm ci failed, falling back to npm install..." && npm install --no-audit --no-fund)
 
     - name: Run linter
       run: npm run lint
@@ -65,11 +61,7 @@ jobs:
 
     - name: Install dependencies
       run: |
-        if ! npm ci; then
-          echo "Lock file sync issue detected, regenerating lock file..."
-          npm install --package-lock-only --no-audit --no-fund
-          npm ci
-        fi
+        npm ci || (echo "npm ci failed, falling back to npm install..." && npm install --no-audit --no-fund)
 
     - name: Generate Prisma Client
       run: npm run db:generate
