@@ -31,11 +31,14 @@ jobs:
     - name: Install dependencies
       run: |
         echo "Attempting npm ci..."
-        npm ci 2>&1 || {
+        if npm ci; then
+          echo "npm ci succeeded"
+        else
           echo "npm ci failed, regenerating lock file with npm install..."
           rm -f package-lock.json
           npm install --no-audit --no-fund --legacy-peer-deps
-        }
+          echo "npm install completed"
+        fi
 
     - name: Run linter
       run: npm run lint
@@ -71,11 +74,14 @@ jobs:
     - name: Install dependencies
       run: |
         echo "Attempting npm ci..."
-        npm ci 2>&1 || {
+        if npm ci; then
+          echo "npm ci succeeded"
+        else
           echo "npm ci failed, regenerating lock file with npm install..."
           rm -f package-lock.json
           npm install --no-audit --no-fund --legacy-peer-deps
-        }
+          echo "npm install completed"
+        fi
 
     - name: Generate Prisma Client
       run: npm run db:generate
