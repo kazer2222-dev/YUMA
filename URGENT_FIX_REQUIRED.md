@@ -97,3 +97,15 @@ These will now show clearer error messages if the Prisma client isn't regenerate
 **TL;DR: Stop dev server → Run `npx prisma generate` → Restart dev server → Everything works!**
 
 
+
+
+
+
+
+
+
+
+
+
+
+

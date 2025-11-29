@@ -1,7 +1,7 @@
 'use client';
 
 import { Plus, MoreHorizontal, Search, Filter, SlidersHorizontal, Sparkles, X, ChevronDown, ChevronRight } from 'lucide-react';
-import { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { SprintTaskCard, SprintTaskCardProps } from './sprint-task-card';
 import { Button } from '@/components/ui/button';
 import {
@@ -21,6 +21,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
+import { KanbanColumnShell } from '@/components/kanban/kanban-column-shell';
+import { KanbanStyles } from '@/components/kanban/kanban-styles';
 
 export interface SprintBoardColumn {
   id: string;
@@ -40,6 +42,7 @@ export interface SprintBoardProps {
   onCompleteSprint?: () => void;
   onOpenBoardConfig?: () => void;
   onTaskDrop?: (payload: { taskId: string; fromColumnId: string; toColumnId: string }) => void;
+  onTaskClick?: (taskId: string) => void;
 }
 
 interface Task extends SprintTaskCardProps {}
@@ -54,17 +57,32 @@ interface DraggableTaskCardProps {
   swimlane?: string;
   onDragStart?: () => void;
   onDragEnd?: () => void;
+  onTaskClick?: (taskId: string) => void;
 }
 
-const DraggableTaskCard = ({ task, columnId, index, moveTask, columnColor, swimlane, onDragStart, onDragEnd }: DraggableTaskCardProps) => {
+const DraggableTaskCard = ({
+  task,
+  columnId,
+  index,
+  moveTask,
+  columnColor,
+  swimlane,
+  onDragStart,
+  onDragEnd,
+  onTaskClick,
+}: DraggableTaskCardProps) => {
   const ref = useRef<HTMLDivElement>(null);
   const [showDropIndicator, setShowDropIndicator] = useState<'top' | 'bottom' | null>(null);
+  const justDraggedRef = useRef(false);
+  const dragStartTimeRef = useRef<number>(0);
 
   const [{ isDragging }, drag] = useDrag({
     type: "TASK_CARD",
     item: () => {
       // Prevent any default behaviors when starting drag
       document.body.style.cursor = 'grabbing';
+      dragStartTimeRef.current = Date.now();
+      justDraggedRef.current = false; // Reset flag at start
       if (onDragStart) {
         onDragStart();
       }
@@ -73,8 +91,16 @@ const DraggableTaskCard = ({ task, columnId, index, moveTask, columnColor, swiml
     collect: (monitor) => ({
       isDragging: monitor.isDragging(),
     }),
-    end: () => {
+    end: (item, monitor) => {
       document.body.style.cursor = '';
+      // Mark that we just dragged if the drag actually moved
+      if (monitor.didDrop()) {
+        justDraggedRef.current = true;
+        // Clear the flag after a delay to allow click events to be ignored
+        setTimeout(() => {
+          justDraggedRef.current = false;
+        }, 300);
+      }
       // Reset dragging flag after a delay to allow drop to complete
       setTimeout(() => {
         if (onDragEnd) {
@@ -193,15 +219,41 @@ const DraggableTaskCard = ({ task, columnId, index, moveTask, columnColor, swiml
           opacity: isDragging ? 0.4 : 1,
           cursor: 'grab',
           transform: isDragging ? 'rotate(3deg)' : 'none',
+          userSelect: 'none', // Prevent text selection during drag
+          WebkitUserSelect: 'none',
         }}
         className={`transition-all duration-200 ${
           isDragging ? 'scale-105 shadow-2xl' : ''
         }`}
         onMouseDown={(e) => {
-          // Prevent default to avoid any navigation or form submission
+          // Only stop propagation, don't prevent default to allow drag to start
           if (e.button === 0) {
             e.stopPropagation();
           }
+        }}
+        onClick={(e) => {
+          // Prevent click if we just finished dragging
+          if (justDraggedRef.current) {
+            e.preventDefault();
+            e.stopPropagation();
+            return;
+          }
+          // Prevent click during drag
+          if (isDragging) {
+            e.preventDefault();
+            e.stopPropagation();
+            return;
+          }
+          // Only allow click if mouse didn't move much (wasn't a drag)
+          const timeSinceDragStart = Date.now() - dragStartTimeRef.current;
+          if (timeSinceDragStart < 200) {
+            e.preventDefault();
+            e.stopPropagation();
+            return;
+          }
+          e.preventDefault();
+          e.stopPropagation();
+          onTaskClick?.(task.id);
         }}
       >
         <SprintTaskCard {...task} columnColor={columnColor} />
@@ -251,38 +303,41 @@ const DraggableTaskCard = ({ task, columnId, index, moveTask, columnColor, swiml
 // Droppable Column Wrapper
 interface DroppableColumnProps {
   columnId: string;
-  children: React.ReactNode;
+  children: (context: { showPlaceholder: boolean }) => React.ReactNode;
   moveTask: (taskId: string, fromColumn: string, toColumn: string, toIndex: number, fromSwimlane?: string, toSwimlane?: string) => void;
   taskCount: number;
   columnColor: string;
   swimlane?: string;
 }
 
-const DroppableColumn = ({ columnId, children, moveTask, taskCount, columnColor, swimlane, onTaskDrop }: DroppableColumnProps & { onTaskDrop?: (payload: { taskId: string; fromColumnId: string; toColumnId: string }) => void }) => {
+const DroppableColumn = React.memo(({ columnId, children, moveTask, taskCount, columnColor, swimlane, onTaskDrop }: DroppableColumnProps & { onTaskDrop?: (payload: { taskId: string; fromColumnId: string; toColumnId: string }) => void }) => {
   const ref = useRef<HTMLDivElement>(null);
 
   const [{ isOver, canDrop, draggedItem }, drop] = useDrop({
     accept: "TASK_CARD",
     drop: (item: { id: string; columnId: string; index: number; swimlane?: string }, monitor) => {
-      // Only handle drops in empty space (not on specific tasks)
-      if (!monitor.didDrop()) {
-        const fromColumnId = item.columnId;
-        const toColumnId = columnId;
-        
-        // Drop at the end of the column
-        moveTask(item.id, fromColumnId, toColumnId, taskCount, item.swimlane, swimlane);
-        
-        // Call onTaskDrop callback after state update (async to avoid blocking)
-        if (onTaskDrop && fromColumnId !== toColumnId) {
-          // Use setTimeout to ensure state update happens first
-          setTimeout(() => {
-            onTaskDrop({
-              taskId: item.id,
-              fromColumnId,
-              toColumnId,
-            });
-          }, 0);
-        }
+      // Prevent any default browser behaviors
+      const fromColumnId = item.columnId;
+      const toColumnId = columnId;
+      
+      // Only handle drops if actually dropped (not just hovered)
+      if (monitor.didDrop()) {
+        return; // Already handled by a nested drop target
+      }
+      
+      // Drop at the end of the column
+      moveTask(item.id, fromColumnId, toColumnId, taskCount, item.swimlane, swimlane);
+      
+      // Call onTaskDrop callback after state update (async to avoid blocking)
+      if (onTaskDrop && fromColumnId !== toColumnId) {
+        // Use setTimeout to ensure state update happens first and prevent any UI blocking
+        setTimeout(() => {
+          onTaskDrop({
+            taskId: item.id,
+            fromColumnId,
+            toColumnId,
+          });
+        }, 100); // Slightly longer delay to ensure smooth transition
       }
     },
     collect: (monitor) => ({
@@ -294,29 +349,33 @@ const DroppableColumn = ({ columnId, children, moveTask, taskCount, columnColor,
 
   drop(ref);
 
-  const showPlaceholder = isOver && canDrop && draggedItem && (draggedItem as any).columnId !== columnId;
+  // Memoize showPlaceholder to prevent unnecessary re-renders
+  const showPlaceholder = useMemo(() => {
+    return isOver && canDrop && draggedItem && (draggedItem as any).columnId !== columnId;
+  }, [isOver, canDrop, draggedItem, columnId]);
 
   return (
     <div 
       ref={ref} 
-      className="h-full relative"
+      className="h-full"
     >
-      {children}
-      {/* Show placeholder indicator when dragging over from another column */}
-      {showPlaceholder && (
-        <div className="absolute inset-0 rounded-xl pointer-events-none z-10">
-          <div 
-            className="absolute inset-0 rounded-xl border-2 border-dashed animate-pulse"
-            style={{
-              borderColor: columnColor,
-              backgroundColor: `${columnColor}08`
-            }}
-          />
-        </div>
-      )}
+      {children({ showPlaceholder })}
     </div>
   );
-};
+}, (prevProps, nextProps) => {
+  // Custom comparison: only compare primitive props, ignore functions
+  // This prevents infinite loops caused by function reference changes
+  return (
+    prevProps.columnId === nextProps.columnId &&
+    prevProps.taskCount === nextProps.taskCount &&
+    prevProps.columnColor === nextProps.columnColor &&
+    prevProps.swimlane === nextProps.swimlane
+    // Intentionally not comparing: children, moveTask, onTaskDrop
+    // These are functions that may be recreated but don't affect rendering logic
+  );
+});
+
+DroppableColumn.displayName = 'DroppableColumn';
 
 export function SprintBoard({
   columns,
@@ -325,6 +384,7 @@ export function SprintBoard({
   onCompleteSprint,
   onOpenBoardConfig,
   onTaskDrop,
+  onTaskClick,
 }: SprintBoardProps) {
   const [kanbanData, setKanbanData] = useState<SprintBoardColumn[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -478,7 +538,8 @@ export function SprintBoard({
   }, [filteredKanbanData]);
 
   // Move task function for drag and drop (optimistic update)
-  const moveTask = (taskId: string, fromColumnId: string, toColumnId: string, toIndex: number, fromSwimlane?: string, toSwimlane?: string) => {
+  // Memoize to prevent infinite loops - use useCallback with groupBy as dependency
+  const moveTask = useCallback((taskId: string, fromColumnId: string, toColumnId: string, toIndex: number, fromSwimlane?: string, toSwimlane?: string) => {
     pendingUpdateRef.current = true;
     setKanbanData((prevData) => {
       const newData = prevData.map(col => ({
@@ -531,7 +592,7 @@ export function SprintBoard({
 
       return newData;
     });
-  };
+  }, [groupBy]); // Only depend on groupBy since it's used in the function
 
   if (loading) {
     return (
@@ -548,7 +609,7 @@ export function SprintBoard({
 
   return (
     <DndProvider backend={HTML5Backend}>
-      <div className="flex flex-col h-full bg-gradient-to-br from-[var(--background)] via-[var(--background)] to-[var(--muted)]/30 relative">
+      <div className="flex flex-col h-full w-full bg-gradient-to-br from-[var(--background)] via-[var(--background)] to-[var(--muted)]/30 relative">
         {/* Sprint Header and Search Bar Combined */}
         <div className="px-3 sm:px-6 py-3 border-b border-[var(--border)] bg-[var(--card)]/95 backdrop-blur-sm sticky top-0 z-30">
           <div className="flex items-center gap-2 sm:gap-4 flex-wrap sm:flex-nowrap">
@@ -576,10 +637,10 @@ export function SprintBoard({
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   disabled={isGenerating}
-                  className={`w-full px-4 py-1.5 bg-[var(--background)] border rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 focus:border-[var(--primary)] transition-all text-sm ${
-                    isGenerating 
-                      ? "border-purple-500/50 bg-gradient-to-r from-purple-500/5 via-blue-500/5 to-purple-500/5 cursor-not-allowed" 
-                      : "border-[var(--border)]"
+                  className={`w-full px-4 py-1.5 rounded-lg border focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/30 focus:border-[var(--primary)] transition-all text-sm text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] ${
+                    isGenerating
+                      ? "border-purple-500/50 bg-gradient-to-r from-purple-500/10 via-blue-500/10 to-purple-500/10 cursor-not-allowed"
+                      : "border-[#333] bg-[#1f1f1f] shadow-inner shadow-black/30"
                   }`}
                 />
                 {searchQuery && !isGenerating && (
@@ -848,53 +909,22 @@ export function SprintBoard({
                                   swimlane={swimlane}
                                   onTaskDrop={onTaskDrop}
                                 >
-                                  <div 
-                                    className="flex flex-col bg-gradient-to-b from-[var(--card)] to-[var(--card)]/80 dark:from-[var(--card)] dark:to-[var(--background)] rounded-xl border border-[var(--border)] shadow-lg hover:shadow-xl transition-all duration-300 backdrop-blur-sm"
-                                  >
-                                    {/* Column Header with Gradient Bar */}
-                                    <div className="relative">
-                                      <div 
-                                        className="absolute top-0 left-0 right-0 h-1 rounded-t-xl"
-                                        style={{ 
-                                          background: `linear-gradient(90deg, ${column.color}, ${column.color}80)`,
-                                          boxShadow: `0 0 10px ${column.color}40`
-                                        }}
-                                      />
-                                      <div className="flex items-center justify-between px-4 py-3.5 border-b border-[var(--border)] mt-1">
-                                        <div className="flex items-center gap-2.5">
-                                          <div 
-                                            className="w-2.5 h-2.5 rounded-full animate-pulse"
-                                            style={{ 
-                                              backgroundColor: column.color,
-                                              boxShadow: `0 0 8px ${column.color}80`
-                                            }}
-                                          />
-                                          <span className="text-[var(--foreground)]">{column.title}</span>
-                                          <span 
-                                            className="text-xs px-2 py-1 rounded-full transition-all duration-200"
-                                            style={{
-                                              backgroundColor: `${column.color}15`,
-                                              color: column.color,
-                                              border: `1px solid ${column.color}30`
-                                            }}
-                                          >
-                                            {tasks.length}
-                                          </span>
-                                        </div>
-                                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                                          <Button 
-                                            variant="ghost" 
-                                            size="icon" 
-                                            className="h-8 w-8 hover:bg-[var(--muted)] rounded-lg transition-all hover:scale-110"
-                                          >
-                                            <Plus className="w-4 h-4" />
-                                          </Button>
-                                        </div>
-                                      </div>
-                                    </div>
-
-                                    {/* Tasks Container */}
-                                    <div className="flex-1 p-3 space-y-3 min-h-[200px]">
+                                  {({ showPlaceholder }) => (
+                                    <KanbanColumnShell
+                                      columnColor={column.color}
+                                      title={column.title}
+                                      countLabel={`${tasks.length}`}
+                                      showDropOverlay={showPlaceholder}
+                                      headerActions={
+                                        <Button 
+                                          variant="ghost" 
+                                          size="icon" 
+                                          className="h-8 w-8 hover:bg-[var(--muted)] rounded-lg transition-all hover:scale-110"
+                                        >
+                                          <Plus className="w-4 h-4" />
+                                        </Button>
+                                      }
+                                    >
                                       {tasks.length > 0 ? (
                                         tasks.map((task, taskIndex) => (
                                           <div
@@ -912,6 +942,7 @@ export function SprintBoard({
                                               swimlane={swimlane}
                                               onDragStart={() => { isDraggingRef.current = true; }}
                                               onDragEnd={() => { isDraggingRef.current = false; }}
+                                              onTaskClick={onTaskClick}
                                             />
                                           </div>
                                         ))
@@ -920,8 +951,8 @@ export function SprintBoard({
                                           <Plus className="w-4 h-4 opacity-30" />
                                         </div>
                                       )}
-                                    </div>
-                                  </div>
+                                    </KanbanColumnShell>
+                                  )}
                                 </DroppableColumn>
                               </div>
                             );
@@ -950,46 +981,18 @@ export function SprintBoard({
                       columnColor={column.color}
                       onTaskDrop={onTaskDrop}
                     >
-                      <div 
-                        ref={(el: HTMLDivElement | null) => {
-                          columnRefs.current[index] = el;
-                        }}
-                        className="flex flex-col bg-gradient-to-b from-[var(--card)] to-[var(--card)]/80 dark:from-[var(--card)] dark:to-[var(--background)] rounded-xl border border-[var(--border)] shadow-lg hover:shadow-xl transition-all duration-300 backdrop-blur-sm"
-                        style={{
-                          minHeight: maxColumnHeight > 0 ? `${maxColumnHeight}px` : 'auto'
-                        }}
-                      >
-                        {/* Column Header with Gradient Bar */}
-                        <div className="relative">
-                          <div 
-                            className="absolute top-0 left-0 right-0 h-1 rounded-t-xl"
-                            style={{ 
-                              background: `linear-gradient(90deg, ${column.color}, ${column.color}80)`,
-                              boxShadow: `0 0 10px ${column.color}40`
-                            }}
-                          />
-                          <div className="flex items-center justify-between px-4 py-3.5 border-b border-[var(--border)] mt-1">
-                            <div className="flex items-center gap-2.5">
-                              <div 
-                                className="w-2.5 h-2.5 rounded-full animate-pulse"
-                                style={{ 
-                                  backgroundColor: column.color,
-                                  boxShadow: `0 0 8px ${column.color}80`
-                                }}
-                              />
-                              <span className="text-[var(--foreground)]">{column.title}</span>
-                              <span 
-                                className="text-xs px-2 py-1 rounded-full transition-all duration-200"
-                                style={{
-                                  backgroundColor: `${column.color}15`,
-                                  color: column.color,
-                                  border: `1px solid ${column.color}30`
-                                }}
-                              >
-                                {column.tasks.length}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                      {({ showPlaceholder }) => (
+                        <KanbanColumnShell
+                          ref={(el: HTMLDivElement | null) => {
+                            columnRefs.current[index] = el;
+                          }}
+                          columnColor={column.color}
+                          title={column.title}
+                          countLabel={`${column.tasks.length}`}
+                          showDropOverlay={showPlaceholder}
+                          minHeight={maxColumnHeight > 0 ? `${maxColumnHeight}px` : undefined}
+                          headerActions={
+                            <>
                               <Button 
                                 variant="ghost" 
                                 size="icon" 
@@ -1007,12 +1010,21 @@ export function SprintBoard({
                                   <MoreHorizontal className="w-4 h-4" />
                                 </Button>
                               )}
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Tasks Container */}
-                        <div className="flex-1 p-3 space-y-3 min-h-[200px]">
+                            </>
+                          }
+                          footerContent={
+                            <Button
+                              variant="ghost"
+                              className="w-full justify-start gap-2 hover:bg-[var(--muted)] rounded-lg transition-all duration-200 opacity-60 hover:opacity-100"
+                              style={{
+                                borderTop: `1px solid ${column.color}10`
+                              }}
+                            >
+                              <Plus className="w-4 h-4" />
+                              <span className="text-sm">Add Task</span>
+                            </Button>
+                          }
+                        >
                           {column.tasks.length > 0 ? (
                             column.tasks.map((task, taskIndex) => (
                               <div
@@ -1029,6 +1041,7 @@ export function SprintBoard({
                                   columnColor={column.color}
                                   onDragStart={() => { isDraggingRef.current = true; }}
                                   onDragEnd={() => { isDraggingRef.current = false; }}
+                                  onTaskClick={onTaskClick}
                                 />
                               </div>
                             ))
@@ -1047,22 +1060,8 @@ export function SprintBoard({
                               <p className="text-xs mt-1 opacity-60">or click to add</p>
                             </div>
                           )}
-                        </div>
-
-                        {/* Add Task Button at Bottom */}
-                        <div className="p-3 pt-0 mt-auto">
-                          <Button
-                            variant="ghost"
-                            className="w-full justify-start gap-2 hover:bg-[var(--muted)] rounded-lg transition-all duration-200 opacity-60 hover:opacity-100"
-                            style={{
-                              borderTop: `1px solid ${column.color}10`
-                            }}
-                          >
-                            <Plus className="w-4 h-4" />
-                            <span className="text-sm">Add Task</span>
-                          </Button>
-                        </div>
-                      </div>
+                        </KanbanColumnShell>
+                      )}
                     </DroppableColumn>
                   </div>
                 ))}
@@ -1071,58 +1070,7 @@ export function SprintBoard({
           </div>
         </div>
 
-        <style>{`
-          @keyframes fadeIn {
-            from {
-              opacity: 0;
-              transform: translateY(20px);
-            }
-            to {
-              opacity: 1;
-              transform: translateY(0);
-            }
-          }
-
-          @keyframes slideIn {
-            from {
-              opacity: 0;
-              transform: translateX(-10px);
-            }
-            to {
-              opacity: 1;
-              transform: translateX(0);
-            }
-          }
-
-          .custom-scrollbar::-webkit-scrollbar {
-            width: 6px;
-            height: 6px;
-          }
-
-          .custom-scrollbar::-webkit-scrollbar-track {
-            background: transparent;
-            border-radius: 3px;
-          }
-
-          .custom-scrollbar::-webkit-scrollbar-thumb {
-            background: hsl(var(--muted-foreground) / 0.3);
-            border-radius: 3px;
-            transition: background 0.2s ease;
-          }
-
-          .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-            background: hsl(var(--muted-foreground) / 0.5);
-          }
-
-          .custom-scrollbar::-webkit-scrollbar-corner {
-            background: transparent;
-          }
-
-          .custom-scrollbar {
-            scrollbar-width: thin;
-            scrollbar-color: hsl(var(--muted-foreground) / 0.3) transparent;
-          }
-        `}</style>
+        <KanbanStyles />
       </div>
     </DndProvider>
   );

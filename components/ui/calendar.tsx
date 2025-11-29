@@ -52,9 +52,30 @@ function Calendar({
   return (
     <div className={cn('react-calendar-wrapper', className)}>
       <CalendarLib
-        onChange={handleChange}
+        onChange={
+          (value: Date | Date[] | [Date | null, Date | null] | null) => {
+            // Flatten [Date|null, Date|null] to array of Dates or null as needed
+            let normalized: Date | Date[] | null = null;
+
+            if (Array.isArray(value)) {
+              // value could be [Date|null, Date|null] (from range mode)
+              const filtered = (value as Array<Date | null>).filter((d): d is Date => d instanceof Date);
+              if (filtered.length === 0) normalized = null;
+              else if (filtered.length === 1) normalized = filtered[0];
+              else normalized = filtered;
+            } else {
+              normalized = value instanceof Date ? value : null;
+            }
+
+            handleChange(normalized);
+          }
+        }
         value={calendarValue || undefined}
-        tileDisabled={disabled}
+        tileDisabled={
+          disabled
+            ? ({ date }) => disabled(date)
+            : undefined
+        }
         minDate={minDate}
         maxDate={maxDate}
         className="border-0 bg-transparent"

@@ -169,10 +169,11 @@ export function DocumentEditorPage({
     editorProps: {
       attributes: {
         class: cn(
-          'prose prose-sm sm:prose lg:prose-lg xl:prose-2xl mx-auto focus:outline-none min-h-[600px] p-8 max-w-4xl',
+          'prose prose-sm sm:prose lg:prose-lg xl:prose-2xl max-w-none focus:outline-none min-h-[600px] w-full',
+          '!max-w-full',
           // Theme-aware text colors - ensure bright text
           'prose-headings:text-foreground prose-headings:font-bold prose-headings:opacity-100',
-          'prose-p:text-foreground prose-p:my-4 prose-p:opacity-100',
+          'prose-p:text-foreground prose-p:my-4 prose-p:opacity-100 [&_p.is-editor-empty:first-child]:text-transparent',
           'prose-strong:text-foreground prose-strong:font-bold prose-strong:opacity-100',
           'prose-em:text-foreground prose-em:opacity-100',
           'prose-ul:text-foreground prose-ol:text-foreground prose-ul:opacity-100 prose-ol:opacity-100',
@@ -187,7 +188,7 @@ export function DocumentEditorPage({
           'prose-td:text-foreground prose-td:border-border prose-td:opacity-100',
           'prose:opacity-100'
         ),
-        style: 'color: hsl(var(--foreground)); opacity: 1;',
+        style: 'opacity: 1;',
       },
     },
   });
@@ -334,13 +335,15 @@ export function DocumentEditorPage({
       { type: 'application/msword' }
     );
     const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `${title || 'document'}.doc`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    if (typeof window !== 'undefined' && window.document) {
+      const link = window.document.createElement('a');
+      link.href = url;
+      link.download = `${title || 'document'}.doc`;
+      window.document.body.appendChild(link);
+      link.click();
+      window.document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }
     showSuccess('Success', 'Document exported as Word');
   };
 
@@ -400,10 +403,10 @@ export function DocumentEditorPage({
   }
 
   return (
-    <div className="h-full bg-background flex flex-col">
+    <div className="h-full min-h-0 bg-background flex flex-col document-editor-full-width">
       {/* Header */}
-      <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6 py-4">
+      <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50 w-full">
+        <div className="w-full px-4 sm:px-6 py-4">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-4 flex-1">
               <Button variant="ghost" size="icon" onClick={onClose}>
@@ -416,7 +419,7 @@ export function DocumentEditorPage({
                   setTitle(e.target.value);
                   setHasChanges(true);
                 }}
-                className="text-2xl font-bold border-none shadow-none focus-visible:ring-0 px-0 h-auto bg-transparent outline-none w-full text-foreground"
+                className="text-2xl font-bold border-none shadow-none focus-visible:ring-0 px-0 h-auto bg-transparent outline-none w-full text-foreground placeholder:text-muted-foreground"
                 style={{ 
                   color: 'hsl(var(--foreground)) !important',
                   caretColor: 'hsl(var(--foreground))',
@@ -673,8 +676,8 @@ export function DocumentEditorPage({
       </div>
 
       {/* Editor Content */}
-      <div className="flex-1 overflow-auto bg-background">
-        <div className="max-w-4xl mx-auto py-8">
+      <div className="flex-1 overflow-auto bg-background w-full min-h-0">
+        <div className="w-full py-8 px-4 sm:px-6 lg:px-8 xl:px-12">
           <EditorContent editor={editor} />
         </div>
       </div>

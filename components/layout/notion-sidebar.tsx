@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { 
   Home, 
@@ -184,9 +184,16 @@ export function NotionSidebar({ spaces, user, onLogout, onCreateSpace, onCollaps
       {/* Header - Exact spec: h-14 (3.5rem / 56px) */}
       <div className={`${isCollapsed ? 'p-2' : 'p-4'} border-b border-border relative h-14 flex items-center`}>
         <div className={`${isCollapsed ? 'flex flex-col items-center gap-2' : 'flex items-center justify-between'}`}>
-          <Link href="/" className="hover:opacity-80 transition-opacity">
+          <button
+            onClick={() => {
+              // Use Next.js router for client-side navigation (no full page reload)
+              router.push('/home');
+            }}
+            className="hover:opacity-80 transition-opacity cursor-pointer"
+            type="button"
+          >
             <YUMALogo showText={!isCollapsed} size={isCollapsed ? 'sm' : 'md'} />
-          </Link>
+          </button>
           <Button
             variant="ghost"
             size="sm"
@@ -263,38 +270,52 @@ export function NotionSidebar({ spaces, user, onLogout, onCreateSpace, onCollaps
                       {!isCollapsed ? (
                         <>
                           {/* Space Row with Toggle */}
-                          <div className="flex items-center">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                e.preventDefault();
-                                if (hasBoards) {
-                                  toggleSpace(space.id);
-                                }
-                              }}
-                              className={`p-1 mr-1 hover:bg-accent rounded flex-shrink-0 ${hasBoards ? '' : 'invisible'}`}
-                              disabled={!hasBoards}
-                            >
-                              {isSpaceExpanded ? (
-                                <ChevronDown className="h-3 w-3" />
-                              ) : (
-                                <ChevronRight className="h-3 w-3" />
-                              )}
-                            </button>
-                          <div className={`group/item flex items-center flex-1 min-w-0 rounded-md ${
+                          <div className={`group/item relative flex items-center flex-1 min-w-0 rounded-md ${
                               isActive ? 'bg-accent text-accent-foreground' : 'hover:bg-accent'
                             }`}>
+                            {/* Dropdown Toggle Button - Only for spaces with boards */}
+                            {hasBoards && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  e.preventDefault();
+                                  toggleSpace(space.id);
+                                }}
+                                onMouseDown={(e) => {
+                                  e.stopPropagation();
+                                }}
+                                className="p-1 mr-1 hover:bg-accent/80 rounded flex-shrink-0 z-10"
+                                type="button"
+                              >
+                                {isSpaceExpanded ? (
+                                  <ChevronDown className="h-3 w-3" />
+                                ) : (
+                                  <ChevronRight className="h-3 w-3" />
+                                )}
+                              </button>
+                            )}
+                            {/* Navigation Button - Entire row is clickable */}
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
+                                // Don't prevent default - let router handle navigation
                                 const lastBoardId = localStorage.getItem(`lastBoard_${space.slug}`);
-                                if (lastBoardId) {
-                                  router.push(`/spaces/${space.slug}?boardId=${lastBoardId}`);
-                                } else {
-                                  router.push(`/spaces/${space.slug}`);
-                                }
+                                const targetPath = lastBoardId 
+                                  ? `/spaces/${space.slug}?boardId=${lastBoardId}`
+                                  : `/spaces/${space.slug}`;
+                                
+                                console.log('[Sidebar] Space clicked:', {
+                                  spaceName: space.name,
+                                  spaceSlug: space.slug,
+                                  targetPath,
+                                  lastBoardId,
+                                  currentPath: window.location.pathname
+                                });
+                                
+                                // Use Next.js router for client-side navigation
+                                router.push(targetPath);
                               }}
-                              className={`flex items-center space-x-2 px-3 py-2 text-sm transition-colors group flex-1 w-full text-left ${
+                              className={`flex items-center space-x-2 px-3 py-2 text-sm flex-1 w-full text-left transition-colors ${
                                 isActive ? 'text-accent-foreground' : 'text-muted-foreground hover:text-accent-foreground'
                               }`}
                             >
@@ -315,11 +336,19 @@ export function NotionSidebar({ spaces, user, onLogout, onCreateSpace, onCollaps
                                 )}
                               </div>
                             </button>
+                            {/* Menu Button */}
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <button
-                                  className="p-1.5 mr-1 hover:bg-accent/50 rounded"
-                                  onClick={(e) => e.stopPropagation()}
+                                  className="p-1.5 mr-1 hover:bg-accent/50 rounded z-10"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    e.preventDefault();
+                                  }}
+                                  onMouseDown={(e) => {
+                                    e.stopPropagation();
+                                  }}
+                                  type="button"
                                 >
                                   <MoreVertical className="h-3 w-3" />
                                 </button>
@@ -348,7 +377,6 @@ export function NotionSidebar({ spaces, user, onLogout, onCreateSpace, onCollaps
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </div>
-                        </div>
                           {/* Boards as Child Objects - Indented underneath */}
                           {hasBoards && isSpaceExpanded && (
                             <div className="ml-6 pl-4 mt-1">

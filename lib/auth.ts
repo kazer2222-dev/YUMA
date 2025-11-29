@@ -47,7 +47,7 @@ export class AuthService {
     const accessToken = jwt.sign(
       { userId: user.id, email: user.email },
       JWT_SECRET,
-      { expiresIn: '15m' }
+      { expiresIn: '1h' }
     );
 
     const refreshToken = jwt.sign(
@@ -188,7 +188,16 @@ export class AuthService {
     }
   }
 
-  static async verifyPIN(email: string, pin: string): Promise<{ success: boolean; session?: SessionData; message: string }> {
+  static async verifyPIN(
+    email: string, 
+    pin: string, 
+    options?: {
+      rememberMe?: boolean;
+      deviceInfo?: string;
+      userAgent?: string;
+      ipAddress?: string;
+    }
+  ): Promise<{ success: boolean; session?: SessionData; message: string }> {
     const isProduction = process.env.NODE_ENV === 'production';
     
     try {
@@ -262,6 +271,34 @@ export class AuthService {
           name: user.name || undefined
         });
 
+        // Handle remember me logic
+        const rememberMe = options?.rememberMe ?? false;
+        const deviceInfo = options?.deviceInfo || 'unknown';
+        const userAgent = options?.userAgent || 'unknown';
+        const ipAddress = options?.ipAddress || 'unknown';
+
+        // If remember me is enabled, invalidate sessions from other devices
+        if (rememberMe) {
+          try {
+            await prisma.session.deleteMany({
+              where: {
+                userId: user.id,
+                deviceInfo: {
+                  not: deviceInfo
+                }
+              }
+            });
+            console.log(`[DEV MODE] Invalidated other device sessions for user: ${user.email}`);
+          } catch (e) {
+            console.error('Error invalidating other sessions:', e);
+          }
+        }
+
+        // Session expiration: 30 days if remember me, otherwise 7 days (will be cleared on browser close via session cookie)
+        const sessionExpiration = rememberMe 
+          ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days
+          : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days (but cookie will be session-based)
+
         // Create session in database for dev mode too
         try {
           await prisma.session.create({
@@ -269,11 +306,14 @@ export class AuthService {
               userId: user.id,
               token: accessToken,
               refreshToken,
-              expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+              deviceInfo,
+              userAgent,
+              ipAddress,
+              expiresAt: sessionExpiration,
               lastActiveAt: new Date()
             }
           });
-          console.log(`[DEV MODE] Session created for user: ${user.email}`);
+          console.log(`[DEV MODE] Session created for user: ${user.email}, rememberMe: ${rememberMe}`);
         } catch (sessionError: any) {
           console.error('Database error creating session:', sessionError);
           // Continue anyway - getUserFromToken will handle it with fallback
@@ -344,11 +384,13 @@ export class AuthService {
           }
         });
 
-        // Create personal space for new user
+        // Create personal space for new user with unique ticker
+        const tickerBase = user.id.slice(-6).toUpperCase();
         await prisma.space.create({
           data: {
             name: 'Personal',
             slug: `personal-${user.id}`,
+            ticker: `P-${tickerBase}`,
             members: {
               create: {
                 userId: user.id,
@@ -373,13 +415,44 @@ export class AuthService {
         name: user.name || undefined
       });
 
+      // Handle remember me logic
+      const rememberMe = options?.rememberMe ?? false;
+      const deviceInfo = options?.deviceInfo || 'unknown';
+      const userAgent = options?.userAgent || 'unknown';
+      const ipAddress = options?.ipAddress || 'unknown';
+
+      // If remember me is enabled, invalidate sessions from other devices
+      if (rememberMe) {
+        try {
+          await prisma.session.deleteMany({
+            where: {
+              userId: user.id,
+              deviceInfo: {
+                not: deviceInfo
+              }
+            }
+          });
+          console.log(`Invalidated other device sessions for user: ${user.email}`);
+        } catch (e) {
+          console.error('Error invalidating other sessions:', e);
+        }
+      }
+
+      // Session expiration: 30 days if remember me, otherwise 7 days (will be cleared on browser close via session cookie)
+      const sessionExpiration = rememberMe 
+        ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days
+        : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days (but cookie will be session-based)
+
       // Create session
       await prisma.session.create({
         data: {
           userId: user.id,
           token: accessToken,
           refreshToken,
-          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+          deviceInfo,
+          userAgent,
+          ipAddress,
+          expiresAt: sessionExpiration,
           lastActiveAt: new Date()
         }
       });

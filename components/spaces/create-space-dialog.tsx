@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -21,6 +22,7 @@ export function CreateSpaceDialog({
   onOpenChange, 
   onSpaceCreated 
 }: CreateSpaceDialogProps) {
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [formData, setFormData] = useState({
@@ -52,10 +54,8 @@ export function CreateSpaceDialog({
         onSpaceCreated?.();
         onOpenChange(false);
         setFormData({ name: '', description: '', ticker: '' });
-        // Refresh the page to update the sidebar
-        if (typeof window !== 'undefined') {
-          window.location.reload();
-        }
+        // Refresh server components to update sidebar without full page reload
+        router.refresh();
       } else {
         const errorMessage = data.message || 'Failed to create space';
         setError(errorMessage);

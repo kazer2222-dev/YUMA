@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { CreateSpaceDialog } from './create-space-dialog';
@@ -119,8 +120,9 @@ export function SpacesList() {
 }
 
 function SpaceCard({ space }: { space: Space }) {
+  const router = useRouter();
   return (
-    <Card className="notion-card-hover group cursor-pointer" onClick={() => window.location.href = `/spaces/${space.slug}`}>
+    <Card className="notion-card-hover group cursor-pointer" onClick={() => router.push(`/spaces/${space.slug}`)}>
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div className="flex items-center space-x-3">

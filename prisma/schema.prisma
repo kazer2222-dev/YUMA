@@ -12,12 +12,15 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String?
-  avatar    String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            String   @id @default(cuid())
+  email         String   @unique
+  name          String?
+  avatar        String?
+  password      String?  // Hashed password for email registration
+  emailVerified Boolean  @default(false)
+  googleId      String?  @unique // Google OAuth ID
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   // Authentication
   sessions Session[]

@@ -1,4 +1,5 @@
 import React, { lazy, Suspense, memo } from 'react';
+import Image from 'next/image';
 
 // Lazy load heavy components
 export const LazyBoardView = lazy(() => import('@/components/board/board-view').then(mod => ({ default: mod.BoardView })));
@@ -6,14 +7,32 @@ export const LazyCalendarView = lazy(() => import('@/components/calendar/calenda
 export const LazyRoadmapView = lazy(() => import('@/components/roadmap/roadmap-view').then(mod => ({ default: mod.RoadmapView })));
 export const LazyAIAssistant = lazy(() => import('@/components/ai/ai-assistant').then(mod => ({ default: mod.AIAssistant })));
 
-// Optimized image component
-export const OptimizedImage = memo(({ src, alt, ...props }: any) => {
+// Optimized image component using Next.js Image
+export const OptimizedImage = memo(({ src, alt, width, height, ...props }: any) => {
+  // For external URLs or when dimensions are not provided, use unoptimized
+  const isExternal = typeof src === 'string' && (src.startsWith('http') || src.startsWith('//'));
+  
+  if (isExternal || !width || !height) {
+    return (
+      <Image
+        src={src}
+        alt={alt || ''}
+        width={width || 800}
+        height={height || 600}
+        loading="lazy"
+        unoptimized={isExternal}
+        {...props}
+      />
+    );
+  }
+  
   return (
-    <img
+    <Image
       src={src}
-      alt={alt}
+      alt={alt || ''}
+      width={width}
+      height={height}
       loading="lazy"
-      decoding="async"
       {...props}
     />
   );

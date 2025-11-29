@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -13,6 +14,8 @@ export default function Error({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const router = useRouter();
+  
   useEffect(() => {
     // Log the error to an error reporting service
     console.error('Root error:', error);
@@ -53,7 +56,7 @@ export default function Error({
               Try Again
             </Button>
             <Button 
-              onClick={() => window.location.href = '/'} 
+              onClick={() => router.push('/home')} 
               className="flex-1"
             >
               <Home className="w-4 h-4 mr-2" />

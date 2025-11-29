@@ -3,9 +3,9 @@ import { AuthService } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, pin } = await request.json();
+    const { email, pin, rememberMe } = await request.json();
 
-    console.log(`[API] Verifying PIN for: ${email}, PIN: ${pin}`);
+    console.log(`[API] Verifying PIN for: ${email}, PIN: ${pin}, rememberMe: ${rememberMe}`);
 
     if (!email || !pin) {
       return NextResponse.json(
@@ -14,7 +14,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const result = await AuthService.verifyPIN(email, pin);
+    // Get device information from request
+    const userAgent = request.headers.get('user-agent') || 'unknown';
+    const ipAddress = request.headers.get('x-forwarded-for')?.split(',')[0] || 
+                     request.headers.get('x-real-ip') || 
+                     'unknown';
+    
+    // Generate device fingerprint from user agent and other headers
+    const deviceInfo = `${userAgent}|${ipAddress}`.slice(0, 500); // Limit length
+
+    const result = await AuthService.verifyPIN(email, pin, {
+      rememberMe: rememberMe === true,
+      deviceInfo,
+      userAgent,
+      ipAddress,
+    });
     console.log(`[API] PIN verification result:`, { 
       success: result.success, 
       message: result.message,
@@ -30,13 +44,19 @@ export async function POST(request: NextRequest) {
       });
 
       const isProduction = process.env.NODE_ENV === 'production';
+      const isRememberMe = rememberMe === true;
+      
+      // If remember me: use persistent cookies (30 days)
+      // If not remember me: use session cookies (expire when browser closes)
+      const accessTokenMaxAge = isRememberMe ? 30 * 24 * 60 * 60 : undefined; // 30 days or session
+      const refreshTokenMaxAge = isRememberMe ? 30 * 24 * 60 * 60 : undefined; // 30 days or session
       
       response.cookies.set('accessToken', result.session.accessToken, {
         httpOnly: true,
         secure: isProduction,
         sameSite: 'lax',
         path: '/',
-        maxAge: 15 * 60 // 15 minutes
+        ...(accessTokenMaxAge ? { maxAge: accessTokenMaxAge } : {}), // Session cookie if no maxAge
       });
 
       response.cookies.set('refreshToken', result.session.refreshToken, {
@@ -44,7 +64,7 @@ export async function POST(request: NextRequest) {
         secure: isProduction,
         sameSite: 'lax',
         path: '/',
-        maxAge: 7 * 24 * 60 * 60 // 7 days
+        ...(refreshTokenMaxAge ? { maxAge: refreshTokenMaxAge } : {}), // Session cookie if no maxAge
       });
 
       console.log(`[API] Cookies set for: ${email}`);

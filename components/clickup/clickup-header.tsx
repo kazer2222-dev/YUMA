@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
-import { Search, Plus, Bell, Menu } from 'lucide-react';
+import { useState, useRef } from 'react';
+import { useRouter } from 'next/navigation';
+import { Search, Plus, Bell, Menu, User, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ThemeToggle } from '@/components/theme/theme-toggle';
 
 interface ClickUpHeaderProps {
@@ -15,6 +16,9 @@ interface ClickUpHeaderProps {
   searchPlaceholder?: string;
   userInitial?: string;
   userName?: string;
+  userAvatar?: string;
+  userEmail?: string;
+  onLogout?: () => void;
 }
 
 export function ClickUpHeader({
@@ -25,8 +29,27 @@ export function ClickUpHeader({
   searchPlaceholder = 'Search tasks...',
   userInitial = 'A',
   userName = 'admin',
+  userAvatar,
+  userEmail,
+  onLogout,
 }: ClickUpHeaderProps) {
   const [query, setQuery] = useState('');
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const userMenuCloseTimer = useRef<NodeJS.Timeout | null>(null);
+  const router = useRouter();
+
+  const openUserMenu = () => {
+    if (userMenuCloseTimer.current) {
+      clearTimeout(userMenuCloseTimer.current);
+      userMenuCloseTimer.current = null;
+    }
+    setUserMenuOpen(true);
+  };
+
+  const scheduleCloseUserMenu = () => {
+    if (userMenuCloseTimer.current) clearTimeout(userMenuCloseTimer.current);
+    userMenuCloseTimer.current = setTimeout(() => setUserMenuOpen(false), 150);
+  };
 
   const handleSearchChange = (value: string) => {
     setQuery(value);
@@ -71,13 +94,46 @@ export function ClickUpHeader({
         <Button variant="ghost" size="icon" className="h-9 w-9">
           <Bell className="h-4 w-4" style={{ color: '#4353FF' }} />
         </Button>
-        <div className="flex items-center gap-2 rounded-md p-1.5">
+        <div 
+          className="relative flex items-center gap-2 rounded-md p-1.5 cursor-pointer hover:bg-[var(--hover)] transition-colors"
+          onMouseEnter={openUserMenu}
+          onMouseLeave={scheduleCloseUserMenu}
+        >
           <Avatar className="h-8 w-8 bg-[var(--primary)] text-white">
+            <AvatarImage src={userAvatar} alt={userName || userEmail || ''} />
             <AvatarFallback className="bg-[var(--primary)] text-white">
               {userInitial ? userInitial[0]?.toUpperCase() : 'A'}
             </AvatarFallback>
           </Avatar>
           <span className="hidden sm:inline">{userName}</span>
+          
+          {/* Dropdown Menu */}
+          {userMenuOpen && (
+            <div
+              className="absolute right-0 top-full mt-2 z-50 min-w-[200px] rounded-md border border-border bg-popover shadow-lg transition ease-out duration-150 transform opacity-100 translate-y-0"
+              onMouseEnter={openUserMenu}
+              onMouseLeave={scheduleCloseUserMenu}
+            >
+              <button
+                className="w-full text-left px-3 py-2 text-sm hover:bg-accent rounded-t-md flex items-center gap-2"
+                onClick={() => {
+                  setUserMenuOpen(false);
+                  router.push('/profile');
+                }}
+              >
+                <User className="h-4 w-4" /> Profile
+              </button>
+              <button
+                className="w-full text-left px-3 py-2 text-sm text-destructive hover:bg-destructive/10 rounded-b-md flex items-center gap-2"
+                onClick={() => {
+                  setUserMenuOpen(false);
+                  onLogout?.();
+                }}
+              >
+                <LogOut className="h-4 w-4" /> Log out
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

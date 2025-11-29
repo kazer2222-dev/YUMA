@@ -200,8 +200,8 @@ function NavItemComponent({
         )}
 
         {item.icon && (
-          <span className="shrink-0">
-            <item.icon className="h-4 w-4" style={{ color: item.iconColor || 'currentColor' }} />
+          <span className="shrink-0" style={{ color: item.iconColor || 'currentColor' }}>
+            <item.icon className="h-4 w-4" />
           </span>
         )}
 
@@ -443,7 +443,9 @@ function SidebarContent({
               }}
             >
               {tool.icon && (
-                <tool.icon className="h-5 w-5" style={{ color: selectedTool === tool.toolId ? 'currentColor' : tool.iconColor }} />
+                <span style={{ color: selectedTool === tool.toolId ? 'currentColor' : tool.iconColor }}>
+                  <tool.icon className="h-5 w-5" />
+                </span>
               )}
             </Button>
           ))}

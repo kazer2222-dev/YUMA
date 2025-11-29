@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -190,6 +191,7 @@ function getSprintAccent(state?: string): SprintAccentMeta {
 }
 
 export function BacklogView({ spaceSlug, boardId }: BacklogViewProps) {
+  const router = useRouter();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [sprints, setSprints] = useState<Sprint[]>([]);
   const [loading, setLoading] = useState(true);
@@ -479,12 +481,24 @@ export function BacklogView({ spaceSlug, boardId }: BacklogViewProps) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          ...formData,
+          boardId: boardId || undefined, // Include boardId if available
+        }),
       });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Failed to create sprint:', response.status, errorText);
+        throw new Error(`Failed to create sprint: ${response.status} ${errorText}`);
+      }
+      
       const data = await response.json();
       if (data.success) {
         setCreateSprintOpen(false);
         fetchData();
+      } else {
+        console.error('Failed to create sprint:', data.message || 'Unknown error');
       }
     } catch (error) {
       console.error('Failed to create sprint:', error);
@@ -500,11 +514,20 @@ export function BacklogView({ spaceSlug, boardId }: BacklogViewProps) {
         credentials: 'include',
         body: JSON.stringify(formData),
       });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Failed to update sprint:', response.status, errorText);
+        throw new Error(`Failed to update sprint: ${response.status} ${errorText}`);
+      }
+      
       const data = await response.json();
       if (data.success) {
         setEditSprintOpen(false);
         setEditingSprint(null);
         fetchData();
+      } else {
+        console.error('Failed to update sprint:', data.message || 'Unknown error');
       }
     } catch (error) {
       console.error('Failed to update sprint:', error);
@@ -1000,7 +1023,7 @@ export function BacklogView({ spaceSlug, boardId }: BacklogViewProps) {
     
     // If task is already open in side view, navigate to full page instead
     if (selectedTask && selectedTask.id === taskId && editorOpen) {
-      window.location.href = `/spaces/${spaceSlug}/tasks/${taskId}?from=backlog`;
+      router.push(`/spaces/${spaceSlug}/tasks/${taskId}?from=backlog`);
       return;
     }
     
@@ -2256,7 +2279,7 @@ export function BacklogView({ spaceSlug, boardId }: BacklogViewProps) {
         onNavigateToFullPage={() => {
           if (selectedTask) {
             setEditorOpen(false);
-            window.location.href = `/spaces/${spaceSlug}/tasks/${selectedTask.id}?from=backlog`;
+            router.push(`/spaces/${spaceSlug}/tasks/${selectedTask.id}?from=backlog`);
           }
         }}
       />
@@ -2871,6 +2894,17 @@ function CreateSprintDialog({
   const [startCalendarOpen, setStartCalendarOpen] = useState(false);
   const [endCalendarOpen, setEndCalendarOpen] = useState(false);
 
+  // Prevent body scroll when dialog is open to avoid layout issues
+  useEffect(() => {
+    if (open) {
+      const originalOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = originalOverflow;
+      };
+    }
+  }, [open]);
+
   // Calculate end date based on start date and duration
   const calculateEndDate = (startDateStr: string, duration: string, currentEndDate?: string) => {
     if (!startDateStr) return '';
@@ -2953,15 +2987,27 @@ function CreateSprintDialog({
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
+  // Prevent body scroll when dialog is open
+  useEffect(() => {
+    if (open) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [open]);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-gradient-to-br from-[#1a1a1a] via-[#1f1f1f] to-[#1a1a1a] border-[#333333]/50 max-w-lg p-0 shadow-2xl overflow-hidden [&>button]:flex [&>button]:text-[#a3a3a3] [&>button]:hover:text-[#e5e5e5]">
+      <DialogContent className="bg-gradient-to-br from-[#1a1a1a] via-[#1f1f1f] to-[#1a1a1a] border-[#333333]/50 max-w-lg p-0 shadow-2xl overflow-hidden max-h-[90vh] flex flex-col [&>button]:flex [&>button]:text-[#a3a3a3] [&>button]:hover:text-[#e5e5e5]">
         <DialogDescription className="sr-only">
           {sprint ? 'Edit sprint details including name, goal, and dates' : 'Create a new sprint with name, goal, and dates'}
         </DialogDescription>
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} className="flex flex-col h-full max-h-[90vh]">
           {/* Gradient Header */}
-          <div className="relative">
+          <div className="relative flex-shrink-0">
             <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#4353FF] via-[#8B5CF6] to-[#4353FF] bg-[length:200%_100%] animate-gradient-x" />
             <div className="relative flex items-center justify-between px-6 py-5 border-b border-[#333333]/50 bg-gradient-to-b from-[#242424]/80 to-transparent backdrop-blur-sm">
               <div className="flex items-center gap-3">
@@ -2980,7 +3026,7 @@ function CreateSprintDialog({
             </div>
           </div>
 
-          <div className="relative px-6 py-5 space-y-5 bg-gradient-to-b from-[#1a1a1a] to-[#1f1f1f]">
+          <div className="relative px-6 py-5 space-y-5 bg-gradient-to-b from-[#1a1a1a] to-[#1f1f1f] overflow-y-auto flex-1 min-h-0">
             <div className="space-y-2">
               <Label htmlFor="name" className="text-[#e5e5e5] text-sm font-medium flex items-center gap-2">
                 Sprint Name <span className="text-[#4353FF]">*</span>
@@ -3176,7 +3222,7 @@ function CreateSprintDialog({
             </div>
           </div>
 
-          <div className="relative flex items-center justify-end gap-3 px-6 py-4 border-t border-[#333333]/50 bg-gradient-to-t from-[#242424]/80 to-transparent">
+          <div className="relative flex items-center justify-end gap-3 px-6 py-4 border-t border-[#333333]/50 bg-gradient-to-t from-[#242424]/80 to-transparent flex-shrink-0">
             <Button
               type="button"
               variant="outline"

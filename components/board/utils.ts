@@ -1,3 +1,5 @@
+import { Status } from './board-types';
+
 export const formatDateDDMMYYYY = (dateString: string): string => {
   if (!dateString) {
     return '';
@@ -118,5 +120,31 @@ export const sanitizeDescriptionHtml = (html: string | null | undefined): string
   sanitizeNode(doc.body);
   return doc.body.innerHTML.trim();
 };
+
+const stripHtml = (value: string): string => {
+  return value.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+};
+
+export const getDescriptionExcerpt = (html: string | null | undefined, limit = 160): string => {
+  if (!html) return '';
+  const plainText = stripHtml(html);
+  if (!plainText) return '';
+  if (plainText.length <= limit) {
+    return plainText;
+  }
+  return `${plainText.slice(0, limit).trim()}…`;
+};
+
+export const getStatusColor = (status: Pick<Status, 'name' | 'color'>): string => {
+  const name = status.name?.toLowerCase() || '';
+  if (name.includes('new')) return '#7D8089';
+  if (name.includes('backlog')) return '#F59E0B';
+  if (name.includes('to do') || name.includes('todo')) return '#4353FF';
+  if (name.includes('in progress') || name.includes('progress')) return '#8B5CF6';
+  if (name.includes('review')) return '#10B981';
+  return status.color || '#7D8089';
+};
+
+
 
 

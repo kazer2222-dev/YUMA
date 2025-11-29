@@ -73,11 +73,9 @@ export async function GET(
             totalStoryPoints += task.storyPoints;
           }
           if (task.status?.isDone) {
-            // Simple heuristic: tags containing "bug" = bug fix
+            // Count done tasks as completed features
             // In production, you might want a more sophisticated approach
-            if (task.status.name.toLowerCase().includes('done')) {
-              newFeatures++;
-            }
+            newFeatures++;
           }
         });
       });
@@ -186,13 +184,22 @@ export async function POST(
 
     // Link sprints if provided
     if (Array.isArray(sprintIds) && sprintIds.length > 0) {
-      await prisma.releaseSprint.createMany({
-        data: sprintIds.map((sprintId: string) => ({
-          releaseId: release.id,
-          sprintId,
-        })),
-        skipDuplicates: true,
-      });
+      // Use individual creates to handle duplicates gracefully
+      for (const sprintId of sprintIds) {
+        try {
+          await prisma.releaseSprint.create({
+            data: {
+              releaseId: release.id,
+              sprintId,
+            },
+          });
+        } catch (error: any) {
+          // Ignore duplicate entry errors
+          if (error.code !== 'P2002') {
+            throw error;
+          }
+        }
+      }
     }
 
     const releaseWithSprints = await prisma.release.findUnique({

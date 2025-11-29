@@ -348,6 +348,8 @@ export async function GET(
       }
     });
   } catch (error: any) {
+    const resolvedParams = await Promise.resolve(params);
+    const { taskId, slug } = resolvedParams;
     console.error('Error fetching task:', error);
     console.error('Error stack:', error?.stack);
     console.error('Task ID:', taskId, 'Space slug:', slug);

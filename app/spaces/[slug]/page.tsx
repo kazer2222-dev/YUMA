@@ -34,6 +34,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import { useUser, useSpaces, useSpace, useBoards, useRefreshSpaces, useRefreshSpace } from '@/lib/hooks/use-spaces';
 import { TemplatesManager } from '@/components/templates/templates-manager';
@@ -88,6 +89,7 @@ interface SortableTabProps {
   selectedBoardId?: string | null;
   boards?: Array<{ id: string; name: string; color?: string | null }>;
   onBoardSelect?: (boardId: string) => void;
+  onCreateBoard?: () => void;
 }
 
 function SortableTab({
@@ -99,6 +101,7 @@ function SortableTab({
   selectedBoardId,
   boards,
   onBoardSelect,
+  onCreateBoard,
 }: SortableTabProps) {
   const {
     attributes,
@@ -174,6 +177,17 @@ function SortableTab({
                 </div>
               </DropdownMenuItem>
             ))}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={(e) => {
+                e.stopPropagation();
+                onCreateBoard?.();
+              }}
+              className="cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5 mr-2" />
+              Create Board
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       ) : (
@@ -344,6 +358,8 @@ export default function SpacePage() {
   const [createBoardOpen, setCreateBoardOpen] = useState(false);
   const [templatesOpen, setTemplatesOpen] = useState(false);
   const [workflowsOpen, setWorkflowsOpen] = useState(false);
+  const [workflowEditorOpen, setWorkflowEditorOpen] = useState(false);
+  const [showTemplatesView, setShowTemplatesView] = useState(false);
   const userInitiatedTabChange = useRef<string | null>(null);
   const loadedTabs = useRef<Set<string>>(new Set(['overview']));
   const prefetchCache = useRef<Set<string>>(new Set());
@@ -533,7 +549,49 @@ export default function SpacePage() {
     [boards, selectedBoardId, spaceSlug, handleTabSwitch, selectBoard],
   );
 
-  const loading = userLoading || spaceLoading;
+  // Track if we're navigating to a new space to show loading immediately
+  const [isNavigating, setIsNavigating] = useState(true); // Start as true to show loading immediately
+  const previousPathRef = useRef<string | null>(null);
+
+  // Detect navigation by watching pathname changes
+  useEffect(() => {
+    const currentPath = pathname;
+    console.log('[SpacePage] Pathname changed:', {
+      currentPath,
+      previousPath: previousPathRef.current,
+      spaceSlug,
+      hasSpace: !!space,
+      spaceLoading,
+      isNavigating
+    });
+    
+    if (previousPathRef.current !== currentPath) {
+      // Path changed - we're navigating to a new space
+      console.log('[SpacePage] Navigation detected - setting isNavigating to true');
+      setIsNavigating(true);
+      previousPathRef.current = currentPath;
+    }
+    
+    // Reset navigating state once space is loaded and matches the current slug
+    if (space && !spaceLoading && space.slug === spaceSlug) {
+      console.log('[SpacePage] Space loaded - setting isNavigating to false');
+      const timer = setTimeout(() => setIsNavigating(false), 150);
+      return () => clearTimeout(timer);
+    }
+  }, [pathname, spaceSlug, space, spaceLoading]);
+
+  // Show loading if: user is loading, space is loading, navigating to new space, or we have a slug but no space data yet
+  const loading = userLoading || spaceLoading || isNavigating || (spaceSlug && !space && !spaceError);
+  
+  console.log('[SpacePage] Loading state:', {
+    userLoading,
+    spaceLoading,
+    isNavigating,
+    hasSpace: !!space,
+    spaceSlug,
+    spaceError: !!spaceError,
+    finalLoading: loading
+  });
   const error = spaceError ? 'Failed to fetch space' : '';
 
   const selectedBoard = useMemo(
@@ -876,10 +934,60 @@ export default function SpacePage() {
     }
   };
 
-  if (loading || !user) {
+  // Show loading skeleton immediately when loading or navigating
+  if (loading) {
+    console.log('[SpacePage] Rendering loading skeleton');
+    return (
+      <ClickUpAppShell
+        spaces={spaces || []}
+        user={user || { id: '', email: '' }}
+        onLogout={handleLogout}
+        onCreateSpace={() => {}}
+        pageTitle=""
+        pageSubtitle=""
+        breadcrumbs={[]}
+        showSearch={true}
+        onSearch={() => {}}
+        onRefreshSpaces={refreshSpaces}
+        actions={[]}
+      >
+        <div className="flex flex-col min-h-full">
+          {/* Skeleton for tabs */}
+          <div className="border-b border-[var(--border)] bg-[var(--background)] px-4 py-2 md:px-6">
+            <div className="flex items-center gap-1">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <Skeleton key={i} className="h-10 w-24 rounded" />
+              ))}
+            </div>
+          </div>
+          
+          {/* Skeleton for content */}
+          <div className="flex-1 p-6 space-y-6">
+            <div className="space-y-4">
+              <Skeleton className="h-8 w-64" />
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {[1, 2, 3].map((i) => (
+                  <CardSkeleton key={i} />
+                ))}
+              </div>
+              <div className="space-y-3">
+                <Skeleton className="h-6 w-48" />
+                <TableSkeleton rows={5} />
+              </div>
+            </div>
+          </div>
+        </div>
+      </ClickUpAppShell>
+    );
+  }
+  
+  console.log('[SpacePage] Rendering main content');
+
+  // Redirect to auth if user is not authenticated
+  if (!user) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Loading size="lg" text="Loading space..." />
+        <Loading size="lg" text="Redirecting to login..." />
       </div>
     );
   }
@@ -951,8 +1059,9 @@ export default function SpacePage() {
       onRefreshSpaces={refreshSpaces}
       actions={[]}
     >
-      <div className="h-full flex flex-col">
+      <div className="flex flex-col min-h-full">
         {/* Navigation Tabs - matches design folder */}
+    {!workflowEditorOpen && (
     <div className="border-b border-[var(--border)] bg-[var(--background)] px-4 py-2 md:px-6">
       <div className="flex flex-col gap-2 md:hidden">
         <div className="flex items-center justify-between gap-2">
@@ -994,11 +1103,6 @@ export default function SpacePage() {
             </Select>
           )}
 
-          {activeTab === 'board' && (
-            <Button size="sm" className="bg-[#5B5FED] hover:bg-[#4B4FDD] text-white flex-shrink-0">
-              <Plus className="w-4 h-4" />
-            </Button>
-          )}
         </div>
       </div>
 
@@ -1018,6 +1122,7 @@ export default function SpacePage() {
                     selectedBoardId={(tab.id === 'board' || tab.id === 'sprints' || tab.id === 'releases' || tab.id === 'backlog') ? selectedBoardId : undefined}
                     boards={(tab.id === 'board' || tab.id === 'sprints' || tab.id === 'releases' || tab.id === 'backlog') ? boards : undefined}
                     onBoardSelect={(tab.id === 'board' || tab.id === 'sprints' || tab.id === 'releases' || tab.id === 'backlog') ? handleBoardSelectFromDropdown : undefined}
+                    onCreateBoard={(tab.id === 'board' || tab.id === 'sprints' || tab.id === 'releases' || tab.id === 'backlog') ? () => setCreateBoardOpen(true) : undefined}
                   />
                 ))}
 
@@ -1051,21 +1156,9 @@ export default function SpacePage() {
           </DndContext>
         </div>
 
-        {activeTab === 'board' && (
-          <Button
-            className="bg-[#5B5FED] hover:bg-[#4B4FDD] text-white"
-            onClick={() => {
-              if (typeof window !== 'undefined') {
-                window.dispatchEvent(new Event('yuma:create-task'));
-              }
-            }}
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Create Task
-          </Button>
-        )}
       </div>
     </div>
+    )}
 
         {/* Tab Content */}
         <div className="flex-1 min-h-0 p-8">
@@ -1159,14 +1252,42 @@ export default function SpacePage() {
           ) : null}
           {/* Only render active tab for better performance - lazy loading handles caching */}
           {activeTab === 'overview' && (
-            <SpaceOverviewContent
-              space={space}
-              boards={boards}
-              onOpenCreateBoard={() => setCreateBoardOpen(true)}
-              onOpenTemplates={() => setTemplatesOpen(true)}
-              onOpenWorkflows={() => setWorkflowsOpen(true)}
-              onNavigateToTab={navigateFromOverview}
-            />
+            <>
+              {showTemplatesView ? (
+                <div className="flex-1 min-h-0">
+                  <TemplatesManager
+                    spaceSlug={space.slug}
+                    standalone={true}
+                    onBack={() => setShowTemplatesView(false)}
+                    onSuccess={() => {
+                      setShowTemplatesView(false);
+                    }}
+                  />
+                </div>
+              ) : workflowsOpen ? (
+                <div className="flex-1 min-h-0">
+                  <WorkflowsManager
+                    spaceId={space.id}
+                    spaceSlug={space.slug}
+                    standalone={true}
+                    onBack={() => {
+                      setWorkflowsOpen(false);
+                      setWorkflowEditorOpen(false);
+                    }}
+                    onEditorOpenChange={setWorkflowEditorOpen}
+                  />
+                </div>
+              ) : (
+                <SpaceOverviewContent
+                  space={space}
+                  boards={boards}
+                  onOpenCreateBoard={() => setCreateBoardOpen(true)}
+                  onOpenTemplates={() => setShowTemplatesView(true)}
+                  onOpenWorkflows={() => setWorkflowsOpen(true)}
+                  onNavigateToTab={navigateFromOverview}
+                />
+              )}
+            </>
           )}
 
           {activeTab === 'tasks' && (
@@ -1174,7 +1295,9 @@ export default function SpacePage() {
           )}
 
           {activeTab === 'board' && selectedBoardId && (
-            <BoardView boardId={selectedBoardId} spaceSlug={params.slug as string} />
+            <div className="h-full flex flex-col -m-8">
+              <BoardView boardId={selectedBoardId} spaceSlug={params.slug as string} />
+            </div>
           )}
           {activeTab === 'board' && !selectedBoardId && boards.length === 0 && (
             <div className="p-6">
@@ -1323,7 +1446,9 @@ export default function SpacePage() {
                   </div>
                 }
               >
-                <SprintManagement boardId={selectedBoardId} spaceSlug={space.slug} />
+                <div className="h-full flex flex-col -m-8">
+                  <SprintManagement boardId={selectedBoardId} spaceSlug={space.slug} />
+                </div>
               </Suspense>
             ) : boards.length === 0 ? (
               <div className="p-6 text-sm text-[var(--muted-foreground)]">
@@ -1374,8 +1499,8 @@ export default function SpacePage() {
           />
         )}
 
-        {/* Templates Manager */}
-        {space && (
+        {/* Templates Manager - Only show as dialog if not in standalone mode */}
+        {space && !showTemplatesView && (
           <TemplatesManager
             spaceSlug={space.slug}
             open={templatesOpen}
@@ -1383,12 +1508,12 @@ export default function SpacePage() {
           />
         )}
 
-        {/* Workflows Manager */}
-        {space && (
+        {/* Workflows Manager - Only show as dialog if not in standalone mode */}
+        {space && !workflowsOpen && (
           <WorkflowsManager
             spaceId={space.id}
             spaceSlug={space.slug}
-            open={workflowsOpen}
+            open={false}
             onOpenChange={setWorkflowsOpen}
           />
         )}

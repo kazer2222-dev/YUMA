@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -51,6 +52,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
 }
 
 function DefaultErrorFallback({ error, resetError }: { error: Error; resetError: () => void }) {
+  const router = useRouter();
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
@@ -81,7 +83,7 @@ function DefaultErrorFallback({ error, resetError }: { error: Error; resetError:
               Try Again
             </Button>
             <Button 
-              onClick={() => window.location.href = '/'} 
+              onClick={() => router.push('/home')} 
               className="flex-1"
             >
               <Home className="w-4 h-4 mr-2" />

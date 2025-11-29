@@ -245,12 +245,11 @@ export function TemplateCreationWizard({
           <div className="mb-2">
             <Button
               variant="ghost"
-              size="sm"
+              size="icon"
               onClick={handleCancel}
-              className="h-8 px-3 text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--card)] gap-2"
+              className="h-8 w-8 text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--card)]"
             >
               <ArrowLeft className="w-4 h-4" />
-              <span>Back</span>
             </Button>
           </div>
         )}

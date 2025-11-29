@@ -12,21 +12,8 @@ import { Label } from '@/components/ui/label';
 import { AITextEditor } from '@/components/ai/ai-text-editor';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Settings, Plus, Loader2, Calendar as CalendarIcon, Save, X, Trash, Edit2, GitBranch, AlertCircle, Search, Filter, SlidersHorizontal, Sparkles, ChevronDown, ChevronRight } from 'lucide-react';
-import {
-  DndContext,
-  DragEndEvent,
-  DragStartEvent,
-  DragOverEvent,
-  DragOverlay,
-  PointerSensor,
-  KeyboardSensor,
-  useSensor,
-  useSensors,
-  closestCorners,
-  useDroppable,
-  rectIntersection,
-} from '@dnd-kit/core';
-import { arrayMove } from '@dnd-kit/sortable';
+import { DndProvider } from 'react-dnd';
+import { HTML5Backend } from 'react-dnd-html5-backend';
 import { BoardConfiguration } from './board-configuration';
 import { CreateTaskDialogUnified } from '@/components/tasks/create-task-dialog-unified';
 import { useServerSentEvents } from '@/lib/realtime';
@@ -68,9 +55,11 @@ import type { WorkflowDetail } from '@/lib/workflows/types';
 import { useToastHelpers } from '@/components/toast';
 import { useBoardData } from '@/lib/hooks/use-board-data';
 import { Task, Status } from './board-types';
-import { BoardColumn } from './board-column';
-import { formatDateDDMMYYYY, getTaskPriorityClasses } from './utils';
+import { BoardDroppableColumn } from './board-droppable-column';
+import { BoardCardPreview } from './board-card';
+import { formatDateDDMMYYYY, getTaskPriorityClasses, getStatusColor } from './utils';
 import { useBoardFilters } from './hooks/use-board-filters';
+import { KanbanStyles } from '@/components/kanban/kanban-styles';
 
 const MIN_AI_TRANSITION_CONFIDENCE = 0.6;
 
@@ -100,6 +89,8 @@ export function BoardView({ boardId, spaceSlug, sprintFilter, hideBacklog = fals
   const [spaceId, setSpaceId] = useState<string | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [statuses, setStatuses] = useState<Status[]>([]);
+  // Local kanban data for optimistic updates (like sprint board)
+  const [kanbanData, setKanbanData] = useState<Array<{ id: string; tasks: Task[] }>>([]);
   const [configOpen, setConfigOpen] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [isDropping, setIsDropping] = useState(false);
@@ -143,6 +134,7 @@ export function BoardView({ boardId, spaceSlug, sprintFilter, hideBacklog = fals
   const workflowCacheRef = useRef<Map<string, WorkflowDetail>>(new Map());
   const isFetchingRef = useRef<boolean>(false);
   const isDraggingRef = useRef<boolean>(false);
+  const pendingUpdateRef = useRef<boolean>(false);
   const dragOverStatusIdRef = useRef<string | null>(null);
   const dragOverTaskIdRef = useRef<string | null>(null);
   const dragOverTaskIndexRef = useRef<number | null>(null);
@@ -190,14 +182,7 @@ export function BoardView({ boardId, spaceSlug, sprintFilter, hideBacklog = fals
       : String(boardDataError)
     : '';
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8,
-      },
-    }),
-    useSensor(KeyboardSensor)
-  );
+  // react-dnd doesn't need sensors setup
 
   const getWorkflowDetailCached = useCallback(
     async (workflowId: string): Promise<WorkflowDetail | null> => {
@@ -236,6 +221,7 @@ export function BoardView({ boardId, spaceSlug, sprintFilter, hideBacklog = fals
         setStatuses([]);
         setTasks([]);
         setSprints([]);
+        setKanbanData([]);
       }
       return;
     }
@@ -244,13 +230,41 @@ export function BoardView({ boardId, spaceSlug, sprintFilter, hideBacklog = fals
     setBoardName(boardData.board?.name || 'Board');
     setSpaceTicker(boardData.space?.ticker || '');
     setSpaceId(boardData.space?.id || null);
-    setStatuses(boardData.statuses || []);
-    setTasks(boardData.tasks || []);
+    const newStatuses = boardData.statuses || [];
+    const newTasks = boardData.tasks || [];
+    setStatuses(newStatuses);
+    setTasks(newTasks);
     setSprints(boardData.sprints || []);
+
+    // Initialize kanbanData immediately when data is available
+    if (newStatuses.length > 0 && !isDraggingRef.current && !isUpdatingRef.current && !pendingUpdateRef.current) {
+      const columns = newStatuses
+        .filter(status => !status.hidden)
+        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+        .map(status => ({
+          id: status.id,
+          tasks: newTasks.filter(task => task.status.id === status.id)
+        }));
+      setKanbanData(columns);
+    }
 
     const activeSprint = (boardData.sprints || []).find((s: any) => s.state === 'ACTIVE');
     setSelectedSprintId(activeSprint?.id || (boardData.sprints?.[0]?.id ?? null));
   }, [boardData, boardDataLoading]);
+
+  // Sync kanbanData from tasks/statuses (like sprint board) - only when not dragging
+  useEffect(() => {
+    if (!isDraggingRef.current && !isUpdatingRef.current && !pendingUpdateRef.current && statuses.length > 0) {
+      const columns = statuses
+        .filter(status => !status.hidden)
+        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+        .map(status => ({
+          id: status.id,
+          tasks: tasks.filter(task => task.status.id === status.id)
+        }));
+      setKanbanData(columns);
+    }
+  }, [statuses, tasks]);
 
   const resolveWorkflowTransition = useCallback(
     async (task: Task, targetStatus: Status) => {
@@ -344,15 +358,89 @@ export function BoardView({ boardId, spaceSlug, sprintFilter, hideBacklog = fals
     [boardId, spaceSlug, queryClient, refetchBoardData],
   );
 
-  const handleTaskCreated = useCallback((createdTask: Task | null | undefined) => {
-    if (createdTask) {
-      setTasks((prevTasks) => {
-        const withoutCreated = prevTasks.filter((task) => task.id !== createdTask.id);
-        return [createdTask, ...withoutCreated];
-      });
+  const handleTaskCreated = useCallback((createdTask: any) => {
+    if (!createdTask) return;
+
+    // Ensure the task has the correct structure matching Task interface
+    const formattedTask: Task = {
+      id: createdTask.id,
+      number: createdTask.number || 0,
+      summary: createdTask.summary || '',
+      description: createdTask.description || undefined,
+      priority: createdTask.priority || 'NORMAL',
+      tags: Array.isArray(createdTask.tags) ? createdTask.tags : (typeof createdTask.tags === 'string' ? JSON.parse(createdTask.tags || '[]') : []),
+      dueDate: createdTask.dueDate || undefined,
+      estimate: createdTask.estimate || undefined,
+      createdAt: createdTask.createdAt || new Date().toISOString(),
+      updatedAt: createdTask.updatedAt || new Date().toISOString(),
+      sprintId: createdTask.sprintId || null,
+      assignee: createdTask.assignee || null,
+      workflowId: createdTask.workflowId || null,
+      workflowStatusId: createdTask.workflowStatusId || null,
+      workflowStatus: createdTask.workflowStatus || null,
+      status: createdTask.status || (createdTask.statusId ? statuses.find(s => s.id === createdTask.statusId) : null) || statuses[0] || {
+        id: createdTask.statusId || '',
+        name: 'Unknown',
+        key: 'unknown',
+        color: '#gray',
+      },
+    };
+
+    // Ensure status has all required fields
+    if (!formattedTask.status.key) {
+      formattedTask.status.key = formattedTask.status.name.toLowerCase().replace(/\s+/g, '-');
     }
-    fetchData(true);
-  }, [fetchData]);
+    if (!formattedTask.status.color) {
+      formattedTask.status.color = '#gray';
+    }
+
+    // Update tasks state immediately
+    setTasks((prevTasks) => {
+      const withoutCreated = prevTasks.filter((task) => task.id !== formattedTask.id);
+      return [formattedTask, ...withoutCreated];
+    });
+
+    // Immediately update kanbanData to show the new task
+    setKanbanData((prevData) => {
+      const statusId = formattedTask.status.id;
+      const column = prevData.find(col => col.id === statusId);
+      
+      if (column) {
+        // Add task to the beginning of the column (avoid duplicates)
+        const existingIndex = column.tasks.findIndex(t => t.id === formattedTask.id);
+        if (existingIndex >= 0) {
+          // Task already exists, replace it
+          return prevData.map(col => 
+            col.id === statusId 
+              ? { ...col, tasks: col.tasks.map(t => t.id === formattedTask.id ? formattedTask : t) }
+              : col
+          );
+        } else {
+          // Add new task to the beginning
+          return prevData.map(col => 
+            col.id === statusId 
+              ? { ...col, tasks: [formattedTask, ...col.tasks] }
+              : col
+          );
+        }
+      } else {
+        // If column doesn't exist, add it
+        const newColumn = {
+          id: statusId,
+          tasks: [formattedTask]
+        };
+        return [...prevData, newColumn];
+      }
+    });
+    
+    // Invalidate and refetch to ensure we have the latest data from server
+    // Use a small delay to allow the optimistic update to render first
+    setTimeout(() => {
+      queryClient.invalidateQueries({ queryKey: ['board-data', boardId, spaceSlug] }).then(() => {
+        refetchBoardData();
+      });
+    }, 100);
+  }, [statuses, boardId, spaceSlug, queryClient, refetchBoardData]);
 
   const fetchWorkflowDetail = useCallback(
      async (workflowId: string | null, workflowStatusId: string | null) => {
@@ -1895,35 +1983,16 @@ export function BoardView({ boardId, spaceSlug, sprintFilter, hideBacklog = fals
     return null;
   }, [groupBy, tasks, filterTasks]);
 
-  const getTasksForStatus = (statusId: string) => {
-    // Filter tasks for this status
-    // For pending updates, show task ONLY in NEW position, NOT in old position
-    const filteredTasks = tasks.filter((task) => {
-      // If this task is being updated, ONLY use the optimistic status
-      // This ensures the task appears ONLY in the new column, not the old one
-      if (pendingUpdatesRef.current.has(task.id)) {
-        const optimisticTask = optimisticTasksRef.current.get(task.id);
-        if (optimisticTask) {
-          // Only show in the new status column
-          return optimisticTask.status.id === statusId;
-        }
-        // If optimistic task not found, don't show in any column
-        return false;
-      }
-      // Normal filtering - but exclude tasks that are being updated (they should use optimistic status above)
-      return task.status.id === statusId;
-    });
+  const getTasksForStatus = useCallback((statusId: string) => {
+    // Use kanbanData if available (optimistic state), otherwise fall back to tasks
+    if (kanbanData.length > 0) {
+      const column = kanbanData.find(col => col.id === statusId);
+      return column?.tasks || [];
+    }
     
-    // Remove duplicates (in case task appears in both old and new columns during transition)
-    const seen = new Set<string>();
-    return filteredTasks.filter(task => {
-      if (seen.has(task.id)) {
-        return false;
-      }
-      seen.add(task.id);
-      return true;
-    });
-  };
+    // Fallback to tasks state
+    return tasks.filter((task) => task.status.id === statusId);
+  }, [kanbanData, tasks]);
 
   // Get tasks for a specific swimlane and column
   const getTasksForSwimlaneAndColumn = useCallback((swimlane: string, statusId: string): Task[] => {
@@ -1946,12 +2015,199 @@ export function BoardView({ boardId, spaceSlug, sprintFilter, hideBacklog = fals
     }
 
     return [];
-  }, [groupBy, filterTasks]);
+  }, [groupBy, filterTasks, getTasksForStatus]);
 
   const filteredTasksForStatus = useCallback((statusId: string) => {
     const statusTasks = getTasksForStatus(statusId);
     return filterTasks(statusTasks);
-  }, [filterTasks]);
+  }, [filterTasks, getTasksForStatus]);
+
+  // Optimistic move task function for react-dnd (exactly like sprint board)
+  const moveTask = useCallback((taskId: string, fromColumnId: string, toColumnId: string, toIndex: number) => {
+    isDraggingRef.current = true;
+    pendingUpdateRef.current = true;
+    setKanbanData((prevData) => {
+      // If kanbanData is empty, initialize it from current state
+      if (prevData.length === 0 && statuses.length > 0) {
+        const columns = statuses
+          .filter(status => !status.hidden)
+          .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+          .map(status => ({
+            id: status.id,
+            tasks: tasks.filter(task => task.status.id === status.id)
+          }));
+        prevData = columns;
+      }
+
+      const newData = prevData.map(col => ({
+        ...col,
+        tasks: [...col.tasks]
+      }));
+
+      // Find the source and destination columns
+      const fromColumn = newData.find(col => col.id === fromColumnId);
+      const toColumn = newData.find(col => col.id === toColumnId);
+
+      if (!fromColumn || !toColumn) {
+        pendingUpdateRef.current = false;
+        return prevData;
+      }
+
+      // Find and remove the task from source column
+      const taskIndex = fromColumn.tasks.findIndex(t => t.id === taskId);
+      if (taskIndex === -1) {
+        pendingUpdateRef.current = false;
+        return prevData;
+      }
+
+      const [movedTask] = fromColumn.tasks.splice(taskIndex, 1);
+      
+      // Update task status optimistically
+      const targetStatus = statuses.find(s => s.id === toColumnId);
+      if (targetStatus) {
+        movedTask.status = {
+          id: targetStatus.id,
+          name: targetStatus.name,
+          key: targetStatus.key,
+          color: targetStatus.color,
+        };
+      }
+
+      // Insert task at the target position in destination column
+      toColumn.tasks.splice(toIndex, 0, movedTask);
+
+      // Reset pending flag after a short delay to allow state to settle
+      setTimeout(() => {
+        pendingUpdateRef.current = false;
+      }, 100);
+
+      return newData;
+    });
+  }, [statuses, tasks]);
+
+  // Handle task drop - adapts existing handleDragEnd logic
+  const handleTaskDrop = useCallback(async (payload: { taskId: string; fromColumnId: string; toColumnId: string }) => {
+    const { taskId, fromColumnId, toColumnId } = payload;
+    
+    // Find the task from kanbanData (current optimistic state)
+    const fromColumn = kanbanData.find(col => col.id === fromColumnId);
+    const task = fromColumn?.tasks.find(t => t.id === taskId);
+    if (!task) {
+      // Fallback to tasks state
+      const fallbackTask = tasks.find((t) => t.id === taskId);
+      if (!fallbackTask) return;
+      // Use fallback task but we need to update kanbanData first
+      fetchData(true);
+      return;
+    }
+    
+    // If same column, no change needed
+    if (fromColumnId === toColumnId) {
+      isDraggingRef.current = false;
+      return;
+    }
+    
+    // Find target status
+    const status = statuses.find((s) => s.id === toColumnId);
+    if (!status) {
+      isDraggingRef.current = false;
+      fetchData(true);
+      return;
+    }
+    
+    // Handle workflow transition
+    const transitionResult = await resolveWorkflowTransition(task, status);
+    if (!transitionResult.allowed) {
+      // Revert optimistic update
+      isDraggingRef.current = false;
+      fetchData(true);
+      return;
+    }
+    
+    const targetWorkflowStatus = transitionResult.targetWorkflowStatus;
+    
+    try {
+      isUpdatingRef.current = true;
+      ssePausedRef.current = true;
+      setSsePaused(true);
+      
+      // Create optimistic task
+      const optimisticTask: Task = {
+        ...task,
+        status: {
+          id: status.id,
+          name: status.name,
+          key: status.key,
+          color: status.color,
+        },
+        workflowId: task.workflowId ?? null,
+        workflowStatusId: targetWorkflowStatus?.id ?? task.workflowStatusId ?? task.workflowStatus?.id ?? null,
+        workflowStatus: targetWorkflowStatus ? {
+          id: targetWorkflowStatus.id,
+          key: targetWorkflowStatus.key,
+          name: targetWorkflowStatus.name,
+          category: targetWorkflowStatus.category,
+          color: targetWorkflowStatus.color ?? null,
+          statusRefId: targetWorkflowStatus.statusRefId ?? null,
+        } : task.workflowStatus ?? null,
+      };
+      
+      optimisticTasksRef.current.set(taskId, optimisticTask);
+      pendingUpdatesRef.current.add(taskId);
+      
+      // Update tasks state to match kanbanData
+      setTasks(prevTasks => {
+        const tasksWithoutMoved = prevTasks.filter(t => t.id !== taskId);
+        const targetColumnTasks = tasksWithoutMoved.filter(t => t.status.id === status.id);
+        const otherTasks = tasksWithoutMoved.filter(t => t.status.id !== status.id);
+        return [...otherTasks, ...targetColumnTasks, optimisticTask];
+      });
+      
+      // Make API call
+      const response = await fetch(`/api/spaces/${spaceSlug}/tasks/${taskId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          statusId: status.id,
+          workflowStatusId: targetWorkflowStatus?.id ?? null,
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to update task');
+      }
+      
+      const data = await response.json();
+      if (!data.success) {
+        throw new Error(data.message || 'Failed to update task');
+      }
+      
+      // Clear pending updates
+      pendingUpdatesRef.current.delete(taskId);
+      optimisticTasksRef.current.delete(taskId);
+      isUpdatingRef.current = false;
+      ssePausedRef.current = false;
+      setSsePaused(false);
+      isDraggingRef.current = false;
+      
+      // Refresh data after delay
+      setTimeout(() => {
+        if (!isDraggingRef.current && !isUpdatingRef.current) {
+          fetchData(true);
+        }
+      }, 500);
+    } catch (err) {
+      console.error('Failed to update task:', err);
+      pendingUpdatesRef.current.delete(taskId);
+      optimisticTasksRef.current.delete(taskId);
+      isUpdatingRef.current = false;
+      ssePausedRef.current = false;
+      setSsePaused(false);
+      isDraggingRef.current = false;
+      fetchData(true);
+    }
+  }, [kanbanData, tasks, statuses, spaceSlug, resolveWorkflowTransition, fetchData]);
 
   const swimlanes = getSwimlanes();
 
@@ -2230,33 +2486,7 @@ export function BoardView({ boardId, spaceSlug, sprintFilter, hideBacklog = fals
         </div>
 
       {/* Board */}
-      <DndContext
-        sensors={sensors}
-        collisionDetection={(args) => {
-          // Custom collision detection that prioritizes columns (status droppables) over tasks
-          // This ensures column detection works even when tasks are present, especially for middle columns
-          const collisions = closestCorners(args);
-          
-          // If we have collisions, check if any of them are status columns
-          // Prioritize status columns over tasks
-          if (collisions && collisions.length > 0) {
-            const statusCollision = collisions.find(collision => {
-              const droppable = args.droppableContainers.find(container => container.id === collision.id);
-              return droppable?.data.current?.type === 'status';
-            });
-            
-            // If we found a status collision, return it first
-            if (statusCollision) {
-              return [statusCollision, ...collisions.filter(c => c.id !== statusCollision.id)];
-            }
-          }
-          
-          return collisions;
-        }}
-        onDragStart={handleDragStart}
-        onDragOver={handleDragOver}
-        onDragEnd={handleDragEnd}
-      >
+      <DndProvider backend={HTML5Backend}>
 
         <div className="flex-1 overflow-auto custom-scrollbar relative">
           {/* Decorative Background Pattern */}
@@ -2332,21 +2562,41 @@ export function BoardView({ boardId, spaceSlug, sprintFilter, hideBacklog = fals
                                     animation: `fadeIn 0.4s ease-out ${index * 0.1}s both`
                                   }}
                                 >
-                                  <BoardColumn
+                                  <BoardDroppableColumn
                                     status={status}
-                                    tasks={tasks}
-                                    isDragging={isDragging}
-                                    isDropping={isDropping}
+                                    tasks={(() => {
+                                      // Use kanbanData if available, otherwise use filtered tasks
+                                      if (kanbanData.length > 0) {
+                                        const column = kanbanData.find(col => col.id === status.id);
+                                        const columnTasks = column?.tasks || [];
+                                        return filterTasks(columnTasks.filter(t => {
+                                          // Apply swimlane filter
+                                          if (groupBy === 'assignee') {
+                                            return (t.assignee?.id || 'Unassigned') === swimlane;
+                                          } else if (groupBy === 'template') {
+                                            const template = t.tags && t.tags.length > 0 ? t.tags[0] : 'No Template';
+                                            return template === swimlane;
+                                          } else if (groupBy === 'priority') {
+                                            return (t.priority || 'NORMAL') === swimlane;
+                                          }
+                                          return true;
+                                        }));
+                                      }
+                                      return getTasksForSwimlaneAndColumn(swimlane, status.id);
+                                    })()}
+                                    moveTask={moveTask}
                                     onTaskClick={handleTaskClick}
                                     onCreateTask={(statusId) => setCreateTaskStatusId(statusId)}
                                     onEditStatus={handleEditStatus}
-                                    onColumnRef={handleColumnRef}
-                                    dragOverStatusId={dragOverStatusId}
-                                    dragOverTaskId={dragOverTaskId}
-                                    dropPosition={dropPosition?.columnId === status.id ? dropPosition.index : null}
+                                    onTaskDrop={handleTaskDrop}
                                     spaceTicker={spaceTicker}
-                                    activeTask={activeTask}
-                                    activeTaskColumnId={activeTaskColumnId}
+                                    onDragStart={() => {
+                                      setIsDragging(true);
+                                      isDraggingRef.current = true;
+                                    }}
+                                    onDragEnd={() => {
+                                      // Don't reset dragging flag here - let handleTaskDrop handle it
+                                    }}
                                   />
                                 </div>
                               );
@@ -2370,21 +2620,34 @@ export function BoardView({ boardId, spaceSlug, sprintFilter, hideBacklog = fals
                   animation: `fadeIn 0.4s ease-out ${index * 0.1}s both`
                 }}
               >
-                <BoardColumn
+                <BoardDroppableColumn
                   status={status}
-                  tasks={filteredTasksForStatus(status.id)}
-                  isDragging={isDragging}
-                  isDropping={isDropping}
+                  tasks={(() => {
+                    // Use kanbanData if available, otherwise use filtered tasks
+                    if (kanbanData.length > 0) {
+                      const column = kanbanData.find(col => col.id === status.id);
+                      const columnTasks = column?.tasks || [];
+                      return filterTasks(columnTasks);
+                    }
+                    return filteredTasksForStatus(status.id);
+                  })()}
+                  moveTask={moveTask}
                   onTaskClick={handleTaskClick}
                   onCreateTask={(statusId) => setCreateTaskStatusId(statusId)}
                   onEditStatus={handleEditStatus}
-                  onColumnRef={handleColumnRef}
-                  dragOverStatusId={dragOverStatusId}
-                  dragOverTaskId={dragOverTaskId}
-                  dropPosition={dropPosition?.columnId === status.id ? dropPosition.index : null}
+                  onTaskDrop={handleTaskDrop}
                   spaceTicker={spaceTicker}
-                  activeTask={activeTask}
-                  activeTaskColumnId={activeTaskColumnId}
+                  onDragStart={() => {
+                    setIsDragging(true);
+                    isDraggingRef.current = true;
+                  }}
+                  onDragEnd={() => {
+                    // Reset dragging flag after a delay to allow drop to complete
+                    setTimeout(() => {
+                      setIsDragging(false);
+                      isDraggingRef.current = false;
+                    }, 200);
+                  }}
                 />
               </div>
             ))}
@@ -2392,12 +2655,8 @@ export function BoardView({ boardId, spaceSlug, sprintFilter, hideBacklog = fals
             )}
           </div>
         </div>
-        <DragOverlay dropAnimation={null}>
-          {activeTask ? (
-            <TaskCardOverlay task={activeTask} width={cardWidth} spaceTicker={spaceTicker} />
-          ) : null}
-        </DragOverlay>
-      </DndContext>
+      </DndProvider>
+      <KanbanStyles />
 
       {/* Configuration Dialog */}
       <BoardConfiguration
@@ -2969,74 +3228,6 @@ function BacklogColumn({ sprints, selectedSprintId, setSelectedSprintId, boardId
   );
 }
 
-
-interface TaskCardOverlayProps {
-  task: Task;
-  width: number;
-  spaceTicker?: string;
-}
-
-function TaskCardOverlay({ task, width, spaceTicker }: TaskCardOverlayProps) {
-  const getColumnColor = (status: { name: string; color?: string }) => {
-    const name = status.name.toLowerCase();
-    if (name.includes('new')) return '#7D8089';
-    if (name.includes('backlog')) return '#F59E0B';
-    if (name.includes('to do') || name.includes('todo')) return '#4353FF';
-    if (name.includes('in progress') || name.includes('progress')) return '#8B5CF6';
-    if (name.includes('review')) return '#10B981';
-    return status.color || '#7D8089';
-  };
-
-  const columnColor = getColumnColor(task.status || { name: '', color: undefined });
-
-  return (
-    <div
-      className="cursor-grabbing bg-gradient-to-br from-[var(--background)] to-[var(--card)] border border-[var(--border)] rounded-xl shadow-2xl rotate-3 scale-105"
-      style={{
-        width: `${width}px`,
-        maxWidth: `${width}px`,
-        minWidth: `${width}px`,
-        boxShadow: '0 8px 24px rgba(0,0,0,0.2)',
-        opacity: 0.95,
-      }}
-    >
-      <div className="p-4">
-        <div className="space-y-2">
-          <div className="flex items-start justify-between gap-2">
-            <div className="flex-1">
-              {spaceTicker && task.number && (
-                <div className="text-xs font-bold text-foreground mb-0.5" title={`Task Key: ${spaceTicker}-${task.number}`}>
-                  {spaceTicker}-{task.number}
-                </div>
-              )}
-              <h4 className="font-medium text-sm line-clamp-2">{task.summary}</h4>
-            </div>
-            <Badge variant="outline" className={`text-xs border ${getTaskPriorityClasses(task.priority)}`}>
-                  {formatPriority(task.priority)}
-                </Badge>
-          </div>
-
-          {task.dueDate && (
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <CalendarIcon className="h-3 w-3" />
-              <span>{formatDateDDMMYYYY(task.dueDate)}</span>
-            </div>
-          )}
-
-          {task.tags && task.tags.length > 0 && (
-            <div className="flex flex-wrap gap-1">
-              {task.tags.map((tag: string) => (
-                <Badge key={tag} variant="secondary" className="text-[10px] uppercase tracking-wide">
-                  {tag}
-                </Badge>
-              ))}
-            </div>
-          )}
-              </div>
-            </div>
-        </div>
-  );
-}
 
 type WorkflowStatusDetail = WorkflowDetail['statuses'][number];
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useNavigation } from '@/lib/navigation-context';
 import { Button } from '@/components/ui/button';
@@ -24,7 +24,7 @@ import {
   isTemplateFieldValueEmpty
 } from '@/lib/template-metadata';
 import { TemplateFieldRenderer } from '@/components/templates/template-field-renderer';
-import type { TemplateField, Template } from '@/components/templates/templates-manager';
+import type { TemplateField, Template } from '@/components/templates/template-types';
 import type { WorkflowDetail } from '@/lib/workflows/types';
 
 const MIN_AI_TRANSITION_CONFIDENCE = 0.6;
@@ -905,7 +905,6 @@ export function TaskDetailView({ taskId, spaceSlug, task }: TaskDetailViewProps)
               onChange={(value: string) => setEditFormData({ ...editFormData, description: value })}
               placeholder="Add more details..."
               rows={4}
-              disabled={saving}
               onMenuStateChange={setAiMenusOpen}
             />
           </div>

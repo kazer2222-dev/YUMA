@@ -10,7 +10,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { taskId
     if (!user) return NextResponse.json({ success: false, message: 'Invalid token' }, { status: 401 })
 
     const { sprintId } = await request.json()
-    const task = await prisma.task.findUnique({ where: { id: params.taskId }, include: { space: true, status: { include: { board: true } } } })
+    const task = await prisma.task.findUnique({ where: { id: params.taskId }, include: { space: true, status: true } })
     if (!task) return NextResponse.json({ success: false, message: 'Task not found' }, { status: 404 })
 
     const isAdmin = await AuthService.isAdmin(user.id)

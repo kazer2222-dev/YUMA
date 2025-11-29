@@ -189,8 +189,12 @@ export function DocumentsPage() {
         document={selectedDocument}
         onClose={() => setSelectedDocument(null)}
         onUpdate={(updated) => {
-          setDocuments(documents.map(d => d.id === updated.id ? updated : d));
-          setSelectedDocument(updated);
+          setDocuments((prev) =>
+            prev.map((d) => (d.id === updated.id ? { ...d, ...updated } : d))
+          );
+          setSelectedDocument((prev) =>
+            prev && prev.id === updated.id ? { ...prev, ...updated } : prev
+          );
         }}
         spaceSlug={slug}
       />
