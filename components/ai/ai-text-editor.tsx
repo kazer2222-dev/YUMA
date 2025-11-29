@@ -109,9 +109,8 @@ export function AITextEditor({ value, onChange, placeholder, rows = 3, className
       StarterKit.configure({
         // Disable extensions we want to add with custom config
         strike: false,
-        // Disable color and highlight from StarterKit since we're adding them explicitly
-        color: false,
-        highlight: false,
+        // Note: color and highlight are disabled by not including them in StarterKit
+        // We're adding them explicitly as separate extensions
       }),
       Placeholder.configure({
         placeholder: placeholder || 'Add more details... Type / to activate AI',

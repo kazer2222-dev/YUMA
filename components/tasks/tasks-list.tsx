@@ -13,6 +13,7 @@ import { Loader2, Plus, Calendar, User, Tag, Flag, Clock } from 'lucide-react';
 import { formatDateDDMMYYYY } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 import { stripTemplateMetadata } from '@/lib/template-metadata';
+import { CreateTaskDialogUnified } from '@/components/tasks/create-task-dialog-unified';
 
 interface Task {
   id: string;

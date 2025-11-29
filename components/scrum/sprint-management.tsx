@@ -6,6 +6,7 @@ import { Skeleton } from '@/components/loading';
 import { BoardConfiguration } from '@/components/board/board-configuration';
 import { formatDateDDMMYYYY } from '@/lib/utils';
 import { SprintBoard, SprintBoardColumn } from './sprint-board';
+import { TaskDetailDialog } from '@/components/tasks/task-detail-dialog';
 
 interface Sprint {
   id: string;
@@ -100,6 +101,7 @@ export function SprintManagement({ boardId, spaceSlug }: SprintManagementProps) 
   const [selectedSprintId, setSelectedSprintId] = useState<string | null>(null);
   const [configOpen, setConfigOpen] = useState(false);
   const [statuses, setStatuses] = useState<BoardStatus[]>([]);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchSprints();
@@ -243,11 +245,9 @@ export function SprintManagement({ boardId, spaceSlug }: SprintManagementProps) 
         });
         
         if (response.ok) {
-          // Debounce the refresh to avoid multiple rapid calls
-          // Only refresh after a delay to ensure drag operation is complete
-          setTimeout(() => {
-            fetchSprints();
-          }, 500);
+          // Silently refresh sprints without showing loading state
+          // This prevents the full page refresh appearance
+          fetchSprintsSilently();
         }
       };
 
@@ -258,8 +258,31 @@ export function SprintManagement({ boardId, spaceSlug }: SprintManagementProps) 
       console.error('Failed to update task status:', error);
       // Only refresh on error after a delay
       setTimeout(() => {
-        fetchSprints();
+        fetchSprintsSilently();
       }, 500);
+    }
+  };
+
+  // Silent refresh that doesn't show loading state
+  const fetchSprintsSilently = async () => {
+    try {
+      const response = await fetch(`/api/boards/${boardId}/sprints`, { credentials: 'include' });
+      const data = await response.json();
+      if (data.success) {
+        setSprints(data.sprints);
+        // Auto-select active sprint if exists
+        const activeSprint = data.sprints.find((s: Sprint) => s.state === 'ACTIVE');
+        if (activeSprint) {
+          setSelectedSprintId(activeSprint.id);
+        } else if (data.sprints.length > 0) {
+          // Select first sprint if no active sprint
+          setSelectedSprintId(data.sprints[0].id);
+        } else {
+          setSelectedSprintId(null);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch sprints:', error);
     }
   };
 
@@ -274,7 +297,7 @@ export function SprintManagement({ boardId, spaceSlug }: SprintManagementProps) 
   }
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex flex-col h-full w-full">
       {/* Board Configuration Dialog */}
       <BoardConfiguration
         boardId={boardId}
@@ -288,7 +311,7 @@ export function SprintManagement({ boardId, spaceSlug }: SprintManagementProps) 
 
       {/* Sprint Board */}
       {selectedSprint ? (
-        <div className="flex-1 min-h-0">
+        <div className="flex-1 min-h-0 w-full">
           <SprintBoard
             columns={columns}
             loading={loading}
@@ -300,10 +323,19 @@ export function SprintManagement({ boardId, spaceSlug }: SprintManagementProps) 
             }
             onOpenBoardConfig={() => setConfigOpen(true)}
             onTaskDrop={handleTaskDropPersist}
+            onTaskClick={(taskId) => setSelectedTaskId(taskId)}
+          />
+          <TaskDetailDialog
+            open={selectedTaskId !== null}
+            taskId={selectedTaskId}
+            spaceSlug={spaceSlug}
+            statuses={statuses}
+            onClose={() => setSelectedTaskId(null)}
+            onTaskUpdated={fetchSprints}
           />
         </div>
       ) : (
-        <Card>
+        <Card className="m-8">
           <CardContent className="p-8 text-center text-[var(--muted-foreground)]">
             {sprints.length === 0
               ? 'No sprints created yet. Create your first sprint to get started.'

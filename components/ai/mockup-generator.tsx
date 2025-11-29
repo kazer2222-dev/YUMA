@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Badge } from '../ui/badge';
@@ -160,11 +161,13 @@ export function MockupGenerator({ spaceSlug, onMockupGenerated }: MockupGenerato
             <div className="border rounded-lg p-4 bg-muted/50">
               {generatedMockup.url ? (
                 <div className="space-y-3">
-                  <div className="aspect-video bg-background border rounded-md flex items-center justify-center overflow-hidden">
-                    <img
+                  <div className="aspect-video bg-background border rounded-md flex items-center justify-center overflow-hidden relative">
+                    <Image
                       src={generatedMockup.url}
                       alt={generatedMockup.description || 'Generated mockup'}
-                      className="w-full h-full object-contain"
+                      fill
+                      className="object-contain"
+                      unoptimized
                     />
                   </div>
                   {generatedMockup.description && (

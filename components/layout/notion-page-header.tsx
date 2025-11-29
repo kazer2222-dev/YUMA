@@ -297,21 +297,21 @@ export function NotionPageHeader({
               >
                 <button
                   className="w-full text-left px-3 py-2 text-sm hover:bg-accent rounded-t-md"
-                  onClick={() => router.push('/settings')}
+                  onClick={() => {
+                    setUserMenuOpen(false);
+                    router.push('/profile');
+                  }}
                 >
-                  <Settings className="h-4 w-4 inline mr-2" /> Settings
-                </button>
-                <button
-                  className="w-full text-left px-3 py-2 text-sm hover:bg-accent"
-                  onClick={() => router.push('/faq')}
-                >
-                  <HelpCircle className="h-4 w-4 inline mr-2" /> FAQ
+                  <User className="h-4 w-4 inline mr-2" /> Profile
                 </button>
                 <button
                   className="w-full text-left px-3 py-2 text-sm text-destructive hover:bg-destructive/10 rounded-b-md"
-                  onClick={() => onLogout?.()}
+                  onClick={() => {
+                    setUserMenuOpen(false);
+                    onLogout?.();
+                  }}
                 >
-                  <LogOut className="h-4 w-4 inline mr-2" /> Logout
+                  <LogOut className="h-4 w-4 inline mr-2" /> Log out
                 </button>
               </div>
             </div>

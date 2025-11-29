@@ -107,11 +107,12 @@ export function DocumentViewer({
 
   // Extract TOC from document structure or content
   const tableOfContents = useMemo(() => {
-    if (document.structure) {
+    const docStructure = (document as any)?.structure;
+    if (docStructure) {
       try {
-        const parsed = typeof document.structure === 'string' 
-          ? JSON.parse(document.structure) 
-          : document.structure;
+        const parsed = typeof docStructure === 'string' 
+          ? JSON.parse(docStructure) 
+          : docStructure;
         return parsed.headings || [];
       } catch {
         return [];
@@ -131,7 +132,7 @@ export function DocumentViewer({
     }
     
     return [];
-  }, [document.structure, document.content]);
+  }, [document]);
 
   const handleSave = async (content: string) => {
     try {
@@ -176,7 +177,8 @@ export function DocumentViewer({
   };
 
   const scrollToHeading = (id: string) => {
-    const element = document.getElementById(id);
+    if (typeof window === 'undefined') return;
+    const element = window.document.getElementById(id);
     if (element) {
       element.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
@@ -430,7 +432,7 @@ export function DocumentViewer({
               <DocumentComments
                 documentId={document.id}
                 spaceSlug={spaceSlug}
-                currentUserId={document.authorId}
+                currentUserId={document.author?.id}
                 onCommentCreate={() => {
                   setDocument({ ...document, commentCount: document.commentCount + 1 });
                 }}

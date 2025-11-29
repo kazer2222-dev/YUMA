@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -14,6 +14,7 @@ export default function SpaceError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const router = useRouter();
   const params = useParams();
   const spaceSlug = params?.slug as string;
 
@@ -57,12 +58,12 @@ export default function SpaceError({
               Try Again
             </Button>
             <Button 
-              onClick={() => window.location.href = '/dashboard'} 
+              onClick={() => router.push('/home')} 
               variant="outline"
               className="flex-1"
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Dashboard
+              Back to Home
             </Button>
           </div>
         </CardContent>

@@ -13,9 +13,10 @@ interface PinVerificationProps {
   email: string;
   onBack: () => void;
   onSuccess: () => void;
+  rememberMe?: boolean;
 }
 
-export function PinVerification({ email, onBack, onSuccess }: PinVerificationProps) {
+export function PinVerification({ email, onBack, onSuccess, rememberMe = false }: PinVerificationProps) {
   const [pin, setPin] = useState(['', '', '', '', '', '']);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -92,7 +93,7 @@ export function PinVerification({ email, onBack, onSuccess }: PinVerificationPro
           'Content-Type': 'application/json',
         },
         credentials: 'include',
-        body: JSON.stringify({ email, pin: pinString }),
+        body: JSON.stringify({ email, pin: pinString, rememberMe }),
       });
 
       const data = await response.json();
@@ -104,10 +105,10 @@ export function PinVerification({ email, onBack, onSuccess }: PinVerificationPro
 
       if (data.success) {
         success('Verification successful', 'Welcome to YUMA!');
-        // Use window.location.href for full page reload to ensure cookies are included
+        // Use callback to navigate to home page
         setTimeout(() => {
-          console.log('[PIN Verification] Navigating to home page with full reload...');
-          window.location.href = '/';
+          console.log('[PIN Verification] Authentication successful, navigating to home...');
+          onSuccess();
         }, 500);
       } else {
         setError(data.message);

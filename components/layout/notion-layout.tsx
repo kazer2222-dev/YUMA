@@ -42,8 +42,31 @@ export interface NotionLayoutProps {
   centerSearchAndCreate?: boolean;
 }
 
+const deriveTicker = (spaceName: string | undefined, slug: string | undefined) => {
+  if (slug) {
+    const slugTicker = slug
+      .split(/[-\s_]/)
+      .map((part) => part.charAt(0))
+      .join('')
+      .slice(0, 4)
+      .toUpperCase();
+    if (slugTicker) {
+      return slugTicker;
+    }
+  }
+  if (spaceName) {
+    return spaceName.slice(0, 4).toUpperCase();
+  }
+  return 'SPCE';
+};
+
 export function NotionLayout(props: NotionLayoutProps) {
-  return <ClickUpAppShell {...props} />;
+  const spacesWithTicker = (props.spaces || []).filter(Boolean).map((space) => ({
+    ...space,
+    ticker: (space as any).ticker ?? deriveTicker(space?.name, space?.slug),
+  }));
+
+  return <ClickUpAppShell {...props} spaces={spacesWithTicker} />;
 }
 
 

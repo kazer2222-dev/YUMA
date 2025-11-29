@@ -16,7 +16,7 @@ import { AITextEditor } from '@/components/ai/ai-text-editor';
 import { useToastHelpers } from '@/components/toast';
 import { DynamicFormGrid } from './dynamic-form-grid';
 import type { GridCell } from './dynamic-form-grid';
-import type { Template, TemplateField } from '@/components/templates/templates-manager';
+import type { Template, TemplateField } from '@/components/templates/template-types';
 import { TemplateFieldRenderer } from '@/components/templates/template-field-renderer';
 import {
   TemplateMetadata,
@@ -236,7 +236,19 @@ export function CreateTaskDialogUnified({
 
       const initialValues: Record<string, any> = {};
       selectedTemplate.fieldConfig.forEach(field => {
-        if (field.id === 'summary') return;
+        // Skip summary fields by ID or label (case-insensitive)
+        const fieldLabel = field.label?.toLowerCase() || '';
+        const isSummaryField = field.id === 'summary' || 
+          fieldLabel === 'summary' || 
+          fieldLabel === 'task summary' ||
+          fieldLabel === 'title';
+        if (isSummaryField) {
+          // If it's a summary field, set it in formData instead of templateFieldValues
+          if (field.defaultValue) {
+            setFormData(prev => ({ ...prev, summary: field.defaultValue }));
+          }
+          return;
+        }
         const definitionField = definition.fields.find((def) => def.id === field.id);
         if (!definitionField) return;
         const normalized = normalizeTemplateFieldValue(definitionField, field.defaultValue);
@@ -247,12 +259,6 @@ export function CreateTaskDialogUnified({
 
       setCurrentTemplateDefinition(definition);
       setTemplateFieldValues(initialValues);
-      
-      // Find summary field and set it
-      const summaryField = selectedTemplate.fieldConfig.find(f => f.id === 'summary');
-      if (summaryField && summaryField.defaultValue) {
-        setFormData(prev => ({ ...prev, summary: summaryField.defaultValue }));
-      }
     } else {
       setCurrentTemplateDefinition(null);
       setTemplateFieldValues({});
@@ -615,7 +621,15 @@ export function CreateTaskDialogUnified({
           {selectedTemplate && (
             <div className="space-y-4 border-t pt-4">
               {selectedTemplate.fieldConfig
-                .filter(field => field.id !== 'summary') // Exclude summary from template fields
+                .filter(field => {
+                  // Exclude summary fields by ID or label (case-insensitive)
+                  const fieldLabel = field.label?.toLowerCase() || '';
+                  const isSummaryField = field.id === 'summary' || 
+                    fieldLabel === 'summary' || 
+                    fieldLabel === 'task summary' ||
+                    fieldLabel === 'title';
+                  return !isSummaryField;
+                })
                 .sort((a, b) => a.order - b.order)
                 .map((field) => (
                   <TemplateFieldRenderer

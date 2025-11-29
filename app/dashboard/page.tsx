@@ -84,6 +84,10 @@ export default function DashboardPage() {
         credentials: 'include'
       });
       if (response.ok) {
+        // Clear remembered user on logout
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('yuma_remembered_user');
+        }
         router.push('/auth');
       } else {
         setError('Failed to logout');
@@ -144,7 +148,7 @@ export default function DashboardPage() {
             <p className="font-medium">Error</p>
             <p className="text-sm mt-1">{error}</p>
             <Button 
-              onClick={() => window.location.reload()} 
+              onClick={() => router.refresh()} 
               className="mt-4"
               variant="outline"
             >

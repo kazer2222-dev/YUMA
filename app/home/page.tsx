@@ -118,7 +118,7 @@ export default function HomePage() {
           }),
         ]);
 
-        if (userRes.status === 401 || !userRes.ok) {
+        if (userRes.status === 401 || (userRes instanceof Response && !userRes.ok)) {
           router.push('/auth');
           return;
         }
@@ -129,6 +129,19 @@ export default function HomePage() {
 
         if (userData.success) {
           setUser(userData.user);
+          
+          // Check if remember me was set during Google OAuth
+          if (typeof window !== 'undefined') {
+            const rememberMe = sessionStorage.getItem('yuma_remember_me');
+            if (rememberMe === 'true') {
+              // Save user info to localStorage
+              localStorage.setItem('yuma_remembered_user', JSON.stringify({
+                email: userData.user.email,
+                name: userData.user.name
+              }));
+              sessionStorage.removeItem('yuma_remember_me');
+            }
+          }
         } else {
           router.push('/auth');
           return;
@@ -300,7 +313,7 @@ export default function HomePage() {
           <p className="text-lg font-semibold text-red-500 mb-2">Error loading page</p>
           <p className="text-sm text-[var(--muted-foreground)] mb-4">{error}</p>
           <button
-            onClick={() => window.location.reload()}
+            onClick={() => router.refresh()}
             className="px-4 py-2 bg-[var(--primary)] text-white rounded-md hover:opacity-90"
           >
             Reload Page
@@ -336,6 +349,10 @@ export default function HomePage() {
         credentials: 'include',
       });
       if (response.ok) {
+        // Clear remembered user on logout
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('yuma_remembered_user');
+        }
         router.push('/auth');
       }
     } catch (error) {

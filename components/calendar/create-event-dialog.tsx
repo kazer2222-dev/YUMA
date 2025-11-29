@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -32,6 +33,7 @@ interface CreateEventDialogProps {
 }
 
 export function CreateEventDialog({ spaceId, spaceName, onEventCreated, open: controlledOpen, onOpenChange: controlledOnOpenChange, initialDate, spaces = [], editEvent }: CreateEventDialogProps) {
+  const router = useRouter();
   const [internalOpen, setInternalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [selectedSpaceId, setSelectedSpaceId] = useState(spaceId);
@@ -281,11 +283,9 @@ export function CreateEventDialog({ spaceId, spaceName, onEventCreated, open: co
       } else {
         const errorMessage = data.message || `Failed to create event (${response.status})`;
         if (response.status === 401) {
-          alert('Your session has expired. Please refresh the page and try again.');
-          // Optionally reload the page to refresh the session
-          setTimeout(() => {
-            window.location.reload();
-          }, 2000);
+          alert('Your session has expired. Please sign in again.');
+          // Navigate to auth page instead of reloading
+          router.push('/auth');
         } else {
           alert(errorMessage);
         }

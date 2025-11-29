@@ -1431,7 +1431,7 @@ export function TemplateEditor({ spaceSlug, template, open, onOpenChange }: Temp
 
       <AlertDialog
         open={aiReviewOpen}
-        onOpenChange={(open) => {
+        onOpenChange={(open: boolean) => {
           if (!open) {
             handleDismissAISuggestion();
           } else {

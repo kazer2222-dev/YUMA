@@ -16,6 +16,16 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
@@ -74,7 +84,7 @@ interface Task {
     name?: string;
     email?: string;
   };
-  releaseVersion?: string;
+  releaseVersion?: string | null;
 }
 
 interface ReleaseManagementProps {
@@ -118,6 +128,7 @@ export function ReleaseManagement({ boardId, spaceSlug }: ReleaseManagementProps
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
   const [spaceTicker, setSpaceTicker] = useState<string>('');
   const [selectedStatusFilters, setSelectedStatusFilters] = useState<string[]>([]);
+  const [deleteReleaseId, setDeleteReleaseId] = useState<string | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -219,7 +230,10 @@ export function ReleaseManagement({ boardId, spaceSlug }: ReleaseManagementProps
         setShowCreateForm(false);
         setCreateFormData({ version: '', description: '', releaseDate: '' });
         success('Release Created', 'Release has been created successfully');
-        fetchData();
+        // Delay fetch to ensure dialog closes first
+        setTimeout(() => {
+          fetchData();
+        }, 100);
       } else {
         showError('Failed to Create Release', data.message || data.error || 'An error occurred while creating the release');
       }
@@ -276,6 +290,7 @@ export function ReleaseManagement({ boardId, spaceSlug }: ReleaseManagementProps
 
       const data = await response.json();
       if (data.success) {
+        setDeleteReleaseId(null);
         success('Release Deleted', 'Release has been deleted successfully');
         fetchData();
       } else {
@@ -284,6 +299,16 @@ export function ReleaseManagement({ boardId, spaceSlug }: ReleaseManagementProps
     } catch (error: any) {
       console.error('Failed to delete release:', error);
       showError('Failed to Delete Release', error.message || 'An error occurred while deleting the release');
+    }
+  };
+
+  const handleDeleteClick = (releaseId: string) => {
+    setDeleteReleaseId(releaseId);
+  };
+
+  const handleConfirmDelete = () => {
+    if (deleteReleaseId) {
+      handleDeleteRelease(deleteReleaseId);
     }
   };
 
@@ -316,12 +341,117 @@ export function ReleaseManagement({ boardId, spaceSlug }: ReleaseManagementProps
     const sourceRelease = releases.find(r => r.tasks?.some(t => t.id === taskId));
     const taskSourceReleaseId = sourceRelease?.id;
     
+    // Check if dropping on another task card - find which release that task belongs to
+    const targetTask = allTasks.find(t => t.id === overId);
+    if (targetTask && targetTask.releaseVersion) {
+      const targetRelease = releases.find(r => r.version === targetTask.releaseVersion);
+      if (targetRelease) {
+        // If dropping on a task in the same release, reorder within that release
+        if (taskSourceReleaseId === targetRelease.id) {
+          const releaseTasks = targetRelease.tasks || [];
+          const oldIndex = releaseTasks.findIndex(t => t.id === taskId);
+          const newIndex = releaseTasks.findIndex(t => t.id === overId);
+          
+          if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
+            const reorderedTasks = arrayMove(releaseTasks, oldIndex, newIndex);
+            setReleases(prevReleases => prevReleases.map(r => 
+              r.id === targetRelease.id 
+                ? { ...r, tasks: reorderedTasks }
+                : r
+            ));
+          }
+          return;
+        }
+        // If task is already in the target release, do nothing
+        const isAlreadyInTargetRelease = targetRelease.tasks?.some(t => t.id === taskId);
+        if (isAlreadyInTargetRelease) {
+          return;
+        }
+        // Otherwise, treat it as dropping on the release
+        const releaseId = targetRelease.id;
+        const taskToMove = { ...task, releaseVersion: targetRelease.version };
+        
+        // Optimistic update: Remove task from source release if it exists
+        if (taskSourceReleaseId) {
+          setReleases(prevReleases => prevReleases.map(r => {
+            if (r.id === taskSourceReleaseId) {
+              const updatedTasks = (r.tasks || []).filter(t => t.id !== taskId);
+              const taskCountsByStatus = updateTaskCounts(r.taskCountsByStatus || {}, task.status?.id, -1);
+              return {
+                ...r,
+                tasks: updatedTasks,
+                taskCountsByStatus,
+              };
+            }
+            return r;
+          }));
+        }
+
+        // Optimistic update: Add task to target release
+        setReleases(prevReleases => prevReleases.map(r => {
+          if (r.id === releaseId) {
+            return {
+              ...r,
+              tasks: [...(r.tasks || []), taskToMove],
+              taskCountsByStatus: updateTaskCounts(r.taskCountsByStatus || {}, task.status?.id, 1),
+            };
+          }
+          return r;
+        }));
+
+        // Update task's release version in allTasks
+        setAllTasks(prevTasks => 
+          prevTasks.map(t => 
+            t.id === taskId 
+              ? { ...t, releaseVersion: targetRelease.version }
+              : t
+          )
+        );
+
+        // Call API in the background
+        setTimeout(async () => {
+          try {
+            const response = await fetch(`/api/spaces/${spaceSlug}/tasks/${taskId}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
+              body: JSON.stringify({ releaseVersion: targetRelease.version }),
+            });
+
+            const data = await response.json();
+            if (!data.success) {
+              setAllTasks(originalTasks);
+              setReleases(originalReleases);
+              showError('Failed to Update Task', data.message || data.error || 'An error occurred while updating the task');
+            }
+          } catch (error: any) {
+            console.error('Failed to update task:', error);
+            setAllTasks(originalTasks);
+            setReleases(originalReleases);
+            showError('Failed to Update Task', error.message || 'An error occurred while updating the task');
+          }
+        }, 0);
+        return;
+      }
+    }
+    
     // Check if dropping on a release
     if (overId.startsWith('release-')) {
       const releaseId = overId.replace('release-', '');
       const targetRelease = releases.find(r => r.id === releaseId);
       
       if (targetRelease) {
+        // If task is already in this release, do nothing (prevent duplication)
+        if (taskSourceReleaseId === releaseId) {
+          return;
+        }
+        
+        // Also check if task is already in the target release's tasks array
+        const isAlreadyInTargetRelease = targetRelease.tasks?.some(t => t.id === taskId);
+        if (isAlreadyInTargetRelease) {
+          return;
+        }
+        
         // Check if moving task from one release to another release
         if (taskSourceReleaseId && taskSourceReleaseId !== releaseId) {
           // Moving between releases
@@ -439,6 +569,19 @@ export function ReleaseManagement({ boardId, spaceSlug }: ReleaseManagementProps
           }, 0);
         }
       }
+    } else if (!taskSourceReleaseId && targetTask && !targetTask.releaseVersion) {
+      // Reordering within All Tasks (both tasks have no releaseVersion)
+      const oldIndex = pendingTasks.findIndex(t => t.id === taskId);
+      const newIndex = pendingTasks.findIndex(t => t.id === overId);
+      
+      if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
+        const reorderedTasks = arrayMove(pendingTasks, oldIndex, newIndex);
+        // Update allTasks to reflect the new order - keep tasks with releaseVersion first, then reordered pending tasks
+        const tasksWithRelease = allTasks.filter(t => t.releaseVersion);
+        const taskIds = reorderedTasks.map(t => t.id);
+        const otherPendingTasks = allTasks.filter(t => !t.releaseVersion && !taskIds.includes(t.id));
+        setAllTasks([...tasksWithRelease, ...reorderedTasks, ...otherPendingTasks]);
+      }
     } else if (overId === 'pending-tasks') {
       // Dropping on pending tasks area - remove from release
       if (taskSourceReleaseId) {
@@ -509,17 +652,30 @@ export function ReleaseManagement({ boardId, spaceSlug }: ReleaseManagementProps
   const releasedReleases = releases.filter((r) => r.status === 'RELEASED');
   
   // Filter tasks by status
+  const getStatusKey = useCallback((status?: { name?: string | null; id?: string | null }) => {
+    if (!status) return '';
+    if (status.name) {
+      const normalized = status.name.trim().toLowerCase();
+      if (normalized) return normalized;
+    }
+    return status.id ?? '';
+  }, []);
+
   const filterTasksByStatus = (tasks: Task[]) => {
     if (selectedStatusFilters.length === 0) return tasks;
-    return tasks.filter(task => task.status?.id && selectedStatusFilters.includes(task.status.id));
+    return tasks.filter((task) => {
+      const statusKey = getStatusKey(task.status);
+      if (!statusKey) return false;
+      return selectedStatusFilters.includes(statusKey);
+    });
   };
   
   // Toggle status filter
-  const toggleStatusFilter = (statusId: string) => {
-    setSelectedStatusFilters(prev => 
-      prev.includes(statusId) 
-        ? prev.filter(id => id !== statusId)
-        : [...prev, statusId]
+  const toggleStatusFilter = (statusKey: string) => {
+    setSelectedStatusFilters((prev) =>
+      prev.includes(statusKey)
+        ? prev.filter((id) => id !== statusKey)
+        : [...prev, statusKey]
     );
   };
   
@@ -536,7 +692,9 @@ export function ReleaseManagement({ boardId, spaceSlug }: ReleaseManagementProps
   const filteredReleasedReleases = filterReleases(releasedReleases);
   
   // Check if the active drag is from a release (external drag)
-  const isExternalDrag = activeTaskId && !allTasks.filter(t => !t.releaseVersion).some(t => t.id === activeTaskId);
+  const isExternalDrag = Boolean(
+    activeTaskId && !allTasks.filter((t) => !t.releaseVersion).some((t) => t.id === activeTaskId)
+  );
 
   const statusMeta = useMemo(() => {
     return statuses.reduce(
@@ -548,13 +706,40 @@ export function ReleaseManagement({ boardId, spaceSlug }: ReleaseManagementProps
     );
   }, [statuses]);
 
+  const uniqueStatuses = useMemo(() => {
+    const seen = new Set<string>();
+    return statuses.filter((status: any) => {
+      const key = getStatusKey(status);
+      if (!key || seen.has(key)) {
+        return false;
+      }
+      seen.add(key);
+      return true;
+    });
+  }, [statuses, getStatusKey]);
+
   const filterLabel = useMemo(() => {
     if (selectedStatusFilters.length === 0) return 'Filter by status';
     if (selectedStatusFilters.length === 1) {
-      return statuses.find((s) => s.id === selectedStatusFilters[0])?.name || '1 status';
+      const match = uniqueStatuses.find((status: any) => getStatusKey(status) === selectedStatusFilters[0]);
+      return match?.name || '1 status';
     }
     return `${selectedStatusFilters.length} statuses`;
-  }, [selectedStatusFilters, statuses]);
+  }, [selectedStatusFilters, uniqueStatuses, getStatusKey]);
+
+  const deleteReleaseInfo = useMemo(() => {
+    if (!deleteReleaseId) return null;
+    const release = releases.find(r => r.id === deleteReleaseId);
+    if (!release) return null;
+    
+    const releaseName = release.version || release.name.replace(/^Release\s+/i, '') || 'this release';
+    const taskCount = release.tasks?.length || 0;
+    
+    return {
+      releaseName,
+      taskCount,
+    };
+  }, [deleteReleaseId, releases]);
 
   if (loading) {
     return (
@@ -571,7 +756,7 @@ export function ReleaseManagement({ boardId, spaceSlug }: ReleaseManagementProps
     : { from: '#10B981', to: '#059669' };
 
   return (
-    <div className="relative min-h-full overflow-hidden rounded-3xl border border-[var(--border)]/40 bg-gradient-to-br from-[var(--background)] via-[var(--background)] to-[var(--muted)]/20 p-3 sm:p-6">
+    <div className="relative min-h-full overflow-x-hidden rounded-3xl border border-[var(--border)]/40 bg-gradient-to-br from-[var(--background)] via-[var(--background)] to-[var(--muted)]/20 p-3 sm:p-6">
       <div className="pointer-events-none absolute top-[-120px] right-[-60px] h-72 w-72 rounded-full bg-[#EC4899]/15 blur-3xl" />
       <div className="pointer-events-none absolute bottom-[-140px] left-[-60px] h-72 w-72 rounded-full bg-[#5B5FED]/15 blur-3xl" />
 
@@ -638,22 +823,25 @@ export function ReleaseManagement({ boardId, spaceSlug }: ReleaseManagementProps
                 align="start"
                 className="w-56 rounded-xl border-[var(--border)]/40 bg-[var(--card)]/95 backdrop-blur"
               >
-                {statuses.map((status) => (
+                {uniqueStatuses.map((status) => {
+                  const statusKey = getStatusKey(status);
+                  return (
                   <DropdownMenuCheckboxItem
-                    key={status.id}
-                    checked={selectedStatusFilters.includes(status.id)}
-                    onCheckedChange={() => toggleStatusFilter(status.id)}
-                    className="capitalize"
-                  >
-                    <div className="flex items-center gap-2">
-                      <span
-                        className="h-2.5 w-2.5 rounded-full"
-                        style={{ backgroundColor: status.color || 'var(--primary)' }}
-                      />
-                      {status.name}
-                    </div>
-                  </DropdownMenuCheckboxItem>
-                ))}
+                      key={status.id ?? statusKey}
+                      checked={selectedStatusFilters.includes(statusKey)}
+                      onCheckedChange={() => toggleStatusFilter(statusKey)}
+                      className="capitalize"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="h-2.5 w-2.5 rounded-full"
+                          style={{ backgroundColor: status.color || 'var(--primary)' }}
+                        />
+                        {status.name}
+                      </div>
+                    </DropdownMenuCheckboxItem>
+                  );
+                })}
                 {selectedStatusFilters.length > 0 && (
                   <>
                     <DropdownMenuSeparator />
@@ -700,7 +888,7 @@ export function ReleaseManagement({ boardId, spaceSlug }: ReleaseManagementProps
                       spaceTicker={spaceTicker}
                       statusMeta={statusMeta}
                       onRelease={() => handleReleaseStatus(release.id, 'RELEASED')}
-                      onDelete={() => handleDeleteRelease(release.id)}
+                      onDelete={() => handleDeleteClick(release.id)}
                     />
                   ))}
                 </div>
@@ -811,16 +999,16 @@ export function ReleaseManagement({ boardId, spaceSlug }: ReleaseManagementProps
 
       {/* Create Release Dialog */}
       <Dialog open={showCreateForm} onOpenChange={setShowCreateForm}>
-        <DialogContent className="gap-0 rounded-2xl border border-[var(--border)]/50 bg-[var(--card)]/95 p-0 shadow-2xl">
-          <DialogHeader className="border-b border-[var(--border)]/40 px-6 py-4">
-            <DialogTitle>Create Release</DialogTitle>
-            <DialogDescription>
+        <DialogContent className="sm:max-w-[500px] gap-0 rounded-2xl border border-[var(--border)] bg-[var(--card)] p-0 shadow-2xl">
+          <DialogHeader className="border-b border-[var(--border)] px-6 py-4">
+            <DialogTitle className="text-[var(--foreground)] m-0">Create Release</DialogTitle>
+            <DialogDescription className="sr-only">
               Plan your next milestone with a version, date, and optional description.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-5 px-6 py-6">
             <div className="space-y-2">
-              <Label htmlFor="version" className="text-sm font-medium">
+              <Label htmlFor="version" className="text-[var(--foreground)] text-sm font-medium">
                 Release Version <span className="text-red-500">*</span>
               </Label>
               <Input
@@ -828,11 +1016,11 @@ export function ReleaseManagement({ boardId, spaceSlug }: ReleaseManagementProps
                 value={createFormData.version}
                 onChange={(e) => setCreateFormData({ ...createFormData, version: e.target.value })}
                 placeholder="e.g., 1.0.0"
-                className="rounded-xl border-[var(--border)]/60 bg-[var(--background)]/80"
+                className="bg-[var(--background)] border-[#4353FF] focus:border-[#4353FF] focus:ring-2 focus:ring-[#4353FF]/20 text-[var(--foreground)] placeholder:text-[var(--muted-foreground)]"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="description" className="text-sm font-medium">
+              <Label htmlFor="description" className="text-[var(--foreground)] text-sm font-medium">
                 Description
               </Label>
               <Textarea
@@ -841,11 +1029,11 @@ export function ReleaseManagement({ boardId, spaceSlug }: ReleaseManagementProps
                 onChange={(e) => setCreateFormData({ ...createFormData, description: e.target.value })}
                 placeholder="What ships in this release?"
                 rows={4}
-                className="rounded-2xl border-[var(--border)]/60 bg-[var(--background)]/80"
+                className="bg-[var(--background)] border-[var(--border)] focus:border-[#4353FF] focus:ring-2 focus:ring-[#4353FF]/20 text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] resize-none"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="releaseDate" className="text-sm font-medium">
+              <Label htmlFor="releaseDate" className="text-[var(--foreground)] text-sm font-medium">
                 Release Date
               </Label>
               <Input
@@ -859,24 +1047,65 @@ export function ReleaseManagement({ boardId, spaceSlug }: ReleaseManagementProps
                     (target as any).showPicker?.();
                   }
                 }}
-                className="cursor-pointer rounded-xl border-[var(--border)]/60 bg-[var(--background)]/80 [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden"
+                className="bg-[var(--background)] border-[var(--border)] focus:border-[#4353FF] focus:ring-2 focus:ring-[#4353FF]/20 text-[var(--foreground)] cursor-pointer [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden"
               />
             </div>
           </div>
-          <DialogFooter className="flex items-center justify-end gap-3 border-t border-[var(--border)]/40 px-6 py-4">
-            <Button variant="ghost" onClick={() => setShowCreateForm(false)}>
+          <DialogFooter className="flex items-center justify-end gap-3 border-t border-[var(--border)] bg-[var(--muted)]/30 px-6 py-4">
+            <Button 
+              variant="ghost" 
+              onClick={() => setShowCreateForm(false)}
+              className="text-[var(--foreground)] hover:bg-[var(--muted)]"
+            >
               Cancel
             </Button>
             <Button
               onClick={handleCreateRelease}
               disabled={!createFormData.version.trim()}
-              className="rounded-xl bg-gradient-to-r from-[#4353FF] to-[#5B5FED] text-white disabled:opacity-50"
+              className="bg-gradient-to-r from-[#4353FF] to-[#5B5FED] hover:from-[#3343EF] hover:to-[#4B4FDD] text-white shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Create Release
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Release Confirmation Dialog */}
+      <AlertDialog open={deleteReleaseId !== null} onOpenChange={(open: boolean) => !open && setDeleteReleaseId(null)}>
+        <AlertDialogContent className="bg-[var(--card)] border-[var(--border)]">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-[var(--foreground)]">
+              Delete Release
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-[var(--muted-foreground)]">
+              {deleteReleaseInfo ? (
+                <>
+                  Are you sure you want to delete <strong className="text-[var(--foreground)]">{deleteReleaseInfo.releaseName}</strong>?
+                  {deleteReleaseInfo.taskCount > 0 && (
+                    <> This will remove the release version from {deleteReleaseInfo.taskCount} task{deleteReleaseInfo.taskCount === 1 ? '' : 's'}.</>
+                  )}
+                  <br />
+                  <br />
+                  This action cannot be undone.
+                </>
+              ) : (
+                'Are you sure you want to delete this release? This action cannot be undone.'
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="bg-[var(--background)] border-[var(--border)] text-[var(--foreground)] hover:bg-[var(--muted)]">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              Delete Release
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -1023,16 +1252,18 @@ function ReleaseCard({
       </CardHeader>
       <CardContent className="pt-4">
         {releaseTasks.length > 0 ? (
-          <div className="space-y-2">
-            {releaseTasks.slice(0, 6).map((task) => (
-              <ReleaseTaskCard key={task.id} task={task} spaceTicker={spaceTicker} releaseId={release.id} />
-            ))}
-            {releaseTasks.length > 6 && (
-              <p className="text-xs text-muted-foreground">
-                +{releaseTasks.length - 6} more task{releaseTasks.length - 6 === 1 ? '' : 's'}
-              </p>
-            )}
-          </div>
+          <SortableContext items={releaseTasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
+            <div className="space-y-2">
+              {releaseTasks.slice(0, 6).map((task) => (
+                <ReleaseTaskCard key={task.id} task={task} spaceTicker={spaceTicker} releaseId={release.id} />
+              ))}
+              {releaseTasks.length > 6 && (
+                <p className="text-xs text-muted-foreground">
+                  +{releaseTasks.length - 6} more task{releaseTasks.length - 6 === 1 ? '' : 's'}
+                </p>
+              )}
+            </div>
+          </SortableContext>
         ) : (
           <div className="rounded-2xl border border-dashed border-[var(--border)]/60 bg-[var(--muted)]/30 p-6 text-center text-sm text-muted-foreground">
             Drag tasks here to plan this release
@@ -1059,7 +1290,7 @@ const ReleaseTaskCard = React.memo(function ReleaseTaskCard({
     transform,
     transition,
     isDragging,
-  } = useDraggable({
+  } = useSortable({
     id: task.id,
     data: {
       type: 'task',
@@ -1078,10 +1309,12 @@ const ReleaseTaskCard = React.memo(function ReleaseTaskCard({
     <div
       ref={setNodeRef}
       style={style}
-      className="rounded-2xl border border-[var(--border)]/50 bg-[var(--background)]/90 p-3 text-sm shadow-sm transition-all hover:border-[var(--primary)]/40 hover:shadow-lg"
+      {...attributes}
+      {...listeners}
+      className="cursor-move rounded-2xl border border-[var(--border)]/50 bg-[var(--background)]/90 p-3 text-sm shadow-sm transition-all hover:border-[var(--primary)]/40 hover:shadow-lg"
     >
       <div className="flex items-center gap-3">
-        <div {...attributes} {...listeners} className="cursor-move flex-shrink-0 rounded-full bg-[var(--muted)]/60 p-2">
+        <div className="flex-shrink-0 rounded-full bg-[var(--muted)]/60 p-2">
           <GripVertical className="h-4 w-4 text-muted-foreground" />
         </div>
         <div className="flex-1">
@@ -1169,15 +1402,13 @@ const TaskCard = React.memo(function TaskCard({ task, spaceTicker, isExternalDra
     <div
       ref={isExternalDrag ? undefined : setNodeRef}
       style={style}
+      {...(isExternalDrag ? {} : { ...attributes, ...listeners })}
       className={isExternalDrag 
         ? "pointer-events-none rounded-2xl border border-[var(--border)]/60 bg-[var(--card)]/70 p-4 shadow-sm"
-        : "cursor-pointer rounded-2xl border border-[var(--border)]/60 bg-[var(--card)]/80 p-4 shadow-sm transition-all hover:border-[var(--primary)]/40 hover:shadow-lg"}
+        : "cursor-move rounded-2xl border border-[var(--border)]/60 bg-[var(--card)]/80 p-4 shadow-sm transition-all hover:border-[var(--primary)]/40 hover:shadow-lg"}
     >
       <div className="flex items-center gap-3">
-        <div
-          {...(isExternalDrag ? {} : { ...attributes, ...listeners })}
-          className="cursor-move rounded-full bg-[var(--muted)]/50 p-2 text-muted-foreground"
-        >
+        <div className="rounded-full bg-[var(--muted)]/50 p-2 text-muted-foreground">
           <GripVertical className="h-5 w-5" />
         </div>
         <div className="flex-1 min-w-0">

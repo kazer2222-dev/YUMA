@@ -90,6 +90,9 @@ export default function NewDocumentPage() {
     router.push(`/spaces/${slug}?tab=documents&search=${encodeURIComponent(query)}`);
   };
 
+  const currentSpace = spaces.find((s) => s.slug === slug);
+  const spaceName = currentSpace?.name || slug;
+
   if (loading || !user) {
     return <Loading />;
   }
@@ -107,7 +110,7 @@ export default function NewDocumentPage() {
         onSearch={handleSearch}
         breadcrumbs={[
           { name: 'Spaces', href: '/' },
-          { name: slug, href: `/spaces/${slug}` },
+          { name: spaceName, href: `/spaces/${slug}` },
           { name: 'Documents', href: `/spaces/${slug}?tab=documents` },
           { name: 'New Document' }
         ]}
@@ -134,7 +137,7 @@ export default function NewDocumentPage() {
         onSearch={handleSearch}
         breadcrumbs={[
           { name: 'Spaces', href: '/' },
-          { name: slug, href: `/spaces/${slug}` },
+          { name: spaceName, href: `/spaces/${slug}` },
           { name: 'Documents', href: `/spaces/${slug}?tab=documents` },
           { name: 'New Document' }
         ]}

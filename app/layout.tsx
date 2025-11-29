@@ -32,8 +32,39 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className={inter.variable}>
-      <body className={`${inter.className} antialiased`}>
+    <html lang="en" className={inter.variable} suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  const stored = localStorage.getItem('yuma-theme');
+                  const theme = stored && (stored === 'dark' || stored === 'light' || stored === 'system')
+                    ? stored
+                    : 'dark';
+                  
+                  const root = document.documentElement;
+                  root.classList.remove('light', 'dark');
+                  
+                  if (theme === 'system') {
+                    const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches
+                      ? 'dark'
+                      : 'light';
+                    root.classList.add(systemTheme);
+                  } else {
+                    root.classList.add(theme);
+                  }
+                } catch (e) {
+                  // Fallback to dark theme if localStorage access fails
+                  document.documentElement.classList.add('dark');
+                }
+              })();
+            `,
+          }}
+        />
+      </head>
+      <body className={`${inter.className} antialiased`} style={{ margin: 0, padding: 0 }}>
         <ThemeProvider defaultTheme="dark" storageKey="yuma-theme">
           <QueryProvider>
             <NavigationProvider>

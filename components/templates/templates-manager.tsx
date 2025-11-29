@@ -239,24 +239,25 @@ export function TemplatesManager({
     <>
       {/* Header */}
       <div className="flex-shrink-0 px-6 py-4 border-b border-[var(--border)] bg-[var(--background)]">
+        {standalone && onBack && (
+          <div className="mb-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onBack}
+              className="h-8 w-8 text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--card)]"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </Button>
+          </div>
+        )}
         <div className="flex items-start justify-between">
           <div className="flex-1 pr-4">
             <div className="flex items-center gap-3 mb-2">
-              {standalone && onBack && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={onBack}
-                  className="h-8 px-3 text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--card)] gap-2"
-                >
-                  <ArrowLeft className="w-4 h-4" />
-                  <span>Back to Overview</span>
-                </Button>
-              )}
               <h2 className="text-[var(--foreground)] m-0 text-xl font-semibold">Templates</h2>
               <Button
                 onClick={handleAddTemplate}
-                className="group relative gap-2 h-9 px-4 bg-[#4353ff] hover:bg-[#3343ef] text-white text-xs shadow-lg shadow-[#4353ff]/20 hover:shadow-[#4353ff]/40 transition-all duration-300 ml-auto overflow-hidden border border-[#4353ff]/50 hover:border-[#4353ff]/70"
+                className="group relative gap-2 h-10 px-4 bg-[#4353ff] hover:bg-[#3343ef] text-white text-sm shadow-lg shadow-[#4353ff]/20 hover:shadow-[#4353ff]/40 transition-all duration-300 ml-auto overflow-hidden border border-[#4353ff]/50 hover:border-[#4353ff]/70"
               >
                 <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
                 <Plus className="relative w-4 h-4 group-hover:scale-110 transition-transform duration-300" />
@@ -376,12 +377,11 @@ export function TemplatesManager({
         <div className="mb-2">
           <Button
             variant="ghost"
-            size="sm"
+            size="icon"
             onClick={() => setCurrentView('activeTemplates')}
-            className="h-8 px-3 text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--card)] gap-2"
+            className="h-8 w-8 text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--card)]"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span>Back to Active Templates</span>
           </Button>
         </div>
         <div className="flex items-start justify-between">

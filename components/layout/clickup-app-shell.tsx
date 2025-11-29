@@ -97,11 +97,7 @@ export function ClickUpAppShell({
   const userName = user.name ?? user.email;
 
   const navigateHome = () => {
-    if (typeof window !== 'undefined') {
-      window.location.assign('/');
-    } else {
-      router.push('/');
-    }
+    router.push('/home');
   };
 
   const navigateToSpace = (slug: string) => {
@@ -200,6 +196,8 @@ export function ClickUpAppShell({
             showSearch={showSearch}
             userInitial={userInitial}
             userName={userName}
+            userAvatar={user.avatar}
+            userEmail={user.email}
             onLogout={onLogout}
           />
 
@@ -211,8 +209,8 @@ export function ClickUpAppShell({
             hideTitle={hideTitle}
           />
 
-          <main className="flex-1 overflow-auto bg-[var(--background)] px-4 py-4 sm:px-6">
-            <div className="mx-auto h-full w-full max-w-[1400px]">{children}</div>
+          <main className="flex-1 overflow-hidden bg-[var(--background)] min-h-0">
+            <div className="w-full h-full">{children}</div>
           </main>
         </div>
       </div>

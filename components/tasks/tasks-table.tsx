@@ -37,6 +37,16 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -66,6 +76,7 @@ import {
   Download,
   FileSpreadsheet,
   FileText,
+  Trash2,
 } from 'lucide-react';
 import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
@@ -317,6 +328,8 @@ export function TasksTable({ spaceSlug }: TasksTableProps) {
   const [selectedTasks, setSelectedTasks] = useState<Set<string>>(new Set());
   const [pageSize, setPageSize] = useState(25);
   const [currentPage, setCurrentPage] = useState(1);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const { success, error: showError } = useToastHelpers();
 
   const sensors = useSensors(
@@ -670,6 +683,48 @@ export function TasksTable({ spaceSlug }: TasksTableProps) {
     setSelectedTasks(newSelected);
   };
 
+  const handleDeleteSelected = async () => {
+    if (selectedTasks.size === 0) return;
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDeleteSelected = async () => {
+    if (selectedTasks.size === 0) return;
+
+    const taskCount = selectedTasks.size;
+    setIsDeleting(true);
+    setDeleteDialogOpen(false);
+    
+    try {
+      const deletePromises = Array.from(selectedTasks).map(async (taskId) => {
+        const response = await fetch(`/api/spaces/${spaceSlug}/tasks/${taskId}`, {
+          method: 'DELETE',
+          credentials: 'include',
+        });
+        const data = await response.json();
+        return { success: response.ok && data.success, taskId };
+      });
+
+      const results = await Promise.allSettled(deletePromises);
+      const failed = results.filter(
+        (r) => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value.success)
+      );
+      
+      if (failed.length > 0) {
+        showError('Error', `Failed to delete ${failed.length} task${failed.length > 1 ? 's' : ''}`);
+      } else {
+        success(`Successfully deleted ${taskCount} task${taskCount > 1 ? 's' : ''}`);
+        setSelectedTasks(new Set());
+        await fetchData();
+      }
+    } catch (err) {
+      console.error('Error deleting tasks:', err);
+      showError('Error', 'Failed to delete tasks');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   useEffect(() => {
     // Reset to page 1 when filters change
     setCurrentPage(1);
@@ -988,6 +1043,17 @@ export function TasksTable({ spaceSlug }: TasksTableProps) {
             <p className="text-[var(--muted-foreground)]">Manage and track your work in a spreadsheet-like view</p>
         </div>
         <div className="flex items-center gap-2">
+            {selectedTasks.size > 0 && (
+              <Button
+                variant="destructive"
+                className="gap-2 bg-red-600 hover:bg-red-700 text-white"
+                onClick={handleDeleteSelected}
+                disabled={isDeleting}
+              >
+                <Trash2 className="w-4 h-4" />
+                Delete {selectedTasks.size} task{selectedTasks.size > 1 ? 's' : ''}
+              </Button>
+            )}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
           <Button
@@ -1709,7 +1775,54 @@ export function TasksTable({ spaceSlug }: TasksTableProps) {
         onSave={() => {
           fetchData();
         }}
+        onNavigateToFullPage={() => {
+          if (selectedTask?.id) {
+            router.push(`/spaces/${spaceSlug}/tasks/${selectedTask.id}`);
+          }
+        }}
       />
+
+      {/* Delete Tasks Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent className="border-[var(--border)] bg-[var(--card)]">
+          <AlertDialogHeader>
+            <div className="mb-2 flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-500/10">
+                <Trash2 className="h-5 w-5 text-red-500" />
+              </div>
+              <AlertDialogTitle className="text-[var(--foreground)]">
+                Delete {selectedTasks.size} task{selectedTasks.size > 1 ? 's' : ''}?
+              </AlertDialogTitle>
+            </div>
+            <AlertDialogDescription className="space-y-3 text-[var(--muted-foreground)]">
+              <p>
+                You are about to permanently delete {selectedTasks.size} selected task{selectedTasks.size > 1 ? 's' : ''}.
+              </p>
+              <div className="space-y-2 rounded-lg border border-[var(--border)] bg-[var(--muted)]/50 p-3 text-sm">
+                <p>This action will:</p>
+                <ul className="list-inside list-disc space-y-1">
+                  <li>Permanently delete the selected task{selectedTasks.size > 1 ? 's' : ''}</li>
+                  <li>Remove all associated data and comments</li>
+                  <li>Remove all attachments and activity history</li>
+                </ul>
+              </div>
+              <p className="text-red-400">This action cannot be undone.</p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] hover:bg-[var(--muted)]">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmDeleteSelected} 
+              disabled={isDeleting}
+              className="bg-red-500 text-white hover:bg-red-600"
+            >
+              {isDeleting ? 'Deleting...' : `Delete ${selectedTasks.size} task${selectedTasks.size > 1 ? 's' : ''}`}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

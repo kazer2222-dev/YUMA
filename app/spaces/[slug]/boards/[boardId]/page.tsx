@@ -121,9 +121,10 @@ export default function BoardPage() {
     }
   };
 
-  const { showSuccess, showError } = useToastHelpers();
+  const { success: showSuccess, error: showError } = useToastHelpers();
 
   const handleDeleteBoard = async () => {
+    if (!board) return;
     if (!confirm(`Are you sure you want to delete "${board.name}"? This action cannot be undone.`)) {
       return;
     }
@@ -193,7 +194,7 @@ export default function BoardPage() {
         {
           label: 'Delete Board',
           onClick: handleDeleteBoard,
-          variant: 'destructive' as const,
+          variant: 'outline' as const,
           icon: Trash2
         }
       ]}

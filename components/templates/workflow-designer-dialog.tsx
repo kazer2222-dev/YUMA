@@ -10,6 +10,10 @@ import {
   ReactFlowProvider,
   addEdge,
   useReactFlow,
+  BaseEdge,
+  EdgeLabelRenderer,
+  getSmoothStepPath,
+  getStepPath,
   type Connection,
   type Edge,
   type EdgeChange,
@@ -21,6 +25,7 @@ import {
   Handle,
   Position,
   type OnConnectStartParams,
+  type EdgeProps,
 } from 'reactflow';
 import {
   Dialog,
@@ -191,13 +196,14 @@ const createTransitionEdge = (
     target,
     sourceHandle: options?.sourceHandle ?? null,
     targetHandle: options?.targetHandle ?? null,
-    type: 'smoothstep',
+    type: 'step',
     markerEnd: { type: MarkerType.ArrowClosed },
     data: edgeData,
     label: edgeData.kind === 'start' ? '' : edgeData.name,
     style: { strokeWidth: 2 },
     labelBgPadding: [6, 4],
     labelBgBorderRadius: 4,
+    updatable: true,
   };
 };
 
@@ -219,25 +225,43 @@ function StatusNode({ data, selected }: { data: StatusNodeData; selected?: boole
         type="target"
         position={Position.Left}
         id={`${data.tempId}-target-left`}
-        className={`!h-3 !w-3 ${handleClass}`}
+        className={`react-flow__handle-magnetic !h-4 !w-4 ${handleClass}`}
+        style={{ width: '16px', height: '16px', borderRadius: '50%' }}
       />
       <Handle
         type="source"
         position={Position.Right}
         id={`${data.tempId}-source-right`}
-        className={`!h-3 !w-3 ${handleClass}`}
+        className={`react-flow__handle-magnetic !h-4 !w-4 ${handleClass}`}
+        style={{ width: '16px', height: '16px', borderRadius: '50%' }}
       />
       <Handle
         type="target"
         position={Position.Top}
         id={`${data.tempId}-target-top`}
-        className={`!h-3 !w-3 ${handleClass}`}
+        className={`react-flow__handle-magnetic !h-4 !w-4 ${handleClass}`}
+        style={{ width: '16px', height: '16px', borderRadius: '50%' }}
+      />
+      <Handle
+        type="source"
+        position={Position.Top}
+        id={`${data.tempId}-source-top`}
+        className={`react-flow__handle-magnetic !h-4 !w-4 ${handleClass}`}
+        style={{ width: '16px', height: '16px', borderRadius: '50%' }}
       />
       <Handle
         type="source"
         position={Position.Bottom}
         id={`${data.tempId}-source-bottom`}
-        className={`!h-3 !w-3 ${handleClass}`}
+        className={`react-flow__handle-magnetic !h-4 !w-4 ${handleClass}`}
+        style={{ width: '16px', height: '16px', borderRadius: '50%' }}
+      />
+      <Handle
+        type="target"
+        position={Position.Bottom}
+        id={`${data.tempId}-target-bottom`}
+        className={`react-flow__handle-magnetic !h-4 !w-4 ${handleClass}`}
+        style={{ width: '16px', height: '16px', borderRadius: '50%' }}
       />
       <div className={`status-node-content ${nodeClasses}`}>
         <div className="flex items-center justify-between gap-2">
@@ -251,7 +275,7 @@ function StatusNode({ data, selected }: { data: StatusNodeData; selected?: boole
       </div>
       <NodeToolbar
         isVisible={Boolean(selected)}
-        position="top"
+        position={Position.Top}
         align="center"
         className="z-20 min-w-[180px] max-w-[220px] rounded-md border bg-popover px-3 py-2 text-xs shadow-lg"
       >
@@ -269,10 +293,142 @@ function StatusNode({ data, selected }: { data: StatusNodeData; selected?: boole
 
 function StartNode() {
   return (
-    <div className="relative flex items-center justify-center rounded-full border border-primary bg-primary/10 px-4 py-2 text-xs font-semibold text-primary">
-      <Handle type="source" position={Position.Right} id="start-source" className="!h-3 !w-3 !bg-primary" />
+    <div className="relative flex items-center justify-center rounded-full border-2 border-primary bg-primary/10 px-8 py-4 text-base font-semibold text-primary">
+      <Handle 
+        type="source" 
+        position={Position.Right} 
+        id="start-source" 
+        className="react-flow__handle-magnetic !h-5 !w-5 !bg-primary" 
+        style={{ width: '20px', height: '20px', borderRadius: '50%' }}
+      />
       Start
     </div>
+  );
+}
+
+// Custom edge component with draggable handles
+function TransitionEdge({
+  id,
+  sourceX,
+  sourceY,
+  targetX,
+  targetY,
+  sourcePosition,
+  targetPosition,
+  style = {},
+  markerEnd,
+  selected,
+  data,
+  label,
+}: EdgeProps<TransitionEdgeData>) {
+  // Use getStepPath for step edges to get squared/straight transitions
+  const [edgePath, labelX, labelY] = getStepPath({
+    sourceX,
+    sourceY,
+    sourcePosition,
+    targetX,
+    targetY,
+    targetPosition,
+  });
+
+  return (
+    <>
+      <BaseEdge 
+        id={id}
+        path={edgePath} 
+        markerEnd={markerEnd}
+        style={{
+          ...style,
+          strokeWidth: selected ? 4 : 2,
+          stroke: selected ? '#3b82f6' : style.stroke || '#b1b1b7',
+        }}
+        className={selected ? 'react-flow__edge-selected' : ''}
+      />
+      {/* Thicker invisible path near endpoints for easier dragging when selected */}
+      {selected && (
+        <>
+          <path
+            d={`M ${sourceX} ${sourceY} L ${sourceX + (targetX - sourceX) * 0.1} ${sourceY + (targetY - sourceY) * 0.1}`}
+            stroke="transparent"
+            strokeWidth="20"
+            fill="none"
+            style={{ cursor: 'grab', pointerEvents: 'all' }}
+            className="react-flow__edge-endpoint-drag-area"
+          />
+          <path
+            d={`M ${targetX} ${targetY} L ${targetX - (targetX - sourceX) * 0.1} ${targetY - (targetY - sourceY) * 0.1}`}
+            stroke="transparent"
+            strokeWidth="20"
+            fill="none"
+            style={{ cursor: 'grab', pointerEvents: 'all' }}
+            className="react-flow__edge-endpoint-drag-area"
+          />
+        </>
+      )}
+      {selected && (
+        <>
+          {/* Source handle - visible when selected for reconnecting */}
+          <g 
+            transform={`translate(${sourceX}, ${sourceY})`}
+            className="react-flow__edge-handle-container"
+          >
+            <circle
+              r="12"
+              fill="#3b82f6"
+              stroke="#fff"
+              strokeWidth="2"
+              className="react-flow__edge-handle react-flow__edge-handle-source"
+              style={{ cursor: 'grab', pointerEvents: 'all' }}
+            />
+            {/* Invisible larger hit area for easier dragging */}
+            <circle
+              r="20"
+              fill="transparent"
+              className="react-flow__edge-handle-hit-area"
+              style={{ cursor: 'grab', pointerEvents: 'all' }}
+            />
+          </g>
+          {/* Target handle - visible when selected for reconnecting */}
+          <g 
+            transform={`translate(${targetX}, ${targetY})`}
+            className="react-flow__edge-handle-container"
+          >
+            <circle
+              r="12"
+              fill="#3b82f6"
+              stroke="#fff"
+              strokeWidth="2"
+              className="react-flow__edge-handle react-flow__edge-handle-target"
+              style={{ cursor: 'grab', pointerEvents: 'all' }}
+            />
+            {/* Invisible larger hit area for easier dragging */}
+            <circle
+              r="20"
+              fill="transparent"
+              className="react-flow__edge-handle-hit-area"
+              style={{ cursor: 'grab', pointerEvents: 'all' }}
+            />
+          </g>
+        </>
+      )}
+      {label && (
+        <EdgeLabelRenderer>
+          <div
+            style={{
+              position: 'absolute',
+              transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
+              fontSize: 12,
+              pointerEvents: 'all',
+            }}
+            className="nodrag nopan"
+          >
+            <div className="px-2 py-1 bg-white border border-gray-300 rounded shadow-sm">
+              {label}
+            </div>
+          </div>
+        </EdgeLabelRenderer>
+      )}
+    </>
   );
 }
 
@@ -378,13 +534,17 @@ export function WorkflowDesignerDialog({
   const [aiPromptError, setAiPromptError] = useState('');
   const [aiPromptMessage, setAiPromptMessage] = useState('');
 
-  const [nodes, setNodes, onNodesChange] = useNodesState<Node<StatusNodeData | StartNodeData>>([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge<TransitionEdgeData>>([]);
+  const [nodes, setNodes, onNodesChange] = useNodesState<StatusNodeData | StartNodeData>([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState<TransitionEdgeData>([]);
   const [selection, setSelection] = useState<{ type: 'status' | 'transition'; id: string } | null>(null);
   const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
   const connectStartRef = useRef<OnConnectStartParams | null>(null);
 
   const nodeTypes = useMemo(() => ({ status: StatusNode, start: StartNode }), []);
+  const edgeTypes = useMemo(() => ({ 
+    step: TransitionEdge,
+    default: TransitionEdge,
+  }), []);
 
   const selectedNode = useMemo(
     () => (selection?.type === 'status' ? nodes.find((node) => node.id === selection.id) ?? null : null),
@@ -422,7 +582,7 @@ export function WorkflowDesignerDialog({
       const taken = new Set(
         nodes
           .filter((node) => node.type === 'status' && node.id !== ignoreId)
-          .map((node) => node.data.key.trim())
+          .map((node) => ((node.data as StatusNodeData).key || '').trim())
       );
       while (taken.has(candidate)) {
         candidate = `${base}-${counter}`;
@@ -553,14 +713,14 @@ export function WorkflowDesignerDialog({
           };
           return createTransitionEdge(sourceId, targetId, data);
         })
-        .filter((edge): edge is Edge<TransitionEdgeData> => Boolean(edge));
+          .filter((edge: Edge<TransitionEdgeData> | null): edge is Edge<TransitionEdgeData> => Boolean(edge));
 
       const startNode = createStartNode({ x: -220, y: 160 });
       const startEdge = initialTargetId ? createStartEdge(initialTargetId) : null;
 
       setNodes([startNode, ...normalizedNodes]);
       setEdges([...(startEdge ? [startEdge] : []), ...builtEdges]);
-      setInitialStatus(initialTargetId);
+      setInitialStatus(initialTargetId ?? null);
       clearSelection();
     },
     [setNodes, setEdges, clearSelection, setInitialStatus],
@@ -606,7 +766,7 @@ export function WorkflowDesignerDialog({
       const initialKeyCandidate = suggestion.statuses.find((status: any) => status.isInitial)?.key;
       const initialTargetId = (initialKeyCandidate && keyToNodeId.get(initialKeyCandidate)) ?? statusNodes[0]?.id ?? null;
 
-      const normalizedNodes = statusNodes.map((node) => ({
+      const normalizedNodes = statusNodes.map((node: Node<StatusNodeData>) => ({
         ...node,
         data: {
           ...node.data,
@@ -634,7 +794,7 @@ export function WorkflowDesignerDialog({
            };
            return createTransitionEdge(sourceId, targetId, data);
          })
-         .filter((edge): edge is Edge<TransitionEdgeData> => Boolean(edge));
+        .filter((edge: Edge<TransitionEdgeData> | null): edge is Edge<TransitionEdgeData> => Boolean(edge));
 
       const startNode = createStartNode({ x: -220, y: 160 });
       const startEdge = initialTargetId ? createStartEdge(initialTargetId) : null;
@@ -764,7 +924,7 @@ export function WorkflowDesignerDialog({
     setNodes((previous) => {
       const counts = new Map<string, number>();
       for (const edge of edges) {
-        if (edge.data.kind === 'start') {
+        if (edge.data?.kind === 'start') {
           continue;
         }
         counts.set(edge.source, (counts.get(edge.source) ?? 0) + 1);
@@ -796,37 +956,12 @@ export function WorkflowDesignerDialog({
 
   const handleNodesChangeInternal = useCallback(
     (changes: NodeChange[]) => {
-      // Calculate dynamic boundaries based on viewport (similar to JIRA workflow)
-      // Allow nodes to move until they fit the screen
-      let minX = -2000;
-      let maxX = 2000;
-      let minY = -2000;
-      let maxY = 2000;
-      
-      if (reactFlowInstance) {
-        const pane = document.querySelector('.wf-designer-flow .react-flow__pane') as HTMLElement;
-        if (pane) {
-          const viewportWidth = pane.clientWidth || 1000;
-          const viewportHeight = pane.clientHeight || 600;
-          const viewport = reactFlowInstance.getViewport();
-          
-          // Calculate workspace boundaries based on viewport size
-          // Convert viewport dimensions to flow coordinates
-          const workspaceWidth = viewportWidth / viewport.zoom;
-          const workspaceHeight = viewportHeight / viewport.zoom;
-          
-          // Center the workspace around the current viewport center
-          const centerX = -viewport.x / viewport.zoom;
-          const centerY = -viewport.y / viewport.zoom;
-          
-          // Allow nodes to move within the viewport bounds with some padding
-          const padding = 100; // Padding in flow coordinates
-          minX = centerX - workspaceWidth / 2 + padding;
-          maxX = centerX + workspaceWidth / 2 - padding;
-          minY = centerY - workspaceHeight / 2 + padding;
-          maxY = centerY + workspaceHeight / 2 - padding;
-        }
-      }
+      // Use generous boundaries to allow free movement in all directions
+      // Similar to JIRA workflow - nodes can move freely within a large workspace
+      const minX = -5000;
+      const maxX = 5000;
+      const minY = -5000;
+      const maxY = 5000;
       
       // Apply damping to position changes to slow down drag speed
       const dampedChanges = changes.map((change) => {
@@ -843,8 +978,8 @@ export function WorkflowDesignerDialog({
             let newX = currentNode.position.x + deltaX * dampingFactor;
             let newY = currentNode.position.y + deltaY * dampingFactor;
             
-            // Constrain position within viewport boundaries (like JIRA workflow)
-            // Allow nodes to move until they fit the screen
+            // Constrain position within workspace boundaries (like JIRA workflow)
+            // Allow nodes to move freely in all directions within the workspace
             newX = Math.max(minX, Math.min(maxX, newX));
             newY = Math.max(minY, Math.min(maxY, newY));
             
@@ -882,10 +1017,13 @@ export function WorkflowDesignerDialog({
           
           // Get all node positions in screen/viewport coordinates
           const nodePositions = currentNodes.map((node) => {
-            const screenPos = reactFlowInstance.project({
-              x: node.position.x,
-              y: node.position.y,
-            });
+            // Note: screenToFlowPosition converts screen to flow coordinates, 
+            // but we need flow to screen. Using getViewport() to calculate screen position.
+            const viewport = reactFlowInstance.getViewport();
+            const screenPos = {
+              x: node.position.x * viewport.zoom + viewport.x,
+              y: node.position.y * viewport.zoom + viewport.y,
+            };
             return {
               id: node.id,
               screenX: screenPos.x,
@@ -950,6 +1088,9 @@ export function WorkflowDesignerDialog({
         previous.map((edge) =>
           edge.id === id
             ? (() => {
+                if (!edge.data) {
+                  return edge;
+                }
                 const nextData = updater(edge.data);
                 return {
                   ...edge,
@@ -1028,7 +1169,7 @@ export function WorkflowDesignerDialog({
   const handleRemoveTransition = useCallback(
     (id: string) => {
       setInitializing(false);
-      setEdges((prev) => prev.filter((edge) => edge.id !== id || edge.data.kind === 'start'));
+      setEdges((prev) => prev.filter((edge) => edge.id !== id || edge.data?.kind === 'start'));
       if (selection?.type === 'transition' && selection.id === id) {
         clearSelection();
       }
@@ -1079,6 +1220,7 @@ export function WorkflowDesignerDialog({
 
   const handleConnect = useCallback(
     (connection: Connection) => {
+      console.log('[handleConnect] Connection received:', connection);
       const start = connectStartRef.current;
       connectStartRef.current = null;
 
@@ -1131,7 +1273,7 @@ export function WorkflowDesignerDialog({
           edge.target === targetId &&
           edge.sourceHandle === sourceHandle &&
           edge.targetHandle === targetHandle &&
-          edge.data.kind !== 'start'
+          edge.data?.kind !== 'start'
       );
       
       // If an edge exists with the same handles, use different handles for the new edge
@@ -1142,17 +1284,21 @@ export function WorkflowDesignerDialog({
         const sourceData = sourceNode.data as StatusNodeData;
         const targetData = targetNode.data as StatusNodeData;
         
-        // Try to use different handles - if right handle was used, try bottom
+        // Try to use different handles - cycle through available source handles
         if (sourceHandle === `${sourceData.tempId}-source-right`) {
           finalSourceHandle = `${sourceData.tempId}-source-bottom`;
         } else if (sourceHandle === `${sourceData.tempId}-source-bottom`) {
+          finalSourceHandle = `${sourceData.tempId}-source-top`;
+        } else if (sourceHandle === `${sourceData.tempId}-source-top`) {
           finalSourceHandle = `${sourceData.tempId}-source-right`;
         }
         
-        // For target, try different handles too
+        // For target, try different handles too - cycle through available target handles
         if (targetHandle === `${targetData.tempId}-target-left`) {
           finalTargetHandle = `${targetData.tempId}-target-top`;
         } else if (targetHandle === `${targetData.tempId}-target-top`) {
+          finalTargetHandle = `${targetData.tempId}-target-bottom`;
+        } else if (targetHandle === `${targetData.tempId}-target-bottom`) {
           finalTargetHandle = `${targetData.tempId}-target-left`;
         }
       }
@@ -1181,7 +1327,7 @@ export function WorkflowDesignerDialog({
               edge.target === newEdge.target &&
               edge.sourceHandle === newEdge.sourceHandle &&
               edge.targetHandle === newEdge.targetHandle &&
-              edge.data.kind !== 'start')
+              edge.data?.kind !== 'start')
         );
         if (duplicate) {
           return prev;
@@ -1194,7 +1340,7 @@ export function WorkflowDesignerDialog({
 
   const handleEdgeUpdate = useCallback(
     (edge: Edge<TransitionEdgeData>, connection: Connection) => {
-      if (!connection.source || !connection.target) {
+      if (!connection.source || !connection.target || !edge.data) {
         return;
       }
       if (edge.data.kind === 'start') {
@@ -1211,7 +1357,7 @@ export function WorkflowDesignerDialog({
 
       setEdges((prev) =>
         prev.map((current) =>
-          current.id === edge.id
+          current.id === edge.id && current.data
             ? {
                 ...current,
                 source: connection.source!,
@@ -1252,22 +1398,19 @@ export function WorkflowDesignerDialog({
     clearSelection();
   }, [clearSelection]);
 
-  const handleFitView = useCallback(() => {
-    reactFlowInstance?.fitView({ padding: 0.2, duration: 200 });
-  }, [reactFlowInstance]);
-
   const validateWorkflow = useCallback((): string | null => {
     if (!name.trim()) {
       return 'Workflow name is required.';
     }
-    if (nodes.length === 0) {
+    const statusNodes = nodes.filter((node) => node.type === 'status') as Node<StatusNodeData>[];
+    if (statusNodes.length === 0) {
       return 'Add at least one status to the workflow.';
     }
-    const initialCount = nodes.filter((node) => node.data.isInitial).length;
+    const initialCount = statusNodes.filter((node) => node.data.isInitial).length;
     if (initialCount !== 1) {
       return 'Exactly one status must be marked as initial.';
     }
-    const keys = nodes.map((node) => node.data.key.trim());
+    const keys = statusNodes.map((node) => (node.data.key || '').trim());
     if (keys.some((key) => !key)) {
       return 'All statuses must have an internal key.';
     }
@@ -1275,13 +1418,13 @@ export function WorkflowDesignerDialog({
     if (uniqueKeys.size !== keys.length) {
       return 'Status keys must be unique.';
     }
-    if (nodes.some((node) => !node.data.name.trim())) {
+    if (statusNodes.some((node) => !node.data.name?.trim())) {
       return 'All statuses must have a name.';
     }
     if (edges.length === 0) {
       return 'Add at least one transition to the workflow.';
     }
-    if (edges.some((edge) => !edge.data.name.trim())) {
+    if (edges.some((edge) => !edge.data?.name?.trim())) {
       return 'All transitions must have a name.';
     }
     return null;
@@ -1301,7 +1444,7 @@ export function WorkflowDesignerDialog({
     setError('');
     setSaving(true);
 
-    const statusNodes = nodes.filter((node) => node.type === 'status');
+    const statusNodes = nodes.filter((node) => node.type === 'status') as Node<StatusNodeData>[];
     const sortedStatusNodes = [...statusNodes].sort((a, b) => {
       if (a.position.y !== b.position.y) {
         return a.position.y - b.position.y;
@@ -1310,8 +1453,8 @@ export function WorkflowDesignerDialog({
     });
 
     const statusPayload: WorkflowStatusInput[] = sortedStatusNodes.map((node, index) => ({
-      key: node.data.key,
-      name: node.data.name.trim(),
+      key: node.data.key || `status-${index + 1}`,
+      name: (node.data.name || '').trim(),
       category: node.data.category,
       color: node.data.color ?? null,
       isInitial: node.data.isInitial,
@@ -1324,13 +1467,25 @@ export function WorkflowDesignerDialog({
 
     const nodesById = new Map(nodes.map((node) => [node.id, node] as const));
     const transitionPayload: WorkflowTransitionInput[] = edges
-      .filter((edge) => edge.data.kind !== 'start')
+      .filter((edge) => edge.data?.kind !== 'start' && edge.data)
       .map((edge, index) => {
+        if (!edge.data) {
+          throw new Error('Edge data is missing');
+        }
         const sourceNode = nodesById.get(edge.source);
         const targetNode = nodesById.get(edge.target);
         if (!sourceNode || !targetNode) {
-          return null;
+          throw new Error('Source or target node is missing');
         }
+        
+        // Handle start node (it doesn't have a key)
+        const fromKey = sourceNode.type === 'status' ? (sourceNode.data as StatusNodeData).key : null;
+        const toKey = targetNode.type === 'status' ? (targetNode.data as StatusNodeData).key : null;
+        
+        if (!fromKey || !toKey) {
+          throw new Error('Source or target node is missing a key');
+        }
+        
         const roles: string[] = [];
         if (edge.data.assigneeOnly) roles.push('ASSIGNEE');
         if (edge.data.adminOnly) {
@@ -1350,17 +1505,16 @@ export function WorkflowDesignerDialog({
         }
 
         return {
-          name: edge.data.name.trim(),
-          fromKey: sourceNode.data.key,
-          toKey: targetNode.data.key,
+          name: (edge.data.name || '').trim(),
+          fromKey,
+          toKey,
           uiTrigger: edge.data.uiTrigger || 'BUTTON',
           order: index,
           conditions: Object.keys(conditions).length ? conditions : undefined,
           validators: Object.keys(validators).length ? validators : undefined,
           postFunctions: undefined,
-        };
-      })
-      .filter((transition): transition is WorkflowTransitionInput => Boolean(transition));
+        } as WorkflowTransitionInput;
+      });
 
     try {
       const payload = {
@@ -1422,7 +1576,7 @@ export function WorkflowDesignerDialog({
   const handleTransitionNameChange = useCallback(
     (id: string, value: string) => {
       const edge = edges.find((item) => item.id === id);
-      if (!edge || edge.data.kind === 'start') {
+      if (!edge || !edge.data || edge.data.kind === 'start') {
         return;
       }
       updateEdge(id, (data) => ({
@@ -1436,7 +1590,7 @@ export function WorkflowDesignerDialog({
   const handleTransitionTriggerChange = useCallback(
     (id: string, value: string) => {
       const edge = edges.find((item) => item.id === id);
-      if (!edge || edge.data.kind === 'start') {
+      if (!edge || !edge.data || edge.data.kind === 'start') {
         return;
       }
       updateEdge(id, (data) => ({
@@ -1454,7 +1608,7 @@ export function WorkflowDesignerDialog({
       value: boolean,
     ) => {
       const edge = edges.find((item) => item.id === id);
-      if (!edge || edge.data.kind === 'start') {
+      if (!edge || !edge.data || edge.data.kind === 'start') {
         return;
       }
       updateEdge(id, (data) => ({
@@ -1468,7 +1622,7 @@ export function WorkflowDesignerDialog({
   const handleChangeTransitionEndpoints = useCallback(
     (id: string, { from, to }: { from?: string; to?: string }) => {
       const edge = edges.find((item) => item.id === id);
-      if (!edge) {
+      if (!edge || !edge.data) {
         return;
       }
       if (edge.data.kind === 'start') {
@@ -1619,9 +1773,6 @@ export function WorkflowDesignerDialog({
                     <Plus className="mr-2 h-4 w-4" />
                     Add Status
                   </Button>
-                  <Button type="button" variant="ghost" size="sm" onClick={handleFitView}>
-                    Fit to view
-                  </Button>
                 </div>
               </div>
 
@@ -1639,20 +1790,23 @@ export function WorkflowDesignerDialog({
                   onEdgeUpdateEnd={handleEdgeUpdateEnd}
                   onConnectStart={handleConnectStart}
                   onConnectEnd={handleConnectEnd}
-                  connectionMode="loose"
                   nodesDraggable={!saving}
                   nodesConnectable={!saving}
+                  edgesUpdatable={!saving}
                   elementsSelectable
                   selectNodesOnDrag={false}
                   selectionKeyCode={null}
                   nodeTypes={nodeTypes}
+                  edgeTypes={edgeTypes}
                   onInit={setReactFlowInstance}
                   fitView
-                  panOnDrag={false}
+                  panOnDrag={true}
                   panOnScroll={true}
+                  connectionRadius={30}
+                  connectionMode="loose"
                   style={{ width: '100%', height: '100%' }}
                 >
-                  <Background variant="dots" gap={16} size={1} />
+                  <Background variant={"dots" as any} gap={16} size={1} color="#e5e7eb" />
                   <Controls showInteractive={false} />
                   <WorkspaceBoundary />
                 </ReactFlow>
@@ -1709,7 +1863,7 @@ export function WorkflowDesignerDialog({
               </div>
             )}
 
-            {selectedEdge && (
+            {selectedEdge && selectedEdge.data && (
               <div className="space-y-3 text-sm">
                 <div className="flex items-center justify-between">
                   <h3 className="text-sm font-semibold">
@@ -1965,9 +2119,6 @@ export function WorkflowDesignerDialog({
                       <Plus className="mr-2 h-4 w-4" />
                       Add Status
                     </Button>
-                    <Button type="button" variant="ghost" size="sm" onClick={handleFitView}>
-                      Fit to view
-                    </Button>
                   </div>
                 </div>
 
@@ -1985,7 +2136,6 @@ export function WorkflowDesignerDialog({
                     onEdgeUpdateEnd={handleEdgeUpdateEnd}
                     onConnectStart={handleConnectStart}
                     onConnectEnd={handleConnectEnd}
-                    connectionMode="loose"
                     nodesDraggable={!saving}
                     nodesConnectable={!saving}
                     elementsSelectable
@@ -1994,11 +2144,11 @@ export function WorkflowDesignerDialog({
                     nodeTypes={nodeTypes}
                     onInit={setReactFlowInstance}
                     fitView
-                    panOnDrag={false}
+                    panOnDrag={true}
                   panOnScroll={true}
                     style={{ width: '100%', height: '100%' }}
                   >
-                    <Background variant="dots" gap={16} size={1} />
+                    <Background variant={"dots" as any} gap={16} size={1} color="#e5e7eb" />
                     <Controls showInteractive={false} />
                     <WorkspaceBoundary />
                   </ReactFlow>
@@ -2055,7 +2205,7 @@ export function WorkflowDesignerDialog({
                 </div>
               )}
 
-              {selectedEdge && (
+              {selectedEdge && selectedEdge.data && (
                 <div className="space-y-3 text-sm">
                   <div className="flex items-center justify-between">
                     <h3 className="text-sm font-semibold">
@@ -2235,6 +2385,103 @@ export function WorkflowDesignerDialog({
           position: absolute;
           pointer-events: none;
         }
+
+        /* Make edge path more interactive near endpoints when selected */
+        .wf-designer-flow :global(.react-flow__edge-selected path) {
+          stroke-width: 4 !important;
+          cursor: pointer;
+        }
+
+        /* Edge handle styles for reconnecting */
+        .wf-designer-flow :global(.react-flow__edge-handle) {
+          transition: all 0.2s ease;
+        }
+
+        .wf-designer-flow :global(.react-flow__edge-handle:hover) {
+          r: 14;
+          fill: #2563eb;
+        }
+
+        .wf-designer-flow :global(.react-flow__edge-handle-hit-area) {
+          opacity: 0;
+        }
+
+        .wf-designer-flow :global(.react-flow__edge-handle-hit-area:hover) {
+          opacity: 0.1;
+        }
+
+        /* Hide ReactFlow attribution/navigation button */
+        .wf-designer-flow :global(.react-flow__attribution) {
+          display: none !important;
+        }
+
+        /* Magnetic handle effect - larger hit area and glow on hover/connect */
+        .wf-designer-flow :global(.react-flow__handle-magnetic) {
+          width: 16px !important;
+          height: 16px !important;
+          border: 2px solid white;
+          box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
+          transition: all 0.2s ease;
+          cursor: crosshair;
+        }
+
+        .wf-designer-flow :global(.react-flow__handle-magnetic::before) {
+          content: '';
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          width: 32px;
+          height: 32px;
+          border-radius: 50%;
+          background: transparent;
+          pointer-events: none;
+          cursor: crosshair;
+        }
+
+        /* Glow effect when connecting */
+        .wf-designer-flow :global(.react-flow__pane.connecting) .react-flow__handle-magnetic,
+        .wf-designer-flow :global(.react-flow__handle-magnetic:hover),
+        .wf-designer-flow :global(.react-flow__handle-magnetic.connecting) {
+          box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.3), 0 0 0 8px rgba(59, 130, 246, 0.15);
+          transform: scale(1.2);
+          z-index: 10;
+        }
+
+        /* Start node handle */
+        .wf-designer-flow :global(.react-flow__handle-magnetic[data-handleid="start-source"]) {
+          width: 20px !important;
+          height: 20px !important;
+        }
+
+        .wf-designer-flow :global(.react-flow__handle-magnetic[data-handleid="start-source"]::before) {
+          width: 40px;
+          height: 40px;
+        }
+
+        /* Make edge path more interactive near endpoints when selected */
+        .wf-designer-flow :global(.react-flow__edge-selected path) {
+          stroke-width: 4 !important;
+          cursor: pointer;
+        }
+
+        /* Edge handle styles for reconnecting - visual indicators */
+        .wf-designer-flow :global(.react-flow__edge-handle) {
+          transition: all 0.2s ease;
+        }
+
+        .wf-designer-flow :global(.react-flow__edge-handle:hover) {
+          r: 14;
+          fill: #2563eb;
+        }
+
+        .wf-designer-flow :global(.react-flow__edge-handle-hit-area) {
+          opacity: 0;
+        }
+
+        .wf-designer-flow :global(.react-flow__edge-handle-hit-area:hover) {
+          opacity: 0.1;
+        }
       `}</style>
       <style jsx global>{`
         .react-flow__selection,
@@ -2332,6 +2579,103 @@ export function WorkflowDesignerDialog({
         .wf-designer-flow :global(.workspace-boundary) {
           position: absolute;
           pointer-events: none;
+        }
+
+        /* Make edge path more interactive near endpoints when selected */
+        .wf-designer-flow :global(.react-flow__edge-selected path) {
+          stroke-width: 4 !important;
+          cursor: pointer;
+        }
+
+        /* Edge handle styles for reconnecting */
+        .wf-designer-flow :global(.react-flow__edge-handle) {
+          transition: all 0.2s ease;
+        }
+
+        .wf-designer-flow :global(.react-flow__edge-handle:hover) {
+          r: 14;
+          fill: #2563eb;
+        }
+
+        .wf-designer-flow :global(.react-flow__edge-handle-hit-area) {
+          opacity: 0;
+        }
+
+        .wf-designer-flow :global(.react-flow__edge-handle-hit-area:hover) {
+          opacity: 0.1;
+        }
+
+        /* Hide ReactFlow attribution/navigation button */
+        .wf-designer-flow :global(.react-flow__attribution) {
+          display: none !important;
+        }
+
+        /* Magnetic handle effect - larger hit area and glow on hover/connect */
+        .wf-designer-flow :global(.react-flow__handle-magnetic) {
+          width: 16px !important;
+          height: 16px !important;
+          border: 2px solid white;
+          box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
+          transition: all 0.2s ease;
+          cursor: crosshair;
+        }
+
+        .wf-designer-flow :global(.react-flow__handle-magnetic::before) {
+          content: '';
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          width: 32px;
+          height: 32px;
+          border-radius: 50%;
+          background: transparent;
+          pointer-events: none;
+          cursor: crosshair;
+        }
+
+        /* Glow effect when connecting */
+        .wf-designer-flow :global(.react-flow__pane.connecting) .react-flow__handle-magnetic,
+        .wf-designer-flow :global(.react-flow__handle-magnetic:hover),
+        .wf-designer-flow :global(.react-flow__handle-magnetic.connecting) {
+          box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.3), 0 0 0 8px rgba(59, 130, 246, 0.15);
+          transform: scale(1.2);
+          z-index: 10;
+        }
+
+        /* Start node handle */
+        .wf-designer-flow :global(.react-flow__handle-magnetic[data-handleid="start-source"]) {
+          width: 20px !important;
+          height: 20px !important;
+        }
+
+        .wf-designer-flow :global(.react-flow__handle-magnetic[data-handleid="start-source"]::before) {
+          width: 40px;
+          height: 40px;
+        }
+
+        /* Make edge path more interactive near endpoints when selected */
+        .wf-designer-flow :global(.react-flow__edge-selected path) {
+          stroke-width: 4 !important;
+          cursor: pointer;
+        }
+
+        /* Edge handle styles for reconnecting - visual indicators */
+        .wf-designer-flow :global(.react-flow__edge-handle) {
+          transition: all 0.2s ease;
+        }
+
+        .wf-designer-flow :global(.react-flow__edge-handle:hover) {
+          r: 14;
+          fill: #2563eb;
+        }
+
+        .wf-designer-flow :global(.react-flow__edge-handle-hit-area) {
+          opacity: 0;
+        }
+
+        .wf-designer-flow :global(.react-flow__edge-handle-hit-area:hover) {
+          opacity: 0.1;
         }
       `}</style>
       <style jsx global>{`

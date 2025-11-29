@@ -92,7 +92,8 @@ export async function POST(
         const tags = await generateTags(textContent, document.title);
         // Update document tags
         const existingTags = document.tags ? JSON.parse(document.tags) : [];
-        const newTags = [...new Set([...existingTags, ...tags])];
+        const uniqueTags = new Set([...existingTags, ...tags]);
+        const newTags = Array.from(uniqueTags);
         await prisma.document.update({
           where: { id: documentId },
           data: { tags: JSON.stringify(newTags) }

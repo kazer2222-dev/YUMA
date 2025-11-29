@@ -2,6 +2,21 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Prevent white flash on auth pages */
+html {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  width: 100%;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  width: 100%;
+}
+
 /* YUMA Design System - Linear meets Notion with calming gradient */
 
 /* Import Inter font */
@@ -1098,16 +1113,28 @@ html {
     box-sizing: border-box;
   }
 
+  /* Document editor full width - use available space without breaking layout */
+  .document-editor-full-width {
+    width: 100% !important;
+    max-width: 100% !important;
+    position: relative;
+  }
+
   /* Ensure ProseMirror text is bright and not dim - override prose defaults */
   .ProseMirror.prose {
     color: hsl(var(--foreground)) !important;
+    max-width: 100% !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    width: 100% !important;
   }
 
   .ProseMirror.prose *:not([style*="color"]) {
     color: hsl(var(--foreground)) !important;
   }
 
-  .ProseMirror.prose p,
+  .ProseMirror.prose p:not(.is-editor-empty),
+  .ProseMirror.prose p.is-editor-empty:not(:first-child),
   .ProseMirror.prose li,
   .ProseMirror.prose span:not([style*="color"]),
   .ProseMirror.prose div:not([style*="color"]),
@@ -1115,6 +1142,12 @@ html {
   .ProseMirror.prose ul {
     color: hsl(var(--foreground)) !important;
     opacity: 1 !important;
+  }
+  
+  /* Ensure empty editor paragraph doesn't interfere with placeholder */
+  .ProseMirror.prose p.is-editor-empty:first-child {
+    color: transparent !important;
+    position: relative;
   }
 
   .ProseMirror table {
@@ -1322,12 +1355,62 @@ html {
     -moz-appearance: textfield;
   }
 
-  .ProseMirror p.is-editor-empty:first-child::before {
+  /* TipTap placeholder - make it visible and styled like document title placeholder */
+  .ProseMirror p.is-editor-empty:first-child::before,
+  .ProseMirror.prose p.is-editor-empty:first-child::before,
+  .prose .ProseMirror p.is-editor-empty:first-child::before,
+  .prose.prose-sm .ProseMirror p.is-editor-empty:first-child::before,
+  .prose.prose-lg .ProseMirror p.is-editor-empty:first-child::before,
+  .prose.prose-xl .ProseMirror p.is-editor-empty:first-child::before,
+  .prose.prose-2xl .ProseMirror p.is-editor-empty:first-child::before {
     content: attr(data-placeholder);
-    float: left;
-    color: hsl(var(--muted-foreground));
+    position: absolute;
+    left: 0;
+    top: 0;
+    color: hsl(var(--muted-foreground)) !important;
     pointer-events: none;
-    height: 0;
+    opacity: 1 !important;
+    font-size: inherit;
+    line-height: inherit;
+    font-weight: inherit;
+  }
+  
+  /* Show placeholder when editor is focused - ensure it's visible */
+  .ProseMirror:focus p.is-editor-empty:first-child::before,
+  .ProseMirror.prose:focus p.is-editor-empty:first-child::before,
+  .ProseMirror.ProseMirror-focused p.is-editor-empty:first-child::before,
+  .ProseMirror.prose.ProseMirror-focused p.is-editor-empty:first-child::before {
+    color: hsl(var(--muted-foreground)) !important;
+    opacity: 1 !important;
+    display: block !important;
+    visibility: visible !important;
+  }
+  
+  /* Ensure placeholder is always visible when editor is empty */
+  .ProseMirror p.is-editor-empty:first-child::before {
+    display: block !important;
+    visibility: visible !important;
+  }
+  
+  /* Ensure document title placeholder is greyed out */
+  input[placeholder="Document title"]::placeholder {
+    color: hsl(var(--muted-foreground)) !important;
+    opacity: 1 !important;
+  }
+  
+  input[placeholder="Document title"]::-webkit-input-placeholder {
+    color: hsl(var(--muted-foreground)) !important;
+    opacity: 1 !important;
+  }
+  
+  input[placeholder="Document title"]::-moz-placeholder {
+    color: hsl(var(--muted-foreground)) !important;
+    opacity: 1 !important;
+  }
+  
+  input[placeholder="Document title"]:-ms-input-placeholder {
+    color: hsl(var(--muted-foreground)) !important;
+    opacity: 1 !important;
   }
 
   /* Theme-aware inline code - override prose styles with higher specificity */
@@ -1559,5 +1642,80 @@ html {
   .dark input.text-2xl:hover {
     color: hsl(var(--foreground)) !important;
     -webkit-text-fill-color: hsl(var(--foreground)) !important;
+  }
+
+  /* Landing Page Animations */
+  @keyframes gradient {
+    0%, 100% {
+      background-position: 0% 50%;
+    }
+    50% {
+      background-position: 100% 50%;
+    }
+  }
+
+  .animate-gradient {
+    animation: gradient 5s ease infinite;
+    background-size: 200% 200%;
+  }
+
+  @keyframes float {
+    0%, 100% {
+      transform: translateY(0px);
+    }
+    50% {
+      transform: translateY(-20px);
+    }
+  }
+
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+
+  @keyframes glow {
+    0%, 100% {
+      box-shadow: 0 0 20px rgba(59, 130, 246, 0.5);
+    }
+    50% {
+      box-shadow: 0 0 40px rgba(59, 130, 246, 0.8), 0 0 60px rgba(59, 130, 246, 0.4);
+    }
+  }
+
+  .animate-glow {
+    animation: glow 3s ease-in-out infinite;
+  }
+
+  @keyframes shimmer {
+    0% {
+      background-position: -1000px 0;
+    }
+    100% {
+      background-position: 1000px 0;
+    }
+  }
+
+  .animate-shimmer {
+    animation: shimmer 3s linear infinite;
+    background: linear-gradient(
+      to right,
+      transparent 0%,
+      rgba(255, 255, 255, 0.1) 50%,
+      transparent 100%
+    );
+    background-size: 1000px 100%;
+  }
+
+  /* Perspective utility */
+  .perspective-1000 {
+    perspective: 1000px;
+  }
+
+  .perspective-2000 {
+    perspective: 2000px;
+  }
+
+  /* Radial gradient utility */
+  .bg-gradient-radial {
+    background: radial-gradient(circle at center, var(--tw-gradient-stops));
   }
 }

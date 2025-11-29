@@ -255,11 +255,22 @@ export async function POST(
         const statusesToCreate = scrumStatuses.filter(s => s.key !== 'backlog' && !existingKeys.has(s.key));
         
         if (statusesToCreate.length > 0) {
-          await prisma.status.createMany({
-            data: statusesToCreate,
-            skipDuplicates: true,
-          });
-          console.log(`[Board Creation] Created ${statusesToCreate.length} additional SCRUM statuses for space ${space.slug}`);
+          // Create statuses individually to handle duplicates gracefully
+          let createdCount = 0;
+          for (const statusData of statusesToCreate) {
+            try {
+              await prisma.status.create({
+                data: statusData,
+              });
+              createdCount++;
+            } catch (error: any) {
+              // Ignore duplicate entry errors
+              if (error.code !== 'P2002') {
+                throw error;
+              }
+            }
+          }
+          console.log(`[Board Creation] Created ${createdCount} additional SCRUM statuses for space ${space.slug}`);
         }
         
         console.log(`[Board Creation] SCRUM board setup complete - backlog status exists: ${existingKeys.has('backlog') || true}`);
@@ -274,11 +285,22 @@ export async function POST(
         const statusesToCreate = kanbanStatuses.filter(s => !existingKeys.has(s.key));
         
         if (statusesToCreate.length > 0) {
-          await prisma.status.createMany({
-            data: statusesToCreate,
-            skipDuplicates: true,
-          });
-          console.log(`[Board Creation] Created ${statusesToCreate.length} Kanban statuses for space ${space.slug}`);
+          // Create statuses individually to handle duplicates gracefully
+          let createdCount = 0;
+          for (const statusData of statusesToCreate) {
+            try {
+              await prisma.status.create({
+                data: statusData,
+              });
+              createdCount++;
+            } catch (error: any) {
+              // Ignore duplicate entry errors
+              if (error.code !== 'P2002') {
+                throw error;
+              }
+            }
+          }
+          console.log(`[Board Creation] Created ${createdCount} Kanban statuses for space ${space.slug}`);
         }
       }
     } catch (e: any) {

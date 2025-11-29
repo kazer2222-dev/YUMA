@@ -10,7 +10,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Button } from '@/components/ui/button';
 import { Calendar as CalendarIcon, Clock, X } from 'lucide-react';
 import Calendar from 'react-calendar';
-import type { TemplateField } from './templates-manager';
+import type { TemplateField } from './template-types';
 
 const NO_TIME_VALUE = '__no_time__';
 const NO_DEFAULT_VALUE = '__no_default__';
