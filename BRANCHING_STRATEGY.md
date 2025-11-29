@@ -1,317 +1,189 @@
-# Git Branching Strategy
+# Branching Strategy
 
-This document outlines the branching strategy for the YUMA Task Management System.
+This project uses a three-branch strategy for managing different environments.
 
 ## 🌿 Branch Structure
 
-We use a three-branch strategy for managing different environments:
+### Main Branches
 
-```
-main (default/development)
-  ├── dev (development environment)
-  ├── stage (staging environment)
-  └── production (production environment)
-```
+1. **`main`** - Production-ready code
+   - Stable, tested code
+   - Protected branch (requires PR approval)
+   - Deploys to production environment
 
-## 📋 Branch Descriptions
+2. **`dev`** - Development branch
+   - Active development work
+   - Integration testing
+   - Deploys to development environment
 
-### `main` Branch
-- **Purpose:** Default branch, contains stable code
-- **Environment:** Local development
-- **Protection:** Protected, requires PR reviews
-- **Workflow:** 
-  - Feature branches merge here first
-  - Acts as the integration branch
-  - Code here should be stable and tested
+3. **`stage`** - Staging branch
+   - Pre-production testing
+   - User acceptance testing (UAT)
+   - Deploys to staging environment
 
-### `dev` Branch
-- **Purpose:** Development environment deployment
-- **Environment:** Development server (e.g., dev.yourdomain.com)
-- **Protection:** Protected, requires PR reviews
-- **Workflow:**
-  - Automatically deploys to development environment
-  - Used for early testing and integration
-  - Merged from `main` branch
-  - Allows for rapid iteration and testing
-
-### `stage` Branch
-- **Purpose:** Staging environment deployment
-- **Environment:** Staging server (e.g., stage.yourdomain.com)
-- **Protection:** Protected, requires PR reviews and approval
-- **Workflow:**
-  - Merged from `dev` after testing
-  - Used for pre-production testing
-  - Mirrors production environment closely
-  - Final testing before production release
-
-### `production` Branch
-- **Purpose:** Production environment deployment
-- **Environment:** Production server (e.g., yourdomain.com)
-- **Protection:** Highly protected, requires multiple approvals
-- **Workflow:**
-  - Merged from `stage` after thorough testing
-  - Only stable, tested code goes here
-  - Requires manual approval for deployment
-  - Tagged with version numbers
+4. **`production`** - Production deployment branch
+   - Final production releases
+   - Tagged releases
+   - Deploys to production environment
 
 ## 🔄 Workflow
 
-### Development Workflow
+### Development Flow
 
-1. **Create Feature Branch:**
+```
+main → dev → stage → production
+```
+
+1. **Development:**
+   - Work happens on `dev` branch
+   - Features are merged into `dev`
+   - Continuous integration runs on `dev`
+
+2. **Staging:**
+   - When `dev` is stable, merge to `stage`
+   - Perform testing and QA
+   - User acceptance testing
+
+3. **Production:**
+   - When `stage` is approved, merge to `production`
+   - Create release tags
+   - Deploy to production
+
+### Feature Development
+
+1. Create feature branch from `dev`:
    ```bash
-   git checkout main
-   git pull origin main
+   git checkout dev
+   git pull origin dev
    git checkout -b feature/your-feature-name
    ```
 
-2. **Develop and Commit:**
+2. Develop and commit:
    ```bash
-   # Make your changes
    git add .
-   git commit -m "feat: add new feature"
+   git commit -m "feat: your feature description"
    ```
 
-3. **Push and Create PR:**
+3. Push and create PR:
    ```bash
    git push origin feature/your-feature-name
-   # Create PR to main branch on GitHub
+   # Create PR to merge into dev
    ```
 
-4. **After PR Approval, Merge to Main:**
-   - PR is reviewed and approved
-   - Merge to `main` branch
-   - CI/CD runs tests and builds
+4. After PR approval, merge to `dev`
 
-### Deployment Workflow
+## 📋 Branch Protection Rules
 
-#### To Development (dev branch)
+### Recommended Settings (Set in GitHub)
+
+**`main` branch:**
+- Require pull request reviews
+- Require status checks to pass
+- Require branches to be up to date
+- Restrict who can push
+
+**`production` branch:**
+- Require pull request reviews
+- Require status checks to pass
+- Require branches to be up to date
+
+**`stage` branch:**
+- Require status checks to pass
+
+**`dev` branch:**
+- Allow direct pushes (for active development)
+
+## 🚀 Deployment
+
+Each branch deploys to its corresponding environment:
+
+- **`dev`** → Development environment
+- **`stage`** → Staging environment
+- **`production`** → Production environment
+
+Deployment is automated via GitHub Actions workflows:
+- `.github/workflows/deploy-dev.yml`
+- `.github/workflows/deploy-stage.yml`
+- `.github/workflows/deploy-production.yml`
+
+## 📝 Best Practices
+
+1. **Never push directly to `production`**
+   - Always use pull requests
+   - Require code review
+   - Run all tests
+
+2. **Keep `dev` up to date**
+   - Regularly merge `main` into `dev`
+   - Resolve conflicts early
+
+3. **Test in `stage` before production**
+   - Use staging for final testing
+   - Verify all features work
+   - Check performance
+
+4. **Use meaningful commit messages**
+   - Follow conventional commits
+   - `feat:`, `fix:`, `docs:`, etc.
+
+5. **Tag releases**
+   - Tag `production` branch with version numbers
+   - Use semantic versioning (v1.0.0, v1.1.0, etc.)
+
+## 🔧 Setup Commands
+
+### Initial Setup
+
 ```bash
+# Create dev branch
+git checkout -b dev
+git push -u origin dev
+
+# Create stage branch
+git checkout -b stage
+git push -u origin stage
+
+# Create production branch
+git checkout -b production
+git push -u origin production
+
+# Switch back to main
 git checkout main
-git pull origin main
-git checkout dev
-git merge main
-git push origin dev
-# Automatically deploys to development environment
 ```
 
-#### To Staging (stage branch)
+### Daily Workflow
+
 ```bash
+# Start new feature
 git checkout dev
 git pull origin dev
-# Test in dev environment first
+git checkout -b feature/my-feature
+
+# After feature is done
+git checkout dev
+git merge feature/my-feature
+git push origin dev
+
+# Deploy to staging
 git checkout stage
 git merge dev
 git push origin stage
-# Automatically deploys to staging environment
-```
 
-#### To Production (production branch)
-```bash
-git checkout stage
-git pull origin stage
-# Final testing in staging
+# Deploy to production
 git checkout production
 git merge stage
-git tag -a v1.0.0 -m "Release version 1.0.0"
 git push origin production
-git push origin --tags
-# Requires manual approval, then deploys to production
 ```
-
-## 🏷️ Version Tagging
-
-Production releases should be tagged:
-
-```bash
-# Create a version tag
-git tag -a v1.0.0 -m "Release version 1.0.0"
-
-# Push tags
-git push origin --tags
-```
-
-Tag format: `vMAJOR.MINOR.PATCH`
-- **MAJOR:** Breaking changes
-- **MINOR:** New features (backward compatible)
-- **PATCH:** Bug fixes
-
-## 🔒 Branch Protection Rules
-
-### Main Branch
-- ✅ Require pull request reviews (1 approval minimum)
-- ✅ Require status checks to pass
-- ✅ Require branches to be up to date
-- ✅ Include administrators
-
-### Dev Branch
-- ✅ Require pull request reviews (1 approval minimum)
-- ✅ Require status checks to pass
-- ✅ Allow force pushes (for rapid iteration)
-
-### Stage Branch
-- ✅ Require pull request reviews (2 approvals minimum)
-- ✅ Require status checks to pass
-- ✅ Require branches to be up to date
-- ❌ No force pushes
-
-### Production Branch
-- ✅ Require pull request reviews (2 approvals minimum)
-- ✅ Require status checks to pass
-- ✅ Require branches to be up to date
-- ❌ No force pushes
-- ✅ Require deployment approval
-- ✅ Include administrators
-
-## 🚀 CI/CD Pipeline
-
-### Automatic Actions
-
-1. **On Push to Any Branch:**
-   - Run linting
-   - Run tests
-   - Build application
-
-2. **On Push to `dev`:**
-   - Run full test suite
-   - Build and deploy to development environment
-
-3. **On Push to `stage`:**
-   - Run full test suite
-   - Run linter
-   - Build and deploy to staging environment
-
-4. **On Push to `production`:**
-   - Run full test suite
-   - Run linter
-   - Build application
-   - **Requires manual approval** before deployment
-   - Deploy to production environment
-
-## 📝 Branch Naming Conventions
-
-### Feature Branches
-- `feature/feature-name` - New features
-- `fix/bug-description` - Bug fixes
-- `docs/documentation-update` - Documentation
-- `refactor/code-improvement` - Refactoring
-- `test/test-addition` - Test additions
-- `chore/maintenance-task` - Maintenance
-
-### Examples
-```
-feature/add-user-authentication
-fix/resolve-calendar-timezone-issue
-docs/update-api-documentation
-refactor/optimize-database-queries
-```
-
-## 🔄 Hotfix Workflow
-
-For urgent production fixes:
-
-1. **Create Hotfix Branch from Production:**
-   ```bash
-   git checkout production
-   git pull origin production
-   git checkout -b hotfix/critical-bug-fix
-   ```
-
-2. **Fix and Test:**
-   ```bash
-   # Make fix
-   git add .
-   git commit -m "fix: critical bug fix"
-   ```
-
-3. **Merge to Production:**
-   ```bash
-   git checkout production
-   git merge hotfix/critical-bug-fix
-   git push origin production
-   ```
-
-4. **Backport to Other Branches:**
-   ```bash
-   git checkout stage
-   git merge production
-   git push origin stage
-
-   git checkout dev
-   git merge production
-   git push origin dev
-
-   git checkout main
-   git merge production
-   git push origin main
-   ```
 
 ## 📊 Branch Status
 
-| Branch | Status | Last Updated | Environment |
-|--------|--------|--------------|-------------|
-| main | Active | - | Local Dev |
-| dev | Active | - | Development |
-| stage | Active | - | Staging |
-| production | Active | - | Production |
+- ✅ `main` - Main branch (exists)
+- ✅ `dev` - Development branch (configured)
+- ✅ `stage` - Staging branch (configured)
+- ✅ `production` - Production branch (configured)
 
-## 🆘 Troubleshooting
+**Note:** Run `.\verify-branch-setup.ps1` to verify all branches are properly set up locally and on GitHub.
 
-### Merge Conflicts
-```bash
-# Update your branch
-git checkout your-branch
-git pull origin main
+---
 
-# Resolve conflicts
-# Then commit and push
-git add .
-git commit -m "fix: resolve merge conflicts"
-git push origin your-branch
-```
-
-### Undo Last Commit (Before Push)
-```bash
-git reset --soft HEAD~1
-```
-
-### Undo Last Commit (After Push)
-```bash
-git revert HEAD
-git push origin branch-name
-```
-
-## 📚 Additional Resources
-
-- [Git Flow](https://nvie.com/posts/a-successful-git-branching-model/)
-- [GitHub Flow](https://guides.github.com/introduction/flow/)
-- [Semantic Versioning](https://semver.org/)
-
-## ✅ Checklist for Production Release
-
-- [ ] All tests passing in `dev`
-- [ ] Code reviewed and approved
-- [ ] Merged to `stage`
-- [ ] Tested in staging environment
-- [ ] All tests passing in `stage`
-- [ ] Documentation updated
-- [ ] Changelog updated
-- [ ] Version tag created
-- [ ] Merged to `production`
-- [ ] Deployment approved
-- [ ] Production deployment successful
-- [ ] Post-deployment verification completed
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+**Repository:** https://github.com/kazer2222-dev/YUMA
