@@ -296,8 +296,10 @@ export function NotionPageHeader({
                 onMouseLeave={scheduleCloseUserMenu}
               >
                 <button
-                  className="w-full text-left px-3 py-2 text-sm hover:bg-accent rounded-t-md"
-                  onClick={() => {
+                  className="w-full text-left px-3 py-2 text-sm hover:bg-accent rounded-t-md cursor-pointer transition-colors focus:outline-none focus:bg-accent"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
                     setUserMenuOpen(false);
                     router.push('/profile');
                   }}
@@ -305,8 +307,11 @@ export function NotionPageHeader({
                   <User className="h-4 w-4 inline mr-2" /> Profile
                 </button>
                 <button
-                  className="w-full text-left px-3 py-2 text-sm text-destructive hover:bg-destructive/10 rounded-b-md"
-                  onClick={() => {
+                  type="button"
+                  className="w-full text-left px-3 py-2 text-sm text-destructive rounded-b-md cursor-pointer transition-all duration-150 hover:bg-red-50 dark:hover:bg-red-950/20 hover:text-red-600 dark:hover:text-red-400 focus:outline-none focus:bg-red-50 dark:focus:bg-red-950/20 active:bg-red-100 dark:active:bg-red-950/30"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
                     setUserMenuOpen(false);
                     onLogout?.();
                   }}

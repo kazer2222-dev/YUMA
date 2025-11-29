@@ -19,14 +19,19 @@ cp env.example .env.local
 Edit `.env.local` and add your API keys:
 
 ```env
-# Required: OpenAI API Key
-OPENAI_API_KEY=sk-your-openai-api-key-here
+# Required: JWT Secret (generate a secure random string)
+# Generate using: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+JWT_SECRET=your-super-secret-jwt-key-change-this-in-production-use-random-string
 
 # Database
 DATABASE_URL=file:./prisma/dev.db
 
-# Session Secret (generate a random string)
-SESSION_SECRET=your-random-session-secret-here
+# NextAuth Configuration (optional, for compatibility)
+NEXTAUTH_SECRET=your-super-secret-jwt-key-change-this-in-production-use-random-string
+NEXTAUTH_URL=http://localhost:3000
+
+# Optional: OpenAI API Key
+OPENAI_API_KEY=sk-your-openai-api-key-here
 ```
 
 #### Getting OpenAI API Key

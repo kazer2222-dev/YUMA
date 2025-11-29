@@ -8,6 +8,8 @@ const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
   throw new Error('JWT_SECRET environment variable is required. Please set it in your .env file.');
 }
+// Type assertion: JWT_SECRET is guaranteed to be a string after the check above
+const JWT_SECRET_KEY: string = JWT_SECRET;
 const PIN_EXPIRY_MINUTES = 10;
 const MAX_PIN_ATTEMPTS = 5;
 const MAX_PIN_RESENDS = 3;
@@ -46,13 +48,13 @@ export class AuthService {
   static generateTokens(user: AuthUser): { accessToken: string; refreshToken: string } {
     const accessToken = jwt.sign(
       { userId: user.id, email: user.email },
-      JWT_SECRET,
+      JWT_SECRET_KEY,
       { expiresIn: '1h' }
     );
 
     const refreshToken = jwt.sign(
       { userId: user.id, type: 'refresh' },
-      JWT_SECRET,
+      JWT_SECRET_KEY,
       { expiresIn: '7d' }
     );
 
@@ -61,7 +63,7 @@ export class AuthService {
 
   static verifyToken(token: string): { userId: string; email?: string } | null {
     try {
-      const decoded = jwt.verify(token, JWT_SECRET) as any;
+      const decoded = jwt.verify(token, JWT_SECRET_KEY) as any;
       if (!decoded || !decoded.userId) {
         return null;
       }
@@ -136,8 +138,13 @@ export class AuthService {
       if (!isProduction) {
         console.log('');
         console.log('═══════════════════════════════════════════════════════════════');
-        console.log(`📧 Verification PIN for ${email}:`);
-        console.log(`   ${pin}`);
+        console.log(`📧 Verification PIN sent to ${email}`);
+        // Only log PIN if DEV_PIN is set (for testing purposes)
+        if (process.env.DEV_PIN) {
+          console.log(`   PIN: ${pin} (DEV_PIN mode)`);
+        } else {
+          console.log(`   PIN: Check email or console logs (random PIN generated)`);
+        }
         if (!pinSaved) {
           console.log('   ⚠️  Note: PIN was not saved to database (dev mode only)');
         }
@@ -486,7 +493,7 @@ export class AuthService {
         console.log('');
         console.log('═══════════════════════════════════════════════════════════════');
         console.log(`⚠️  PIN Verification Error for ${email}:`);
-        console.log(`   PIN entered: ${pin}`);
+        // Don't log the actual PIN entered for security
         console.log(`   Error: ${error?.message || 'Unknown error'}`);
         console.log(`   Note: In dev mode, set DEV_PIN environment variable for testing`);
         console.log('═══════════════════════════════════════════════════════════════');
@@ -523,15 +530,23 @@ export class AuthService {
   // Get user from token
   static async getUserFromToken(token: string): Promise<AuthUser | null> {
     try {
-      console.log(`[Auth] getUserFromToken called with token: ${token.substring(0, 20)}...`);
+      // Only log in development mode for debugging
+      const isDev = process.env.NODE_ENV !== 'production';
+      if (isDev) {
+        console.log(`[Auth] getUserFromToken called`);
+      }
       
       const decoded = this.verifyToken(token);
       if (!decoded) {
-        console.log(`[Auth] Token verification failed - invalid token`);
+        if (isDev) {
+          console.log(`[Auth] Token verification failed - invalid token`);
+        }
         return null;
       }
 
-      console.log(`[Auth] Token decoded successfully, userId: ${decoded.userId}`);
+      if (isDev) {
+        console.log(`[Auth] Token decoded successfully, userId: ${decoded.userId.substring(0, 8)}...`);
+      }
 
       const session = await prisma.session.findFirst({
         where: {
@@ -546,10 +561,12 @@ export class AuthService {
       });
 
       if (!session) {
-        console.log(`[Auth] No session found in database for token`);
+        if (isDev) {
+          console.log(`[Auth] No session found in database for token`);
+        }
         // In dev mode, try to find user by decoded userId instead
-        if (process.env.NODE_ENV !== 'production' && decoded.userId) {
-          console.log(`[DEV MODE] Attempting to find user by ID: ${decoded.userId}`);
+        if (isDev && decoded.userId) {
+          console.log(`[DEV MODE] Attempting to find user by ID: ${decoded.userId.substring(0, 8)}...`);
           const user = await prisma.user.findUnique({
             where: { id: decoded.userId }
           });
@@ -565,7 +582,9 @@ export class AuthService {
         return null;
       }
 
-      console.log(`[Auth] Session found for user: ${session.user.email}`);
+      if (isDev) {
+        console.log(`[Auth] Session found for user: ${session.user.email}`);
+      }
       return {
         id: session.user.id,
         email: session.user.email,

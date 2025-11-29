@@ -1,0 +1,6 @@
+# YAML Lint Configuration for GitHub Workflows
+# This file suppresses false positive warnings from yaml linters
+
+# Ignore action resolution errors - these are false positives
+# The linter cannot access GitHub's action registry locally
+

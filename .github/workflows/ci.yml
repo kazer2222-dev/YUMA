@@ -31,6 +31,11 @@ jobs:
       run: npm run lint
       continue-on-error: true
 
+    - name: Set test environment variables
+      run: |
+        echo "JWT_SECRET=${{ secrets.JWT_SECRET || secrets.NEXTAUTH_SECRET || 'test-jwt-secret-for-ci-tests' }}" >> $GITHUB_ENV
+        echo "DATABASE_URL=${{ secrets.DATABASE_URL || 'file:./prisma/dev.db' }}" >> $GITHUB_ENV
+
     - name: Run tests
       run: npm test
       env:
@@ -59,12 +64,15 @@ jobs:
     - name: Generate Prisma Client
       run: npm run db:generate
 
+    - name: Set build environment variables
+      run: |
+        echo "DATABASE_URL=${{ secrets.DATABASE_URL || 'file:./prisma/dev.db' }}" >> $GITHUB_ENV
+        echo "JWT_SECRET=${{ secrets.JWT_SECRET || secrets.NEXTAUTH_SECRET || 'test-jwt-secret-for-ci' }}" >> $GITHUB_ENV
+        echo "NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET || 'test-secret' }}" >> $GITHUB_ENV
+        echo "NEXTAUTH_URL=${{ secrets.NEXTAUTH_URL || 'http://localhost:3000' }}" >> $GITHUB_ENV
+
     - name: Build application
       run: npm run build
-      env:
-        DATABASE_URL: ${{ secrets.DATABASE_URL || 'file:./prisma/dev.db' }}
-        NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET || 'test-secret' }}
-        NEXTAUTH_URL: ${{ secrets.NEXTAUTH_URL || 'http://localhost:3000' }}
 
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4

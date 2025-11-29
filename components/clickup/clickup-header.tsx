@@ -115,8 +115,10 @@ export function ClickUpHeader({
               onMouseLeave={scheduleCloseUserMenu}
             >
               <button
-                className="w-full text-left px-3 py-2 text-sm hover:bg-accent rounded-t-md flex items-center gap-2"
-                onClick={() => {
+                className="w-full text-left px-3 py-2 text-sm hover:bg-accent rounded-t-md flex items-center gap-2 cursor-pointer transition-colors focus:outline-none focus:bg-accent"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
                   setUserMenuOpen(false);
                   router.push('/profile');
                 }}
@@ -124,8 +126,11 @@ export function ClickUpHeader({
                 <User className="h-4 w-4" /> Profile
               </button>
               <button
-                className="w-full text-left px-3 py-2 text-sm text-destructive hover:bg-destructive/10 rounded-b-md flex items-center gap-2"
-                onClick={() => {
+                type="button"
+                className="w-full text-left px-3 py-2 text-sm text-destructive rounded-b-md flex items-center gap-2 cursor-pointer transition-all duration-150 hover:bg-red-50 dark:hover:bg-red-950/20 hover:text-red-600 dark:hover:text-red-400 focus:outline-none focus:bg-red-50 dark:focus:bg-red-950/20 active:bg-red-100 dark:active:bg-red-950/30"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
                   setUserMenuOpen(false);
                   onLogout?.();
                 }}

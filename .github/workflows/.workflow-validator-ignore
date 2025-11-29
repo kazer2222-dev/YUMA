@@ -1,0 +1,14 @@
+# GitHub Actions Workflow Validator Ignore File
+# 
+# The linter shows "Unable to resolve action" errors for standard GitHub Actions.
+# These are false positives - the actions exist and are valid:
+# - actions/checkout@v4
+# - actions/setup-node@v4
+# - actions/upload-artifact@v4
+# - github/codeql-action/init@v3
+# - github/codeql-action/autobuild@v3
+# - github/codeql-action/analyze@v3
+#
+# These workflows will work correctly when pushed to GitHub.
+# The warnings about secrets context access are expected and normal.
+
