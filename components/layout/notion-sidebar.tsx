@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ThemeToggle } from '@/components/theme/theme-toggle';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
@@ -12,10 +12,6 @@ import {
   Home, 
   Plus, 
   Settings, 
-  Calendar, 
-  BarChart3, 
-  Brain, 
-  Zap, 
   FileText,
   Users,
   Building2,
@@ -26,13 +22,14 @@ import {
   Clock,
   CheckSquare,
   GanttChart,
-  Shield,
   Menu,
   LayoutGrid,
   Trash2,
   MoreVertical
 } from 'lucide-react';
 import { YUMALogo } from '@/components/ui/yuma-logo';
+import { PageTree } from '@/components/documents/page-tree';
+import { PageTreeNode } from '@/components/documents/page-tree/types';
 
 interface SidebarProps {
   spaces: Array<{
@@ -66,18 +63,22 @@ interface SidebarProps {
 export function NotionSidebar({ spaces, user, onLogout, onCreateSpace, onCollapseChange, onRefreshSpaces, onCreateBoard }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [expandedSections, setExpandedSections] = useState({
-    spaces: true,
-    tools: true,
-    admin: false
+    spaces: true
   });
   const [expandedSpaces, setExpandedSpaces] = useState<{ [key: string]: boolean }>({});
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [spaceToDelete, setSpaceToDelete] = useState<{ name: string; slug: string } | null>(null);
   const [deleteBoardDialogOpen, setDeleteBoardDialogOpen] = useState(false);
   const [boardToDelete, setBoardToDelete] = useState<{ id: string; name: string; spaceSlug: string } | null>(null);
+  const chevronClickedRef = useRef<boolean>(false);
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
+  
+  // Determine current view
+  const currentView = searchParams?.get('view') || (pathname?.includes('/documents') ? 'documents' : null);
+  const isDocumentsView = pathname?.includes('/documents') || currentView === 'documents';
+  const isBoardView = currentView === 'board';
 
   const toggleCollapse = () => {
     const newState = !isCollapsed;
@@ -133,27 +134,30 @@ export function NotionSidebar({ spaces, user, onLogout, onCreateSpace, onCollaps
     }
   };
 
-  // Auto-expand spaces that have boards and are currently active
+  // Auto-expand spaces that are currently active (boards or documents view)
   useEffect(() => {
     spaces.forEach(space => {
+      const isSpaceActive = pathname?.includes(`/spaces/${space.slug}`);
+      if (!isSpaceActive) return;
+
       const boards = Array.isArray(space.boards) ? space.boards : [];
-      if (boards.length > 0) {
-        const isSpaceActive = pathname.includes(`/spaces/${space.slug}`);
-        const currentBoardId = searchParams?.get('boardId');
-        const isBoardActive = currentBoardId && boards.some(board => board.id === currentBoardId);
-        // Auto-expand if viewing this space or any board within it
-        if (isSpaceActive || isBoardActive) {
-          setExpandedSpaces(prev => {
-            // Only set if not already set to avoid unnecessary updates
-            if (prev[space.id] !== true) {
-              return {
-                ...prev,
-                [space.id]: true
-              };
-            }
-            return prev;
-          });
-        }
+      const currentBoardId = searchParams?.get('boardId');
+      const isBoardActive = currentBoardId && boards.some(board => board.id === currentBoardId);
+      const isDocumentsActive = pathname?.includes(`/spaces/${space.slug}/documents`) || 
+                                (pathname?.includes(`/spaces/${space.slug}`) && searchParams?.get('view') === 'documents');
+      
+      // Auto-expand if viewing this space, any board within it, or documents
+      if (isSpaceActive || isBoardActive || isDocumentsActive) {
+        setExpandedSpaces(prev => {
+          // Only set if not already set to avoid unnecessary updates
+          if (prev[space.id] !== true) {
+            return {
+              ...prev,
+              [space.id]: true
+            };
+          }
+          return prev;
+        });
       }
     });
   }, [spaces, pathname, searchParams]);
@@ -162,16 +166,7 @@ export function NotionSidebar({ spaces, user, onLogout, onCreateSpace, onCollaps
     { name: 'Home', href: '/', icon: Home, current: pathname === '/' || pathname === '/dashboard', color: 'text-blue-500' },
   ];
 
-  const toolItems = [
-    { name: 'Global Calendar', href: '/calendar', icon: Calendar, current: pathname === '/calendar', color: 'text-green-500' },
-    { name: 'Reports', href: '/reports', icon: BarChart3, current: pathname === '/reports', color: 'text-orange-500' },
-    { name: 'AI Assistant', href: '/ai', icon: Brain, current: pathname === '/ai', color: 'text-purple-500' },
-    { name: 'Integrations', href: '/integrations', icon: Zap, current: pathname === '/integrations', color: 'text-cyan-500' },
-  ];
 
-  const adminItems = [
-    { name: 'Admin Panel', href: '/admin', icon: Shield, current: pathname === '/admin', color: 'text-red-500' },
-  ];
 
   const getSpaceIcon = (space: any) => {
     if (space.name.toLowerCase().includes('personal')) return Home;
@@ -270,35 +265,83 @@ export function NotionSidebar({ spaces, user, onLogout, onCreateSpace, onCollaps
                       {!isCollapsed ? (
                         <>
                           {/* Space Row with Toggle */}
-                          <div className={`group/item relative flex items-center flex-1 min-w-0 rounded-md ${
+                          <div 
+                            className={`group/item relative flex items-center flex-1 min-w-0 rounded-md ${
                               isActive ? 'bg-accent text-accent-foreground' : 'hover:bg-accent'
-                            }`}>
-                            {/* Dropdown Toggle Button - Only for spaces with boards */}
+                            }`}
+                          >
+                            {/* Dropdown Toggle Button - Only for spaces with boards - Positioned absolutely in front */}
                             {hasBoards && (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  e.preventDefault();
-                                  toggleSpace(space.id);
-                                }}
-                                onMouseDown={(e) => {
-                                  e.stopPropagation();
-                                }}
-                                className="p-1 mr-1 hover:bg-accent/80 rounded flex-shrink-0 z-10"
-                                type="button"
-                              >
-                                {isSpaceExpanded ? (
-                                  <ChevronDown className="h-3 w-3" />
-                                ) : (
-                                  <ChevronRight className="h-3 w-3" />
-                                )}
-                              </button>
+                              <div className="absolute left-1 top-1/2 -translate-y-1/2 z-[100]" style={{ pointerEvents: 'auto' }}>
+                                <button
+                                  data-chevron-toggle="true"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    e.preventDefault();
+                                    e.nativeEvent.stopImmediatePropagation();
+                                    chevronClickedRef.current = true;
+                                    toggleSpace(space.id);
+                                    // Reset after a short delay
+                                    setTimeout(() => {
+                                      chevronClickedRef.current = false;
+                                    }, 200);
+                                    return false;
+                                  }}
+                                  onMouseDown={(e) => {
+                                    e.stopPropagation();
+                                    e.preventDefault();
+                                    e.nativeEvent.stopImmediatePropagation();
+                                    chevronClickedRef.current = true;
+                                  }}
+                                  onMouseUp={(e) => {
+                                    e.stopPropagation();
+                                    e.preventDefault();
+                                    e.nativeEvent.stopImmediatePropagation();
+                                  }}
+                                  className="p-2.5 hover:bg-accent/90 rounded-md border-2 border-border bg-background flex-shrink-0 min-w-[36px] min-h-[36px] flex items-center justify-center shadow-md hover:shadow-lg transition-all"
+                                  type="button"
+                                  style={{ pointerEvents: 'auto' }}
+                                >
+                                  {isSpaceExpanded ? (
+                                    <ChevronDown className="h-5 w-5 pointer-events-none text-foreground font-bold" />
+                                  ) : (
+                                    <ChevronRight className="h-5 w-5 pointer-events-none text-foreground font-bold" />
+                                  )}
+                                </button>
+                              </div>
                             )}
-                            {/* Navigation Button - Entire row is clickable */}
+                            {/* Navigation Button - Entire row is clickable - With left padding for chevron */}
                             <button
                               onClick={(e) => {
+                                // Don't navigate if chevron was clicked
+                                if (chevronClickedRef.current) {
+                                  e.stopPropagation();
+                                  e.preventDefault();
+                                  return false;
+                                }
+                                
+                                // Don't navigate if click came from chevron button
+                                const target = e.target as HTMLElement;
+                                const chevronButton = target.closest('button[data-chevron-toggle="true"]');
+                                
+                                if (chevronButton) {
+                                  e.stopPropagation();
+                                  e.preventDefault();
+                                  return false;
+                                }
+                                
+                                // Don't navigate if click is in the left area where chevron is (first 50px)
+                                if (hasBoards) {
+                                  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                                  const clickX = e.clientX - rect.left;
+                                  if (clickX < 50) {
+                                    e.stopPropagation();
+                                    e.preventDefault();
+                                    return false;
+                                  }
+                                }
+                                
                                 e.stopPropagation();
-                                // Don't prevent default - let router handle navigation
                                 const lastBoardId = localStorage.getItem(`lastBoard_${space.slug}`);
                                 const targetPath = lastBoardId 
                                   ? `/spaces/${space.slug}?boardId=${lastBoardId}`
@@ -316,6 +359,8 @@ export function NotionSidebar({ spaces, user, onLogout, onCreateSpace, onCollaps
                                 router.push(targetPath);
                               }}
                               className={`flex items-center space-x-2 px-3 py-2 text-sm flex-1 w-full text-left transition-colors ${
+                                hasBoards ? 'pl-12' : ''
+                              } ${
                                 isActive ? 'text-accent-foreground' : 'text-muted-foreground hover:text-accent-foreground'
                               }`}
                             >
@@ -377,47 +422,174 @@ export function NotionSidebar({ spaces, user, onLogout, onCreateSpace, onCollaps
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </div>
-                          {/* Boards as Child Objects - Indented underneath */}
-                          {hasBoards && isSpaceExpanded && (
-                            <div className="ml-6 pl-4 mt-1">
-                              {boards.map((board) => {
-                                const currentBoardId = searchParams?.get('boardId');
-                                const isBoardActive = currentBoardId === board.id;
-                                const openDeleteBoard = (e: React.MouseEvent) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  setBoardToDelete({ id: board.id, name: board.name, spaceSlug: space.slug });
-                                  setDeleteBoardDialogOpen(true);
-                                };
+                          {/* Space Sub-items - Dynamic based on current view */}
+                          {isSpaceExpanded && (() => {
+                            const spaceView = searchParams?.get('view');
+                            const isSpaceOnBoardView = pathname?.includes(`/spaces/${space.slug}`) && spaceView === 'board';
+                            const isSpaceOnDocumentsView = pathname?.includes(`/spaces/${space.slug}/documents`) || 
+                                                          (pathname?.includes(`/spaces/${space.slug}`) && spaceView === 'documents');
+                            
+                            // Show boards when on board view
+                            if (isSpaceOnBoardView) {
+                              return (
+                                <div className="ml-6 pl-4 mt-1 space-y-0.5">
+                                  {boards.map((board) => {
+                                    const currentBoardId = searchParams?.get('boardId');
+                                    const isBoardActive = currentBoardId === board.id;
+                                    const openDeleteBoard = (e: React.MouseEvent) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      setBoardToDelete({ id: board.id, name: board.name, spaceSlug: space.slug });
+                                      setDeleteBoardDialogOpen(true);
+                                    };
 
-                                return (
-                                  <div
-                                    key={board.id}
-                                    className={`group/item flex items-center rounded-md ${
-                                      isBoardActive ? 'bg-accent text-accent-foreground' : 'hover:bg-accent'
+                                    return (
+                                      <div
+                                        key={board.id}
+                                        className={`group/item flex items-center rounded-md ${
+                                          isBoardActive ? 'bg-accent text-accent-foreground' : 'hover:bg-accent'
+                                        }`}
+                                      >
+                                        <Link
+                                          href={`/spaces/${space.slug}?view=board&boardId=${board.id}`}
+                                          className={`flex items-center space-x-2 px-3 py-2 text-sm flex-1 transition-colors ${
+                                            isBoardActive ? 'text-accent-foreground' : 'text-muted-foreground hover:text-accent-foreground'
+                                          }`}
+                                        >
+                                          <LayoutGrid className="h-3 w-3 flex-shrink-0" />
+                                          <span className="flex-1 font-medium truncate">{board.name}</span>
+                                        </Link>
+                                        <button
+                                          onClick={openDeleteBoard}
+                                          className="p-1.5 hover:bg-destructive/20 rounded mr-2"
+                                          title="Delete board"
+                                        >
+                                          <Trash2 className="h-3 w-3 text-destructive" />
+                                        </button>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              );
+                            }
+                            
+                            // Show documents tree when on documents view
+                            if (isSpaceOnDocumentsView) {
+                              return (
+                                <div className="ml-6 pl-4 mt-1" style={{ height: '500px' }}>
+                                  <PageTree
+                                    spaceSlug={space.slug}
+                                    onPageOpen={(pageId) => router.push(`/spaces/${space.slug}/documents/${pageId}`)}
+                                    onPageCreate={async (parentId, title) => {
+                                      try {
+                                        const response = await fetch(`/api/spaces/${space.slug}/pages`, {
+                                          method: 'POST',
+                                          headers: { 'Content-Type': 'application/json' },
+                                          credentials: 'include',
+                                          body: JSON.stringify({ title, parentId }),
+                                        });
+                                        const data = await response.json();
+                                        return data.success ? data.page : null;
+                                      } catch (error) {
+                                        console.error('Failed to create page:', error);
+                                        return null;
+                                      }
+                                    }}
+                                    onPageMove={async (pageId, newParentId, newPosition) => {
+                                      try {
+                                        const response = await fetch(`/api/spaces/${space.slug}/pages/${pageId}/move`, {
+                                          method: 'POST',
+                                          headers: { 'Content-Type': 'application/json' },
+                                          credentials: 'include',
+                                          body: JSON.stringify({ newParentId, newPosition }),
+                                        });
+                                        const data = await response.json();
+                                        return data.success;
+                                      } catch (error) {
+                                        console.error('Failed to move page:', error);
+                                        return false;
+                                      }
+                                    }}
+                                    onPageDelete={async (pageId) => {
+                                      if (!confirm('Are you sure you want to delete this page?')) return false;
+                                      try {
+                                        const response = await fetch(`/api/spaces/${space.slug}/documents/${pageId}`, {
+                                          method: 'DELETE',
+                                          credentials: 'include',
+                                        });
+                                        const data = await response.json();
+                                        return data.success;
+                                      } catch (error) {
+                                        console.error('Failed to delete page:', error);
+                                        return false;
+                                      }
+                                    }}
+                                    showSearch={false}
+                                    className="h-full"
+                                  />
+                                </div>
+                              );
+                            }
+                            
+                            // Default: show Pages link and Boards
+                            return (
+                              <div className="ml-6 pl-4 mt-1 space-y-0.5">
+                                {/* Pages link */}
+                                <div
+                                  className={`group/item flex items-center rounded-md ${
+                                    pathname === `/spaces/${space.slug}/documents` ? 'bg-accent text-accent-foreground' : 'hover:bg-accent'
+                                  }`}
+                                >
+                                  <Link
+                                    href={`/spaces/${space.slug}/documents`}
+                                    className={`flex items-center space-x-2 px-3 py-2 text-sm flex-1 transition-colors ${
+                                      pathname === `/spaces/${space.slug}/documents` ? 'text-accent-foreground' : 'text-muted-foreground hover:text-accent-foreground'
                                     }`}
                                   >
-                                    <Link
-                                      href={`/spaces/${space.slug}?view=board&boardId=${board.id}`}
-                                      className={`flex items-center space-x-2 px-3 py-2 text-sm flex-1 transition-colors ${
-                                        isBoardActive ? 'text-accent-foreground' : 'text-muted-foreground hover:text-accent-foreground'
+                                    <FileText className="h-3 w-3 flex-shrink-0" />
+                                    <span className="flex-1 font-medium truncate">Pages</span>
+                                  </Link>
+                                </div>
+                                {/* Boards */}
+                                {boards.map((board) => {
+                                  const currentBoardId = searchParams?.get('boardId');
+                                  const isBoardActive = currentBoardId === board.id;
+                                  const openDeleteBoard = (e: React.MouseEvent) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    setBoardToDelete({ id: board.id, name: board.name, spaceSlug: space.slug });
+                                    setDeleteBoardDialogOpen(true);
+                                  };
+
+                                  return (
+                                    <div
+                                      key={board.id}
+                                      className={`group/item flex items-center rounded-md ${
+                                        isBoardActive ? 'bg-accent text-accent-foreground' : 'hover:bg-accent'
                                       }`}
                                     >
-                                      <LayoutGrid className="h-3 w-3 flex-shrink-0" />
-                                      <span className="flex-1 font-medium truncate">{board.name}</span>
-                                    </Link>
-                                    <button
-                                      onClick={openDeleteBoard}
-                                      className="p-1.5 hover:bg-destructive/20 rounded mr-2"
-                                      title="Delete board"
-                                    >
-                                      <Trash2 className="h-3 w-3 text-destructive" />
-                                    </button>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          )}
+                                      <Link
+                                        href={`/spaces/${space.slug}?view=board&boardId=${board.id}`}
+                                        className={`flex items-center space-x-2 px-3 py-2 text-sm flex-1 transition-colors ${
+                                          isBoardActive ? 'text-accent-foreground' : 'text-muted-foreground hover:text-accent-foreground'
+                                        }`}
+                                      >
+                                        <LayoutGrid className="h-3 w-3 flex-shrink-0" />
+                                        <span className="flex-1 font-medium truncate">{board.name}</span>
+                                      </Link>
+                                      <button
+                                        onClick={openDeleteBoard}
+                                        className="p-1.5 hover:bg-destructive/20 rounded mr-2"
+                                        title="Delete board"
+                                      >
+                                        <Trash2 className="h-3 w-3 text-destructive" />
+                                      </button>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            );
+                          })()}
                         </>
                       ) : (
                         <Link
@@ -438,77 +610,7 @@ export function NotionSidebar({ spaces, user, onLogout, onCreateSpace, onCollaps
             )}
           </div>
 
-          {/* Tools Section */}
-          <div className="mb-4">
-            {!isCollapsed && (
-              <button
-                onClick={() => toggleSection('tools')}
-                className="flex items-center space-x-2 px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground"
-              >
-                {expandedSections.tools ? (
-                  <ChevronDown className="h-4 w-4" />
-                ) : (
-                  <ChevronRight className="h-4 w-4" />
-                )}
-                <span>Tools</span>
-              </button>
-            )}
 
-            {expandedSections.tools && (
-              <div className="space-y-1">
-                {toolItems.map((item) => (
-                  <button
-                    key={item.name}
-                    onClick={() => router.push(item.href)}
-                    className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium w-full text-left ${
-                      item.current
-                        ? 'bg-[#1A1B20] border-l-2 border-[#4353FF]'
-                        : 'text-muted-foreground hover:bg-[#1A1B20]'
-                    }`}
-                  >
-                    <item.icon className={`w-5 h-5 flex-shrink-0 ${item.color || ''}`} />
-                    {!isCollapsed && <span>{item.name}</span>}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Admin Section */}
-          <div className="mb-4">
-            {!isCollapsed && (
-              <button
-                onClick={() => toggleSection('admin')}
-                className="flex items-center space-x-2 px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground"
-              >
-                {expandedSections.admin ? (
-                  <ChevronDown className="h-4 w-4" />
-                ) : (
-                  <ChevronRight className="h-4 w-4" />
-                )}
-                <span>Admin</span>
-              </button>
-            )}
-
-            {expandedSections.admin && (
-              <div className="space-y-1">
-                {adminItems.map((item) => (
-                  <button
-                    key={item.name}
-                    onClick={() => router.push(item.href)}
-                    className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium w-full text-left ${
-                      item.current
-                        ? 'bg-[#1A1B20] border-l-2 border-[#4353FF]'
-                        : 'text-muted-foreground hover:bg-[#1A1B20]'
-                    }`}
-                  >
-                    <item.icon className={`w-5 h-5 flex-shrink-0 ${item.color || ''}`} />
-                    {!isCollapsed && <span>{item.name}</span>}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
         </div>
       </div>
 

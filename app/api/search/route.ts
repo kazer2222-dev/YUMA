@@ -5,7 +5,7 @@ import { AuthService } from '@/lib/auth';
 export async function GET(request: NextRequest) {
   try {
     const accessToken = request.cookies.get('accessToken')?.value;
-    
+
     if (!accessToken) {
       return NextResponse.json(
         { success: false, message: 'Authentication required' },
@@ -86,12 +86,12 @@ export async function GET(request: NextRequest) {
       if (task.summary && task.summary.toLowerCase().includes(searchLower)) {
         return true;
       }
-      
+
       // Case-insensitive search in description
       if (task.description && task.description.toLowerCase().includes(searchLower)) {
         return true;
       }
-      
+
       // Search in task key (TICKER-NUMBER)
       if (task.number !== null) {
         const taskKey = `${task.space.ticker}-${task.number}`;
@@ -99,7 +99,7 @@ export async function GET(request: NextRequest) {
           return true;
         }
       }
-      
+
       return false;
     });
 
@@ -111,21 +111,72 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    // Transform and limit results
-    const results = Array.from(taskMap.values())
-      .slice(0, 20)
-      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
-      .map(task => ({
+    // Search Documents
+    const documents = await prisma.document.findMany({
+      where: {
+        spaceId: { in: spaceIds },
+        OR: [
+          { title: { contains: query } },
+        ],
+        deletedAt: null
+      },
+      include: {
+        space: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            ticker: true
+          }
+        }
+      },
+      orderBy: { updatedAt: 'desc' },
+      take: 50
+    });
+
+    // Filter documents in memory for case-insensitive search
+    const filteredDocuments = documents.filter(doc =>
+      doc.title.toLowerCase().includes(searchLower) ||
+      (doc.content && doc.content.toLowerCase().includes(searchLower))
+    );
+
+    // Transform results
+    const taskResults = Array.from(taskMap.values())
+      .slice(0, 10)
+      .map((task: any) => ({
         id: task.id,
-        key: `${task.space.ticker}-${task.number}`,
-        summary: task.summary,
-        status: task.status,
+        type: 'task',
+        title: task.summary,
+        subtitle: `${task.space.ticker}-${task.number}`,
+        url: `/spaces/${task.space.slug}?view=board&taskId=${task.id}`,
+        status: task.status.name,
+        statusColor: task.status.color,
+        updatedAt: task.updatedAt,
         space: {
           name: task.space.name,
-          slug: task.space.slug,
-          ticker: task.space.ticker
+          slug: task.space.slug
         }
       }));
+
+    const documentResults = filteredDocuments
+      .slice(0, 10)
+      .map(doc => ({
+        id: doc.id,
+        type: 'document',
+        title: doc.title,
+        subtitle: 'Document',
+        url: `/spaces/${doc.space.slug}/documents/${doc.id}`,
+        updatedAt: doc.updatedAt,
+        space: {
+          name: doc.space.name,
+          slug: doc.space.slug
+        }
+      }));
+
+    // Combine and sort by recency
+    const results = [...taskResults, ...documentResults]
+      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+      .slice(0, 20);
 
     return NextResponse.json({
       success: true,

@@ -119,7 +119,7 @@ const Hashtag = Mark.create({
           const hashtag = match[0];
           const start = range.from;
           const end = start + hashtag.length;
-          
+
           state.tr.addMark(
             start,
             end,
@@ -138,7 +138,7 @@ const Hashtag = Mark.create({
           const hashtag = match[0];
           const start = range.from;
           const end = start + hashtag.length;
-          
+
           state.tr.addMark(
             start,
             end,
@@ -188,7 +188,7 @@ export function DocumentEditorPage({
   const [users, setUsers] = useState<Array<{ id: string; name: string; email: string; avatar?: string }>>([]);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const usersRef = useRef(users);
-  
+
   // Keep usersRef in sync with users state
   useEffect(() => {
     usersRef.current = users;
@@ -198,7 +198,7 @@ export function DocumentEditorPage({
   const [selectedSlashIndex, setSelectedSlashIndex] = useState(0);
   const [slashSearchQuery, setSlashSearchQuery] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
-  
+
   // AI Selection Menu States (similar to task editor)
   const [showSelectionMenu, setShowSelectionMenu] = useState(false);
   const [selectionMenuPosition, setSelectionMenuPosition] = useState<{ top: number; left: number } | null>(null);
@@ -213,19 +213,19 @@ export function DocumentEditorPage({
   const generateInputRef = useRef<HTMLInputElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const languageMenuRef = useRef<HTMLDivElement>(null);
-  
+
   // AI Revert functionality
   const [originalContent, setOriginalContent] = useState<string | null>(null);
   const [canRevert, setCanRevert] = useState(false);
   const [generatedContent, setGeneratedContent] = useState<string | null>(null);
   const [revertPosition, setRevertPosition] = useState<{ top: number; left: number } | null>(null);
-  
+
   // AI Input Panel (inline UI instead of popup)
   const [showAIPanel, setShowAIPanel] = useState(false);
   const [aiPanelMode, setAiPanelMode] = useState<'generate' | 'update' | null>(null);
   const [aiPanelPrompt, setAiPanelPrompt] = useState('');
   const aiPanelInputRef = useRef<HTMLInputElement>(null);
-  
+
 
   const LANGUAGES = [
     { code: 'en', name: 'English' },
@@ -303,9 +303,9 @@ export function DocumentEditorPage({
               id: user.id,
               label: user.name || user.email,
             }));
-            
+
             return currentUsers
-              .filter(user => 
+              .filter(user =>
                 user.name.toLowerCase().includes(query.toLowerCase()) ||
                 user.email.toLowerCase().includes(query.toLowerCase())
               )
@@ -336,7 +336,7 @@ export function DocumentEditorPage({
           '!max-w-full',
           // Theme-aware text colors - ensure bright text
           'prose-headings:text-foreground prose-headings:font-bold prose-headings:opacity-100',
-          'prose-p:text-foreground prose-p:my-4 prose-p:opacity-100 [&_p.is-editor-empty:first-child]:text-transparent',
+          'prose-p:text-foreground prose-p:my-4 prose-p:opacity-100',
           'prose-strong:text-foreground prose-strong:font-bold prose-strong:opacity-100',
           'prose-em:text-foreground prose-em:opacity-100',
           'prose-ul:text-foreground prose-ol:text-foreground prose-ul:opacity-100 prose-ol:opacity-100',
@@ -364,7 +364,7 @@ export function DocumentEditorPage({
   // Fetch users for mentions
   useEffect(() => {
     if (!isMounted || !spaceSlug) return;
-    
+
     const fetchUsers = async () => {
       try {
         const response = await fetch(`/api/spaces/${spaceSlug}/members`, {
@@ -383,13 +383,13 @@ export function DocumentEditorPage({
         console.error('Error fetching users:', error);
       }
     };
-    
+
     fetchUsers();
   }, [spaceSlug, isMounted]);
 
   useEffect(() => {
     if (!isMounted) return;
-    
+
     if (documentId) {
       fetchDocument();
     } else {
@@ -460,17 +460,17 @@ export function DocumentEditorPage({
   ];
 
   // Combined commands - include selection AI commands when there's a selection
-  const allSlashCommands = selectionRange 
+  const allSlashCommands = selectionRange
     ? [...selectionAICommands, ...baseSlashCommands]
     : baseSlashCommands;
 
   // Filter commands based on search query
   const slashCommands = slashSearchQuery.trim()
-    ? allSlashCommands.filter(cmd => 
-        cmd.label.toLowerCase().includes(slashSearchQuery.toLowerCase()) ||
-        cmd.description.toLowerCase().includes(slashSearchQuery.toLowerCase()) ||
-        cmd.group.toLowerCase().includes(slashSearchQuery.toLowerCase())
-      )
+    ? allSlashCommands.filter(cmd =>
+      cmd.label.toLowerCase().includes(slashSearchQuery.toLowerCase()) ||
+      cmd.description.toLowerCase().includes(slashSearchQuery.toLowerCase()) ||
+      cmd.group.toLowerCase().includes(slashSearchQuery.toLowerCase())
+    )
     : allSlashCommands;
 
   // Store slash position for deletion
@@ -487,10 +487,10 @@ export function DocumentEditorPage({
         if (!editor.isFocused) {
           editor.commands.focus();
         }
-        
+
         const { from, to } = editor.state.selection;
         const hasSelection = from !== to;
-        
+
         // Store selection range if there's a selection
         if (hasSelection) {
           const selectedText = editor.state.doc.textBetween(from, to);
@@ -500,14 +500,14 @@ export function DocumentEditorPage({
         } else {
           setSelectionRange(null);
         }
-        
+
         if (!hasSelection) {
           // Don't prevent default - let "/" be typed
           slashPositionRef.current = from;
         } else {
           e.preventDefault();
         }
-        
+
         // Wait for "/" to be inserted (or immediately if selection), then show menu
         setTimeout(() => {
           if (!editor) return;
@@ -532,7 +532,7 @@ export function DocumentEditorPage({
           closeSlashMenu(false); // Don't delete the "/"
           return;
         }
-        
+
         // Handle typing for search - capture alphanumeric keys
         if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
           e.preventDefault();
@@ -540,7 +540,7 @@ export function DocumentEditorPage({
           setSelectedSlashIndex(0); // Reset selection when searching
           return;
         }
-        
+
         // Handle backspace for search
         if (e.key === 'Backspace') {
           e.preventDefault();
@@ -555,7 +555,7 @@ export function DocumentEditorPage({
           setSelectedSlashIndex(0);
           return;
         }
-        
+
         // Keyboard navigation in menu - use filtered command count
         if (e.key === 'ArrowDown') {
           e.preventDefault();
@@ -583,9 +583,9 @@ export function DocumentEditorPage({
 
     const editorElement = editor?.view?.dom;
     if (!editorElement) return;
-    
+
     editorElement.addEventListener('keydown', handleKeyDown, true);
-    
+
     return () => {
       editorElement.removeEventListener('keydown', handleKeyDown, true);
     };
@@ -616,30 +616,30 @@ export function DocumentEditorPage({
 
     const command = slashCommands[index];
     if (!command) return;
-    
+
     const { from } = editor.state.selection;
     const currentSelectionRange = selectionRange; // Store before clearing
-    
+
     // Find and delete the "/" character and any search text (only if no selection - "/" wasn't typed when selecting)
     if (!currentSelectionRange) {
       // Calculate how many characters to delete (/ + search query length)
       const deleteLength = 1 + slashSearchQuery.length;
       const textBefore = editor.state.doc.textBetween(Math.max(0, from - deleteLength - 5), from);
       const slashIdx = textBefore.lastIndexOf('/');
-      
+
       // Delete the "/" and search text if found
       if (slashIdx >= 0) {
         const deleteFrom = from - (textBefore.length - slashIdx);
         editor.chain().focus().deleteRange({ from: deleteFrom, to: from }).run();
       }
     }
-    
+
     // Close menu first
     setSlashMenuOpen(false);
     setSlashMenuPosition(null);
     setSlashSearchQuery('');
     slashPositionRef.current = null;
-    
+
     // Handle selection-based AI commands
     if (command.id.startsWith('ai-') && currentSelectionRange) {
       switch (command.id) {
@@ -665,10 +665,10 @@ export function DocumentEditorPage({
           return;
       }
     }
-    
+
     // Clear selection range for non-AI commands
     setSelectionRange(null);
-    
+
     // Handle different commands
     switch (command.id) {
       case 'generate-requirement':
@@ -677,92 +677,92 @@ export function DocumentEditorPage({
         setShowAIPanel(true);
         setTimeout(() => aiPanelInputRef.current?.focus(), 100);
         break;
-        
+
       case 'bold':
         editor.chain().focus().toggleBold().run();
         break;
-        
+
       case 'italic':
         editor.chain().focus().toggleItalic().run();
         break;
-        
+
       case 'underline':
         editor.chain().focus().toggleUnderline().run();
         break;
-        
+
       case 'strikethrough':
         editor.chain().focus().toggleStrike().run();
         break;
-        
+
       case 'highlight':
         editor.chain().focus().toggleHighlight().run();
         break;
-        
+
       case 'align-left':
         editor.chain().focus().setTextAlign('left').run();
         break;
-        
+
       case 'align-center':
         editor.chain().focus().setTextAlign('center').run();
         break;
-        
+
       case 'align-right':
         editor.chain().focus().setTextAlign('right').run();
         break;
-        
+
       case 'font-inter':
         editor.chain().focus().setFontFamily('Inter, system-ui, sans-serif').run();
         break;
-        
+
       case 'font-serif':
         editor.chain().focus().setFontFamily('Georgia, serif').run();
         break;
-        
+
       case 'font-mono':
         editor.chain().focus().setFontFamily('SF Mono, Monaco, Consolas, monospace').run();
         break;
-        
+
       case 'font-comic':
         editor.chain().focus().setFontFamily('Comic Sans MS, cursive').run();
         break;
-        
+
       case 'font-arial':
         editor.chain().focus().setFontFamily('Arial, Helvetica, sans-serif').run();
         break;
-        
+
       case 'font-times':
         editor.chain().focus().setFontFamily('Times New Roman, Times, serif').run();
         break;
-        
+
       case 'paragraph':
         editor.chain().focus().setParagraph().run();
         break;
-        
+
       case 'heading1':
         editor.chain().focus().toggleHeading({ level: 1 }).run();
         break;
-        
+
       case 'heading2':
         editor.chain().focus().toggleHeading({ level: 2 }).run();
         break;
-        
+
       case 'heading3':
         editor.chain().focus().toggleHeading({ level: 3 }).run();
         break;
-        
+
       case 'bullet-list':
         editor.chain().focus().toggleBulletList().run();
         break;
-        
+
       case 'numbered-list':
         editor.chain().focus().toggleOrderedList().run();
         break;
-        
+
       case 'task-list':
         // Check if there's selected text to convert
         const { from, to } = editor.state.selection;
         const selectedText = editor.state.doc.textBetween(from, to, '\n');
-        
+
         if (selectedText.trim()) {
           // Convert selected text lines to todo items
           const lines = selectedText.split('\n').filter(line => line.trim());
@@ -773,7 +773,7 @@ export function DocumentEditorPage({
             indent: 0,
             priority: 'none',
           }));
-          
+
           editor.chain()
             .focus()
             .deleteSelection()
@@ -789,35 +789,35 @@ export function DocumentEditorPage({
           }).run();
         }
         break;
-        
+
       case 'toggle-list':
         editor.chain().focus().insertToggleList().run();
         break;
-        
+
       case 'quote':
         editor.chain().focus().toggleBlockquote().run();
         break;
-        
+
       case 'code-block':
         editor.chain().focus().toggleCodeBlock().run();
         break;
-        
+
       case 'divider':
         editor.chain().focus().setHorizontalRule().run();
         break;
-        
+
       case 'parse-attachment':
         setShowAttachmentParser(true);
         break;
-        
+
       case 'link':
         setLinkDialogOpen(true);
         break;
-        
+
       case 'emoji':
         setShowEmojiPicker(true);
         break;
-        
+
       case 'table-of-contents':
         // Generate table of contents from headings
         generateTableOfContents();
@@ -827,10 +827,10 @@ export function DocumentEditorPage({
 
   // Emoji picker state
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  
+
   // Common emojis for quick selection
   const commonEmojis = ['😀', '😊', '👍', '❤️', '🎉', '✅', '⭐', '🔥', '💡', '📌', '📝', '✨', '🚀', '💪', '👏', '🙏', '😂', '🤔', '👀', '💯'];
-  
+
   const insertEmoji = (emoji: string) => {
     if (editor) {
       editor.chain().focus().insertContent(emoji).run();
@@ -845,9 +845,9 @@ export function DocumentEditorPage({
   // Generate table of contents from headings
   const generateTableOfContents = () => {
     if (!editor) return;
-    
+
     const headings: { level: number; text: string; pos: number }[] = [];
-    
+
     editor.state.doc.descendants((node, pos) => {
       if (node.type.name === 'heading') {
         headings.push({
@@ -857,7 +857,7 @@ export function DocumentEditorPage({
         });
       }
     });
-    
+
     setTocHeadings(headings);
     setShowTableOfContents(true);
   };
@@ -865,9 +865,9 @@ export function DocumentEditorPage({
   // Scroll to heading position
   const scrollToHeading = (pos: number) => {
     if (!editor) return;
-    
+
     editor.chain().focus().setTextSelection(pos).run();
-    
+
     // Scroll the heading into view
     setTimeout(() => {
       const element = editor.view.domAtPos(pos);
@@ -876,7 +876,7 @@ export function DocumentEditorPage({
         domNode.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
     }, 100);
-    
+
     setShowTableOfContents(false);
   };
 
@@ -884,7 +884,7 @@ export function DocumentEditorPage({
   const handleGenerateRequirement = async () => {
     const prompt = aiPanelMode === 'generate' ? aiPanelPrompt : generatePrompt;
     if (!editor || !prompt.trim()) return;
-    
+
     // Store original content for revert
     const currentHTML = editor.getHTML();
     const currentText = editor.getText().trim();
@@ -892,7 +892,7 @@ export function DocumentEditorPage({
     setIsGenerating(true);
     setShowGenerateDialog(false);
     setShowAIPanel(false);
-    
+
     // Get cursor position for undo button (if view is available)
     let coords = { top: 100, left: 100 }; // Default fallback
     if (editor.view) {
@@ -903,7 +903,7 @@ export function DocumentEditorPage({
         // Use default coords if coordsAtPos fails
       }
     }
-    
+
     try {
       const response = await fetch('/api/ai/generate-requirement', {
         method: 'POST',
@@ -928,7 +928,7 @@ export function DocumentEditorPage({
         }
         setGeneratedContent(data.requirement);
         setCanRevert(true);
-        
+
         // Position undo button near where content was inserted
         setRevertPosition({
           top: coords.top + window.scrollY,
@@ -949,11 +949,11 @@ export function DocumentEditorPage({
       setAiPanelMode(null);
     }
   };
-  
+
   // Handle AI Panel Submit
   const handleAIPanelSubmit = async () => {
     if (!aiPanelPrompt.trim() || !editor) return;
-    
+
     if (aiPanelMode === 'generate') {
       await handleGenerateRequirement();
     } else if (aiPanelMode === 'update' && selectionRange) {
@@ -963,11 +963,11 @@ export function DocumentEditorPage({
       setAiPanelMode(null);
     }
   };
-  
+
   // Revert to original content
   const handleRevert = () => {
     if (!editor || !originalContent) return;
-    
+
     editor.chain().focus().setContent(originalContent).run();
     setOriginalContent(null);
     setCanRevert(false);
@@ -981,7 +981,7 @@ export function DocumentEditorPage({
     if (!selectionRange || isGenerating || !editor) return;
 
     const { from, to } = selectionRange;
-    
+
     // Validate range
     const docSize = editor.state.doc.content.size;
     if (from < 0 || to < 0 || from > docSize || to > docSize || from > to) {
@@ -992,7 +992,7 @@ export function DocumentEditorPage({
     }
 
     const selectedText = editor.state.doc.textBetween(from, to).trim();
-    
+
     if (!selectedText) {
       setShowSelectionMenu(false);
       setShowLanguageMenu(false);
@@ -1050,7 +1050,7 @@ export function DocumentEditorPage({
           .deleteSelection()
           .insertContent(data.result)
           .run();
-        
+
         // Track generated content and position for undo
         setGeneratedContent(data.result);
         setRevertPosition({
@@ -1091,13 +1091,13 @@ export function DocumentEditorPage({
 
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as HTMLElement;
-      
+
       // Don't close if clicking inside menus or dialogs
       if (menuRef.current?.contains(target)) return;
       if (languageMenuRef.current?.contains(target)) return;
       if (target.closest('[role="dialog"]')) return;
       if (target.closest('.fixed.z-\\[100\\]')) return; // Slash menu
-      
+
       // Close all menus
       if (slashMenuOpen) {
         closeSlashMenu();
@@ -1116,7 +1116,7 @@ export function DocumentEditorPage({
     const timeoutId = setTimeout(() => {
       window.document.addEventListener('mousedown', handleClickOutside);
     }, 100);
-    
+
     return () => {
       clearTimeout(timeoutId);
       window.document.removeEventListener('mousedown', handleClickOutside);
@@ -1197,7 +1197,7 @@ export function DocumentEditorPage({
         if (!isAutoSave) {
           showSuccess('Success', 'Document saved');
           // Navigate to documents list after saving
-          router.push(`/spaces/${spaceSlug}?view=documents`);
+          router.push(`/spaces/${spaceSlug}/documents`);
         }
       } else {
         showError('Error', data.message || 'Failed to save document');
@@ -1268,7 +1268,7 @@ export function DocumentEditorPage({
 
   const handleInsertLink = () => {
     if (!editor || !linkUrl.trim()) return;
-    
+
     editor.chain().focus().setLink({ href: linkUrl.trim() }).run();
     setLinkDialogOpen(false);
     setLinkUrl('');
@@ -1277,7 +1277,7 @@ export function DocumentEditorPage({
   // Handle parsed attachment content
   const handleParsedContent = (content: string, fileName: string) => {
     if (!editor) return;
-    
+
     // Insert the parsed content with a header
     const formattedContent = `<h3>📎 Content from: ${fileName}</h3><p>${content.replace(/\n/g, '</p><p>')}</p>`;
     editor.chain().focus().insertContent(formattedContent).run();
@@ -1322,7 +1322,7 @@ export function DocumentEditorPage({
                   setTitle(e.target.value);
                   setHasChanges(true);
                 }}
-                className="text-2xl font-bold border-none shadow-none focus-visible:ring-0 px-0 h-auto bg-transparent outline-none w-full text-foreground placeholder:text-gray-400"
+                className="text-2xl font-bold border-none shadow-none focus-visible:ring-0 px-0 h-auto bg-background outline-none w-full text-foreground placeholder:text-gray-400"
                 placeholder="Document title"
               />
               {isSaving && (
@@ -1434,7 +1434,7 @@ export function DocumentEditorPage({
                   ref={aiPanelInputRef}
                   value={aiPanelPrompt}
                   onChange={(e) => setAiPanelPrompt(e.target.value)}
-                  placeholder={aiPanelMode === 'generate' 
+                  placeholder={aiPanelMode === 'generate'
                     ? "Describe what you want to generate... (e.g., 'User authentication requirements')"
                     : "How should the text be updated? (e.g., 'Make it more professional')"
                   }
@@ -1455,7 +1455,7 @@ export function DocumentEditorPage({
                   <kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">↵</kbd>
                 </div>
               </div>
-              <Button 
+              <Button
                 onClick={handleAIPanelSubmit}
                 disabled={!aiPanelPrompt.trim() || isGenerating}
                 className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white"
@@ -1470,7 +1470,7 @@ export function DocumentEditorPage({
 
       {/* Revert Panel - Shows after AI processing with preview */}
       {canRevert && !isGenerating && (
-        <div 
+        <div
           className="fixed z-50 animate-in fade-in slide-in-from-left-2 duration-300"
           style={{
             top: revertPosition ? `${Math.max(80, revertPosition.top - 60)}px` : '50%',
@@ -1501,7 +1501,7 @@ export function DocumentEditorPage({
                 <X className="h-3 w-3 text-muted-foreground" />
               </Button>
             </div>
-            
+
             {/* Preview of generated content */}
             {generatedContent && (
               <div className="px-3 py-2 max-h-32 overflow-y-auto border-b border-orange-100 dark:border-orange-900">
@@ -1512,7 +1512,7 @@ export function DocumentEditorPage({
                 </div>
               </div>
             )}
-            
+
             {/* Action buttons */}
             <div className="flex items-center gap-2 p-2">
               <Button
@@ -1547,7 +1547,7 @@ export function DocumentEditorPage({
         <div className="w-full py-8 px-4 sm:px-6 lg:px-8 xl:px-12">
           <EditorContent editor={editor} />
         </div>
-        
+
         {/* AI Loading Indicator - Enhanced Animation */}
         {isGenerating && (
           <div className="absolute inset-0 flex items-center justify-center bg-background/60 backdrop-blur-sm animate-in fade-in duration-200">
@@ -1559,10 +1559,10 @@ export function DocumentEditorPage({
                   <Sparkles className="h-8 w-8 text-white animate-pulse" />
                 </div>
               </div>
-              
+
               {/* Animated Text */}
               <div className="flex flex-col items-center gap-2">
-                <span className="text-lg font-semibold bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 bg-clip-text text-transparent">
+                <span className="text-lg font-semibold text-foreground">
                   AI is working its magic
                 </span>
                 <div className="flex items-center gap-1">
@@ -1574,7 +1574,7 @@ export function DocumentEditorPage({
                   </span>
                 </div>
               </div>
-              
+
               {/* Progress shimmer */}
               <div className="w-48 h-1.5 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
                 <div className="h-full bg-gradient-to-r from-purple-500 via-indigo-500 to-blue-500 animate-shimmer"></div>

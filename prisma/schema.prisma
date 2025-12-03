@@ -614,27 +614,40 @@ model WorkflowAudit {
 model Document {
   id          String   @id @default(cuid())
   spaceId     String
+  parentId    String?  // Parent document ID for tree hierarchy
   title       String
   description String?
   summary     String? // Brief summary of the document
+  icon        String?  // Custom icon/emoji for the page
+  coverImage  String?  // Cover image URL
   type        String   @default("RICH_TEXT") // RICH_TEXT, PDF, DOCX, XLSX, PPTX, TXT, IMAGE, ARCHIVE
+  pageStatus  String   @default("DRAFT") // DRAFT, IN_REVIEW, APPROVED, ARCHIVED - Confluence-style page status
   status      String   @default("DRAFT") // DRAFT, PUBLISHED, ARCHIVED
   content     String? // For rich text documents (HTML/Markdown)
   fileUrl     String? // For uploaded files (PDF, DOCX, etc.)
   fileSize    Int? // File size in bytes
   mimeType    String?
   tags        String // JSON string for SQLite
+  labels      String?  // JSON string for colored labels/badges (Confluence-style)
   metadata    String? // JSON string for extracted metadata
   structure   String? // JSON string for TOC/outline
   authorId    String
   projectId   String? // Optional project reference
-  order       Int      @default(0) // For manual ordering
+  position    Int      @default(0) // Position within same parent level
+  order       Int      @default(0) // For manual ordering (deprecated, use position)
   isPinned    Boolean  @default(false)
+  isExpanded  Boolean  @default(true) // Default expanded state for tree
+  hasUnpublishedChanges Boolean @default(false) // Draft indicator
+  lastEditedBy String? // Last user who edited
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   deletedAt   DateTime? // Soft delete
 
-  // Relationships
+  // Hierarchical relationships
+  parent          Document?            @relation("DocumentHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children        Document[]           @relation("DocumentHierarchy")
+  
+  // Other relationships
   space           Space                @relation(fields: [spaceId], references: [id], onDelete: Cascade)
   author          User                 @relation("DocumentCreator", fields: [authorId], references: [id], onDelete: Cascade)
   versions        DocumentVersion[]
@@ -647,9 +660,11 @@ model Document {
   redactions      DocumentRedaction[]
 
   @@index([spaceId])
+  @@index([parentId])
   @@index([authorId])
   @@index([status])
   @@index([type])
+  @@index([position])
   @@index([createdAt])
   @@map("documents")
 }
@@ -801,4 +816,30 @@ model DocumentRedaction {
 
   @@index([documentId])
   @@map("document_redactions")
+}
+
+// User's expanded/collapsed state for page tree (Confluence-style persistence)
+model UserTreeState {
+  id          String   @id @default(cuid())
+  userId      String
+  spaceId     String
+  documentId  String
+  isExpanded  Boolean  @default(true)
+  updatedAt   DateTime @updatedAt
+
+  @@unique([userId, documentId])
+  @@index([userId, spaceId])
+  @@map("user_tree_states")
+}
+
+// Recent pages viewed by user
+model UserRecentPage {
+  id          String   @id @default(cuid())
+  userId      String
+  documentId  String
+  viewedAt    DateTime @default(now())
+
+  @@unique([userId, documentId])
+  @@index([userId])
+  @@map("user_recent_pages")
 }

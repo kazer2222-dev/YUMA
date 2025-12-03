@@ -108,7 +108,7 @@ export default function DocumentEditPage() {
   };
 
   const handleSearch = (query: string) => {
-    router.push(`/spaces/${slug}?tab=documents&search=${encodeURIComponent(query)}`);
+    router.push(`/spaces/${slug}/documents?search=${encodeURIComponent(query)}`);
   };
 
   const handleSpreadsheetSave = async (data: any) => {
@@ -148,7 +148,7 @@ export default function DocumentEditPage() {
         breadcrumbs={[
           { name: 'Spaces', href: '/' },
           { name: spaceName, href: `/spaces/${slug}` },
-          { name: 'Documents', href: `/spaces/${slug}?tab=documents` },
+          { name: 'Documents', href: `/spaces/${slug}/documents` },
           { name: documentTitle }
         ]}
       >
@@ -184,7 +184,7 @@ export default function DocumentEditPage() {
         breadcrumbs={[
           { name: 'Spaces', href: '/' },
           { name: spaceName, href: `/spaces/${slug}` },
-          { name: 'Documents', href: `/spaces/${slug}?tab=documents` },
+          { name: 'Documents', href: `/spaces/${slug}/documents` },
           { name: documentTitle }
         ]}
       >
@@ -222,7 +222,7 @@ export default function DocumentEditPage() {
       <DocumentEditorPage
         spaceSlug={slug}
         documentId={documentId}
-        onClose={() => router.push(`/spaces/${slug}?tab=documents`)}
+        onClose={() => router.push(`/spaces/${slug}/documents`)}
         onTitleChange={setDocumentTitle}
       />
     </NotionLayout>

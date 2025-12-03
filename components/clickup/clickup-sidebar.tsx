@@ -1,17 +1,13 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Home,
   ChevronRight,
   ChevronLeft,
   ChevronDown,
   Plus,
-  Settings,
-  Lock,
-  Calendar,
-  BarChart3,
-  Sparkles,
   LayoutGrid,
   MoreHorizontal,
 } from 'lucide-react';
@@ -23,6 +19,24 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { DeleteSpaceDialog } from '@/components/spaces/delete-space-dialog';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { PageTree } from '@/components/documents/page-tree/page-tree';
 
 type ToolId = 'calendar' | 'reports' | 'ai-assistant' | 'integrations';
 
@@ -87,7 +101,12 @@ interface NavItemComponentProps {
   onCreateSpace?: () => void;
   onDeleteSpaceRequest?: (space: { id: string; name: string }) => void;
   onDeleteBoardRequest?: (board: { spaceSlug: string; id: string; name: string }) => void;
+
   onClose?: () => void;
+  isSortable?: boolean;
+  renderPageTree?: (spaceSlug: string) => React.ReactNode;
+  isDocumentsMode?: boolean;
+  activeSpaceSlug?: string;
 }
 
 function NavItemComponent({
@@ -103,7 +122,28 @@ function NavItemComponent({
   onDeleteSpaceRequest,
   onDeleteBoardRequest,
   onClose,
+  isSortable = false,
+  renderPageTree,
+  isDocumentsMode,
+  activeSpaceSlug,
 }: NavItemComponentProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: item.id,
+    disabled: !isSortable,
+  });
+
+  const style = {
+    transform: CSS.Translate.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
   const hasChildren = Boolean(item.children && item.children.length > 0);
   const isSpace = item.type === 'space';
   const isBoard = item.type === 'board';
@@ -116,6 +156,9 @@ function NavItemComponent({
   const isToolSelected = isTool && selectedTool === item.toolId;
 
   const isSelected = isSpaceSelected || isBoardSelected || isToolSelected;
+
+  // Determine if we should show PageTree for this item
+  const showPageTree = isSpace && isDocumentsMode && activeSpaceSlug === item.spaceSlug;
 
   const [isExpanded, setIsExpanded] = useState<boolean>(() => {
     if (depth === 0) return true;
@@ -130,19 +173,18 @@ function NavItemComponent({
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   useEffect(() => {
-    if (!hasChildren) return;
+    if (!hasChildren && !showPageTree) return;
     if (isSpace && selectedSpace === item.spaceSlug) {
       setIsExpanded(true);
     }
     if (item.children?.some((child) => child.boardId === selectedBoard)) {
       setIsExpanded(true);
     }
-  }, [hasChildren, isSpace, item.children, item.spaceSlug, selectedBoard, selectedSpace]);
+  }, [hasChildren, isSpace, item.children, item.spaceSlug, selectedBoard, selectedSpace, showPageTree]);
 
   const handleClick = () => {
-    if (hasChildren) {
-      setIsExpanded((prev) => !prev);
-    }
+    // Expansion logic moved to chevron click handler
+
 
     if (isSpace && item.spaceSlug) {
       onSpaceSelect?.(item.spaceSlug);
@@ -153,13 +195,6 @@ function NavItemComponent({
     if (isBoard && item.spaceSlug && item.boardId) {
       onBoardSelect?.(item.spaceSlug, item.boardId);
       onClose?.();
-      return;
-    }
-
-    if (isTool && item.toolId) {
-      onToolSelect?.(item.toolId);
-      onClose?.();
-      return;
     }
   };
 
@@ -170,15 +205,23 @@ function NavItemComponent({
   const needsHoverActionPadding =
     (isSpacesGroup && showHoverActions) || ((isSpace || isBoard) && (isHovered || isMenuOpen));
 
+
   return (
-    <div className="group relative" onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)}>
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      className="group relative"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
       <div
         onClick={handleClick}
-        className={`relative flex w-full items-center gap-2 rounded px-3 py-1.5 text-left transition-colors cursor-pointer ${
-          isSelected
-            ? 'bg-[var(--primary)] text-white'
-            : 'text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]'
-        } ${needsHoverActionPadding ? 'pr-10' : ''}`}
+        className={`relative flex w-full items-center gap-2 rounded px-3 py-1.5 text-left transition-colors cursor-pointer ${isSelected
+          ? 'bg-[var(--primary)] text-white'
+          : 'text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]'
+          } ${needsHoverActionPadding ? 'pr-10' : ''}`}
         style={{ paddingLeft }}
         role="button"
         tabIndex={0}
@@ -189,8 +232,14 @@ function NavItemComponent({
           }
         }}
       >
-        {hasChildren && (
-          <span className="shrink-0">
+        {(hasChildren || showPageTree) && (
+          <span
+            className="shrink-0 rounded-sm p-0.5 hover:bg-[var(--muted-foreground)]/20"
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsExpanded((prev) => !prev);
+            }}
+          >
             {isExpanded ? (
               <ChevronDown className="h-3 w-3" />
             ) : (
@@ -209,9 +258,8 @@ function NavItemComponent({
 
         {item.count !== undefined && (
           <span
-            className={`shrink-0 text-xs text-[var(--muted-foreground)] transition-opacity duration-150 ${
-              showHoverActions ? 'opacity-0' : 'opacity-100'
-            }`}
+            className={`shrink-0 text-xs text-[var(--muted-foreground)] transition-opacity duration-150 ${showHoverActions ? 'opacity-0' : 'opacity-100'
+              }`}
             style={{ minWidth: '1.5rem', textAlign: 'right' }}
           >
             {item.count}
@@ -283,25 +331,66 @@ function NavItemComponent({
         )}
       </div>
 
-      {hasChildren && isExpanded && (
+      {isExpanded && (
         <div>
-          {item.children?.map((child) => (
-            <NavItemComponent
-              key={child.id}
-              item={child}
-              depth={depth + 1}
-              selectedSpace={selectedSpace}
-              selectedBoard={selectedBoard}
-              selectedTool={selectedTool}
-              onSpaceSelect={onSpaceSelect}
-              onBoardSelect={onBoardSelect}
-              onToolSelect={onToolSelect}
-              onCreateSpace={onCreateSpace}
-              onDeleteSpaceRequest={onDeleteSpaceRequest}
-              onDeleteBoardRequest={onDeleteBoardRequest}
-              onClose={onClose}
-            />
-          ))}
+          {showPageTree && renderPageTree ? (
+            <div className="pl-4 h-[calc(100vh-200px)]">
+              {renderPageTree(item.spaceSlug!)}
+            </div>
+          ) : (
+            hasChildren && (
+              isSpacesGroup ? (
+                <SortableContext
+                  items={item.children?.map((child) => child.id) || []}
+                  strategy={verticalListSortingStrategy}
+                >
+                  {
+                    item.children?.map((child) => (
+                      <NavItemComponent
+                        key={child.id}
+                        item={child}
+                        depth={depth + 1}
+                        selectedSpace={selectedSpace}
+                        selectedBoard={selectedBoard}
+                        selectedTool={selectedTool}
+                        onSpaceSelect={onSpaceSelect}
+                        onBoardSelect={onBoardSelect}
+                        onToolSelect={onToolSelect}
+                        onCreateSpace={onCreateSpace}
+                        onDeleteSpaceRequest={onDeleteSpaceRequest}
+                        onDeleteBoardRequest={onDeleteBoardRequest}
+                        onClose={onClose}
+                        isSortable={true}
+                        renderPageTree={renderPageTree}
+                        isDocumentsMode={isDocumentsMode}
+                        activeSpaceSlug={activeSpaceSlug}
+                      />
+                    ))
+                  }
+                </SortableContext>
+              ) : (
+                item.children?.map((child) => (
+                  <NavItemComponent
+                    key={child.id}
+                    item={child}
+                    depth={depth + 1}
+                    selectedSpace={selectedSpace}
+                    selectedBoard={selectedBoard}
+                    selectedTool={selectedTool}
+                    onSpaceSelect={onSpaceSelect}
+                    onBoardSelect={onBoardSelect}
+                    onToolSelect={onToolSelect}
+                    onCreateSpace={onCreateSpace}
+                    onDeleteSpaceRequest={onDeleteSpaceRequest}
+                    onDeleteBoardRequest={onDeleteBoardRequest}
+                    onClose={onClose}
+                    renderPageTree={renderPageTree}
+                    isDocumentsMode={isDocumentsMode}
+                    activeSpaceSlug={activeSpaceSlug}
+                  />
+                ))
+              )
+            ))}
         </div>
       )}
     </div>
@@ -330,12 +419,41 @@ function SidebarContent({
   onDeleteSpaceRequest,
   onDeleteBoardRequest,
 }: SidebarContentProps) {
+  const [orderedSpaces, setOrderedSpaces] = useState(spaces);
+
+  useEffect(() => {
+    setOrderedSpaces(spaces);
+  }, [spaces]);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (active.id !== over?.id) {
+      setOrderedSpaces((items) => {
+        const oldIndex = items.findIndex((item) => item.id === active.id);
+        const newIndex = items.findIndex((item) => item.id === over?.id);
+        return arrayMove(items, oldIndex, newIndex);
+      });
+    }
+  };
+
   const navigationData = useMemo<NavItem[]>(() => {
     const spaceItems: NavItem = {
       id: 'spaces',
       label: 'Spaces',
       type: 'group',
-      children: spaces.map((space) => ({
+      children: orderedSpaces.map((space) => ({
         id: space.id,
         label: space.name,
         type: 'space',
@@ -354,56 +472,58 @@ function SidebarContent({
       })),
     };
 
-    const tools: NavItem = {
-      id: 'tools',
-      label: 'Tools',
-      type: 'group',
-      children: [
-        {
-          id: 'calendar',
-          label: 'Global Calendar',
-          type: 'tool',
-          icon: Calendar,
-          iconColor: '#10B981',
-          toolId: 'calendar',
-        },
-        {
-          id: 'reports',
-          label: 'Reports',
-          type: 'tool',
-          icon: BarChart3,
-          iconColor: '#F59E0B',
-          toolId: 'reports',
-        },
-        {
-          id: 'ai-assistant',
-          label: 'AI Assistant',
-          type: 'tool',
-          icon: Sparkles,
-          iconColor: '#8B5CF6',
-          toolId: 'ai-assistant',
-        },
-        {
-          id: 'integrations',
-          label: 'Integrations',
-          type: 'tool',
-          icon: LayoutGrid,
-          iconColor: '#06B6D4',
-          toolId: 'integrations',
-        },
-      ],
-    };
+    return [spaceItems];
+  }, [orderedSpaces]);
 
-    return [spaceItems, tools];
-  }, [spaces]);
 
-  const selectedTool: ToolId | null = useMemo(() => {
-    if (activePath.startsWith('/calendar')) return 'calendar';
-    if (activePath.startsWith('/reports')) return 'reports';
-    if (activePath.startsWith('/ai')) return 'ai-assistant';
-    if (activePath.startsWith('/integrations')) return 'integrations';
-    return null;
-  }, [activePath]);
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const isDocumentsMode = activePath.includes('/documents') || searchParams?.get('view') === 'documents';
+
+  const renderPageTree = (spaceSlug: string) => (
+    <PageTree
+      spaceSlug={spaceSlug}
+      onPageSelect={(pageId) => {
+        router.push(`/spaces/${spaceSlug}/documents/${pageId}`);
+        onClose?.();
+      }}
+      onPageOpen={(pageId) => {
+        router.push(`/spaces/${spaceSlug}/documents/${pageId}`);
+        onClose?.();
+      }}
+      onPageCreate={async (parentId, title) => {
+        const response = await fetch(`/api/spaces/${spaceSlug}/pages`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ title, parentId }),
+        });
+        const data = await response.json();
+        return data.success ? data.page : null;
+      }}
+      onPageMove={async (pageId, newParentId, newPosition) => {
+        const response = await fetch(`/api/spaces/${spaceSlug}/pages/${pageId}/move`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ newParentId, newPosition }),
+        });
+        const data = await response.json();
+        return data.success;
+      }}
+      onPageDelete={async (pageId) => {
+        if (!confirm('Are you sure you want to delete this page?')) return false;
+        const response = await fetch(`/api/spaces/${spaceSlug}/documents/${pageId}`, {
+          method: 'DELETE',
+          credentials: 'include',
+        });
+        const data = await response.json();
+        return data.success;
+      }}
+      showSearch={false}
+      className="h-full"
+    />
+  );
 
   if (collapsed) {
     return (
@@ -412,11 +532,10 @@ function SidebarContent({
           <Button
             variant="ghost"
             size="icon"
-            className={`h-10 w-full ${
-              activePath === '/' || activePath === '/dashboard'
-                ? 'bg-[var(--primary)] text-white'
-                : 'text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]'
-            }`}
+            className={`h-10 w-full ${activePath === '/' || activePath === '/dashboard'
+              ? 'bg-[var(--primary)] text-white'
+              : 'text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]'
+              }`}
             onClick={() => {
               onNavigateHome();
               onClose?.();
@@ -425,103 +544,57 @@ function SidebarContent({
             <Home className="h-5 w-5" />
           </Button>
 
-          {navigationData[1]?.children?.map((tool) => (
-            <Button
-              key={tool.id}
-              variant="ghost"
-              size="icon"
-              className={`h-10 w-full ${
-                selectedTool === tool.toolId
-                  ? 'bg-[var(--primary)] text-white'
-                  : 'text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]'
-              }`}
-              onClick={() => {
-                if (tool.toolId) {
-                  onNavigateTool?.(tool.toolId);
-                  onClose?.();
-                }
-              }}
-            >
-              {tool.icon && (
-                <span style={{ color: selectedTool === tool.toolId ? 'currentColor' : tool.iconColor }}>
-                  <tool.icon className="h-5 w-5" />
-                </span>
-              )}
-            </Button>
-          ))}
-
-          <Button
-            variant="ghost"
-            size="icon"
-            className={`h-10 w-full ${
-              activePath.startsWith('/admin')
-                ? 'bg-[var(--primary)] text-white'
-                : 'text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]'
-            }`}
-            onClick={() => {
-              onNavigateTool?.('integrations');
-              onClose?.();
-            }}
-          >
-            <Settings className="h-5 w-5" />
-          </Button>
         </div>
       </div>
     );
   }
 
+
+
   return (
-    <div className="flex-1 overflow-y-auto px-2 py-3">
-      <button
-        className={`mb-2 flex w-full items-center gap-2 rounded px-3 py-2 transition-colors ${
-          activePath === '/' || activePath === '/dashboard'
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      onDragEnd={handleDragEnd}
+    >
+      <div className="flex-1 overflow-y-auto px-2 py-3">
+        <button
+          className={`mb-2 flex w-full items-center gap-2 rounded px-3 py-2 transition-colors ${activePath === '/' || activePath === '/dashboard'
             ? 'bg-[var(--primary)] text-white'
             : 'text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]'
-        }`}
-        onClick={() => {
-          onNavigateHome();
-          onClose?.();
-        }}
-        type="button"
-      >
-        <Home className="h-4 w-4" />
-        <span>Home</span>
-      </button>
+            }`}
+          onClick={() => {
+            onNavigateHome();
+            onClose?.();
+          }}
+          type="button"
+        >
+          <Home className="h-4 w-4" />
+          <span>Home</span>
+        </button>
 
-      {navigationData.map((section) => (
-        <div key={section.id} className="mb-4">
-          <NavItemComponent
-            item={section}
-            selectedSpace={activeSpaceSlug ?? null}
-            selectedBoard={activeBoardId ?? null}
-            selectedTool={selectedTool}
-            onSpaceSelect={onSelectSpace}
-            onBoardSelect={onSelectBoard}
-            onToolSelect={onNavigateTool}
-            onCreateSpace={onCreateSpace}
-            onDeleteSpaceRequest={onDeleteSpaceRequest}
-            onDeleteBoardRequest={onDeleteBoardRequest}
-            onClose={onClose}
-          />
-        </div>
-      ))}
-
-      <button
-        className={`mt-2 flex w-full items-center gap-2 rounded px-3 py-2 transition-colors ${
-          activePath.startsWith('/admin')
-            ? 'bg-[var(--primary)] text-white'
-            : 'text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]'
-        }`}
-        onClick={() => {
-          onNavigateTool?.('integrations');
-          onClose?.();
-        }}
-        type="button"
-      >
-        <Lock className="h-4 w-4" style={{ color: activePath.startsWith('/admin') ? 'currentColor' : '#EF4444' }} />
-        <span>Admin</span>
-      </button>
-    </div>
+        {navigationData.map((section) => (
+          <div key={section.id} className="mb-4">
+            <NavItemComponent
+              item={section}
+              selectedSpace={activeSpaceSlug ?? undefined}
+              selectedBoard={activeBoardId ?? null}
+              selectedTool={null}
+              onSpaceSelect={onSelectSpace}
+              onBoardSelect={onSelectBoard}
+              onToolSelect={onNavigateTool}
+              onCreateSpace={onCreateSpace}
+              onDeleteSpaceRequest={onDeleteSpaceRequest}
+              onDeleteBoardRequest={onDeleteBoardRequest}
+              onClose={onClose}
+              renderPageTree={renderPageTree}
+              isDocumentsMode={isDocumentsMode}
+              activeSpaceSlug={activeSpaceSlug ?? undefined}
+            />
+          </div>
+        ))}
+      </div>
+    </DndContext>
   );
 }
 
@@ -594,20 +667,17 @@ export function ClickUpSidebar(props: ClickUpSidebarProps) {
         sidebarContent
       ) : (
         <aside
-          className={`hidden h-screen flex-col border-r border-[var(--border)] bg-[var(--sidebar)] text-[var(--sidebar-foreground)] transition-all duration-300 lg:flex ${
-            collapsed ? 'w-16' : 'w-60'
-          }`}
+          className={`hidden h-screen flex-col border-r border-[var(--border)] bg-[var(--sidebar)] text-[var(--sidebar-foreground)] transition-all duration-300 lg:flex ${collapsed ? 'w-16' : 'w-60'
+            }`}
         >
           <div
-            className={`flex h-14 items-center border-b border-[var(--border)] ${
-              collapsed ? 'justify-center gap-3 px-2' : 'justify-between px-4'
-            }`}
+            className={`flex h-14 items-center border-b border-[var(--border)] ${collapsed ? 'justify-center gap-3 px-2' : 'justify-between px-4'
+              }`}
           >
             <button
               onClick={onNavigateHome}
-              className={`flex items-center gap-2 text-[var(--primary)] transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--primary)] ${
-                collapsed ? 'text-base' : 'text-lg'
-              }`}
+              className={`flex items-center gap-2 text-[var(--primary)] transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--primary)] ${collapsed ? 'text-base' : 'text-lg'
+                }`}
               type="button"
             >
               <span className="font-semibold">{collapsed ? 'Y' : 'YUMA'}</span>

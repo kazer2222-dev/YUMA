@@ -87,7 +87,7 @@ export default function NewDocumentPage() {
   };
 
   const handleSearch = (query: string) => {
-    router.push(`/spaces/${slug}?tab=documents&search=${encodeURIComponent(query)}`);
+    router.push(`/spaces/${slug}/documents?search=${encodeURIComponent(query)}`);
   };
 
   const currentSpace = spaces.find((s) => s.slug === slug);
@@ -111,7 +111,7 @@ export default function NewDocumentPage() {
         breadcrumbs={[
           { name: 'Spaces', href: '/' },
           { name: spaceName, href: `/spaces/${slug}` },
-          { name: 'Documents', href: `/spaces/${slug}?tab=documents` },
+          { name: 'Documents', href: `/spaces/${slug}/documents` },
           { name: 'New Document' }
         ]}
       >
@@ -138,14 +138,14 @@ export default function NewDocumentPage() {
         breadcrumbs={[
           { name: 'Spaces', href: '/' },
           { name: spaceName, href: `/spaces/${slug}` },
-          { name: 'Documents', href: `/spaces/${slug}?tab=documents` },
+          { name: 'Documents', href: `/spaces/${slug}/documents` },
           { name: 'New Document' }
         ]}
       >
       <DocumentEditorPage
         spaceSlug={slug}
         documentId={null}
-        onClose={() => router.push(`/spaces/${slug}?tab=documents`)}
+        onClose={() => router.push(`/spaces/${slug}/documents`)}
       />
     </NotionLayout>
   );

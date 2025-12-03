@@ -2013,4 +2013,513 @@ html {
   .bg-gradient-radial {
     background: radial-gradient(circle at center, var(--tw-gradient-stops));
   }
+
+  /* ========================================
+   * Confluence-Style Page Tree
+   * ======================================== */
+
+  /* Tree container */
+  .page-tree {
+    --tree-line-color: #D0D0D0;
+    --tree-indent: 28px;
+    --tree-node-height: 32px;
+    --tree-chevron-size: 16px;
+    --tree-icon-size: 20px;
+    font-family: var(--font-primary);
+  }
+
+  .dark .page-tree {
+    --tree-line-color: #444444;
+  }
+
+  /* Tree node row */
+  .page-tree-node {
+    position: relative;
+    display: flex;
+    align-items: center;
+    height: var(--tree-node-height);
+    cursor: pointer;
+    user-select: none;
+    border-radius: 4px;
+    transition: background-color 100ms linear;
+  }
+
+  /* Hover state - Light mode */
+  .page-tree-node:hover {
+    background-color: rgba(0, 0, 0, 0.04);
+  }
+
+  .dark .page-tree-node:hover {
+    background-color: rgba(255, 255, 255, 0.06);
+  }
+
+  /* Selected state - Confluence blue */
+  .page-tree-node[aria-selected="true"] {
+    background-color: #E6F0FF;
+    position: relative;
+  }
+
+  .dark .page-tree-node[aria-selected="true"] {
+    background-color: #253E66;
+  }
+
+  /* Blue left bar on selection */
+  .page-tree-node[aria-selected="true"]::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background-color: #0052CC;
+    border-radius: 0 2px 2px 0;
+  }
+
+  /* Dotted connecting lines */
+  .page-tree-line-vertical {
+    position: absolute;
+    width: 1px;
+    background-image: repeating-linear-gradient(
+      to bottom,
+      var(--tree-line-color) 0,
+      var(--tree-line-color) 4px,
+      transparent 4px,
+      transparent 8px
+    );
+  }
+
+  .page-tree-line-horizontal {
+    position: absolute;
+    height: 1px;
+    background-image: repeating-linear-gradient(
+      to right,
+      var(--tree-line-color) 0,
+      var(--tree-line-color) 4px,
+      transparent 4px,
+      transparent 8px
+    );
+  }
+
+  /* Chevron button */
+  .page-tree-node .page-tree-chevron {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+    background: transparent;
+    transition: background-color 150ms ease;
+    flex-shrink: 0;
+  }
+
+  .page-tree-node .page-tree-chevron:hover {
+    background-color: rgba(0, 0, 0, 0.1);
+  }
+
+  .dark .page-tree-node .page-tree-chevron:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+  }
+
+  /* Chevron icon rotation */
+  .page-tree-chevron svg {
+    transition: transform 120ms ease-out;
+  }
+
+  .page-tree-chevron[aria-expanded="true"] svg {
+    transform: rotate(90deg);
+  }
+
+  /* Dot indicator for collapsed nodes with children */
+  .page-tree-chevron-dot {
+    position: absolute;
+    right: 2px;
+    bottom: 2px;
+    width: 6px;
+    height: 6px;
+    background-color: var(--tree-line-color);
+    border-radius: 50%;
+  }
+
+  /* Page icon */
+  .page-tree-node .page-tree-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--tree-icon-size);
+    height: var(--tree-icon-size);
+    margin: 0 4px;
+    flex-shrink: 0;
+  }
+
+  /* Page title */
+  .page-tree-node .page-tree-title {
+    flex: 1;
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 20px;
+    color: var(--foreground);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-right: 8px;
+  }
+
+  /* Status badges */
+  .page-tree-status-badge {
+    padding: 2px 6px;
+    font-size: 10px;
+    font-weight: 500;
+    border-radius: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+  }
+
+  .page-tree-status-badge.draft {
+    background-color: #FFF7E6;
+    color: #FA8C16;
+    border: 1px solid #FFD591;
+  }
+
+  .page-tree-status-badge.in-review {
+    background-color: #E6F7FF;
+    color: #1890FF;
+    border: 1px solid #91D5FF;
+  }
+
+  .page-tree-status-badge.approved {
+    background-color: #F6FFED;
+    color: #52C41A;
+    border: 1px solid #B7EB8F;
+  }
+
+  .page-tree-status-badge.archived {
+    background-color: #F5F5F5;
+    color: #8C8C8C;
+    border: 1px solid #D9D9D9;
+  }
+
+  .dark .page-tree-status-badge.draft {
+    background-color: rgba(250, 140, 22, 0.15);
+    border-color: rgba(250, 140, 22, 0.3);
+  }
+
+  .dark .page-tree-status-badge.in-review {
+    background-color: rgba(24, 144, 255, 0.15);
+    border-color: rgba(24, 144, 255, 0.3);
+  }
+
+  .dark .page-tree-status-badge.approved {
+    background-color: rgba(82, 196, 26, 0.15);
+    border-color: rgba(82, 196, 26, 0.3);
+  }
+
+  .dark .page-tree-status-badge.archived {
+    background-color: rgba(140, 140, 140, 0.15);
+    border-color: rgba(140, 140, 140, 0.3);
+  }
+
+  /* Label lozenges */
+  .page-tree-label {
+    padding: 2px 6px;
+    font-size: 10px;
+    font-weight: 500;
+    border-radius: 3px;
+    margin-right: 4px;
+  }
+
+  /* Hover actions */
+  .page-tree-node .page-tree-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    opacity: 0;
+    transition: opacity 150ms ease;
+  }
+
+  .page-tree-node:hover .page-tree-actions,
+  .page-tree-node[aria-selected="true"] .page-tree-actions {
+    opacity: 1;
+  }
+
+  .page-tree-actions button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--muted-foreground);
+    transition: background-color 150ms ease, color 150ms ease;
+  }
+
+  .page-tree-actions button:hover {
+    background-color: rgba(0, 0, 0, 0.1);
+    color: var(--foreground);
+  }
+
+  .dark .page-tree-actions button:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+  }
+
+  /* Inline page creator */
+  .page-tree-inline-creator {
+    display: flex;
+    align-items: center;
+    height: var(--tree-node-height);
+    border: 1px solid #0052CC;
+    border-radius: 4px;
+    background: var(--background);
+    overflow: hidden;
+  }
+
+  .page-tree-inline-creator input {
+    flex: 1;
+    padding: 4px 8px;
+    font-size: 14px;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--foreground);
+  }
+
+  .page-tree-inline-creator input::placeholder {
+    color: var(--muted-foreground);
+  }
+
+  /* Drag ghost */
+  .page-tree-drag-ghost {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: var(--background);
+    border: 2px solid #0052CC;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    opacity: 0.95;
+  }
+
+  .dark .page-tree-drag-ghost {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  }
+
+  /* Drop indicator line */
+  .page-tree-drop-indicator {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background-color: #0052CC;
+    border-radius: 1px;
+    pointer-events: none;
+    z-index: 10;
+  }
+
+  /* Drop target highlight */
+  .page-tree-node.drop-target {
+    background-color: rgba(0, 82, 204, 0.1);
+    outline: 2px solid rgba(0, 82, 204, 0.3);
+    outline-offset: -2px;
+  }
+
+  /* Invalid drop target */
+  .page-tree-node.drop-invalid {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+
+  /* Expand/collapse all buttons */
+  .page-tree-controls {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .page-tree-controls button {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    font-size: 12px;
+    color: var(--muted-foreground);
+    background: transparent;
+    border-radius: 4px;
+    transition: background-color 150ms ease;
+  }
+
+  .page-tree-controls button:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+    color: var(--foreground);
+  }
+
+  .dark .page-tree-controls button:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+  }
+
+  /* Recent pages section */
+  .page-tree-recent-section {
+    margin-bottom: 16px;
+  }
+
+  .page-tree-recent-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 8px;
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted-foreground);
+  }
+
+  .page-tree-recent-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    font-size: 14px;
+    color: var(--foreground);
+    border-radius: 4px;
+    transition: background-color 100ms ease;
+  }
+
+  .page-tree-recent-item:hover {
+    background-color: rgba(0, 0, 0, 0.04);
+  }
+
+  .dark .page-tree-recent-item:hover {
+    background-color: rgba(255, 255, 255, 0.06);
+  }
+
+  /* Search highlight */
+  .page-tree-search-match {
+    background-color: rgba(255, 255, 0, 0.3);
+    border-radius: 2px;
+  }
+
+  .dark .page-tree-search-match {
+    background-color: rgba(255, 255, 0, 0.2);
+  }
+
+  /* Context menu */
+  .page-tree-context-menu {
+    min-width: 200px;
+    padding: 4px 0;
+    background: var(--popover);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+    overflow: hidden;
+    animation: page-tree-menu-in 180ms ease-out;
+  }
+
+  .dark .page-tree-context-menu {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  }
+
+  @keyframes page-tree-menu-in {
+    from {
+      opacity: 0;
+      transform: scale(0.95) translateY(-4px);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
+  }
+
+  .page-tree-context-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    font-size: 14px;
+    color: var(--foreground);
+    cursor: pointer;
+    transition: background-color 100ms ease;
+  }
+
+  .page-tree-context-menu-item:hover {
+    background-color: rgba(0, 0, 0, 0.04);
+  }
+
+  .dark .page-tree-context-menu-item:hover {
+    background-color: rgba(255, 255, 255, 0.06);
+  }
+
+  .page-tree-context-menu-item.danger {
+    color: var(--destructive);
+  }
+
+  .page-tree-context-menu-item.danger:hover {
+    background-color: rgba(239, 68, 68, 0.1);
+  }
+
+  .page-tree-context-menu-divider {
+    height: 1px;
+    margin: 4px 0;
+    background-color: var(--border);
+  }
+
+  .page-tree-context-menu-shortcut {
+    margin-left: auto;
+    font-size: 12px;
+    color: var(--muted-foreground);
+  }
+
+  /* Animation utilities */
+  @keyframes page-tree-node-insert {
+    from {
+      opacity: 0;
+      height: 0;
+    }
+    to {
+      opacity: 1;
+      height: var(--tree-node-height);
+    }
+  }
+
+  @keyframes page-tree-node-remove {
+    from {
+      opacity: 1;
+      height: var(--tree-node-height);
+    }
+    to {
+      opacity: 0;
+      height: 0;
+    }
+  }
+
+  .page-tree-node-enter {
+    animation: page-tree-node-insert 250ms ease-out forwards;
+  }
+
+  .page-tree-node-exit {
+    animation: page-tree-node-remove 200ms ease-in forwards;
+  }
+
+  /* Mobile touch ripple */
+  @media (hover: none) and (pointer: coarse) {
+    .page-tree-node::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at var(--ripple-x, 50%) var(--ripple-y, 50%), rgba(0, 0, 0, 0.1) 0%, transparent 70%);
+      opacity: 0;
+      transition: opacity 300ms ease;
+      pointer-events: none;
+    }
+
+    .page-tree-node:active::after {
+      opacity: 1;
+    }
+
+    /* Slightly longer animation durations on mobile */
+    .page-tree-chevron svg {
+      transition: transform 144ms ease-out;
+    }
+  }
 }
