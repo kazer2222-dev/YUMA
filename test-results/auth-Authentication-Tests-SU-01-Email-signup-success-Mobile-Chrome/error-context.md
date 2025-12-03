@@ -1,0 +1,57 @@
+# Page snapshot
+
+```yaml
+- generic [active]:
+  - generic [ref=e6]:
+    - link "YUMA" [ref=e7] [cursor=pointer]:
+      - /url: /
+      - img [ref=e9]
+      - generic [ref=e11]: YUMA
+    - generic [ref=e13]:
+      - generic [ref=e14]:
+        - heading "Create your account" [level=1] [ref=e15]
+        - paragraph [ref=e16]: Start managing your tasks with AI
+      - button "Continue with Google" [ref=e17] [cursor=pointer]:
+        - img [ref=e18]
+        - generic [ref=e23]: Continue with Google
+      - generic [ref=e26]: or continue with email
+      - generic [ref=e28]:
+        - generic [ref=e29]:
+          - generic [ref=e30]: Full name
+          - generic [ref=e31]:
+            - img
+            - textbox "John Doe" [ref=e32]
+        - generic [ref=e33]:
+          - generic [ref=e34]: Email address
+          - generic [ref=e35]:
+            - img
+            - textbox "you@example.com" [ref=e36]
+        - generic [ref=e37]:
+          - generic [ref=e38]: Password
+          - generic [ref=e39]:
+            - img
+            - textbox "••••••••" [ref=e40]
+            - button [ref=e41] [cursor=pointer]:
+              - img [ref=e42]
+        - generic [ref=e45]:
+          - generic [ref=e46]: Retype your password
+          - generic [ref=e47]:
+            - img
+            - textbox "••••••••" [ref=e48]
+            - button [ref=e49] [cursor=pointer]:
+              - img [ref=e50]
+        - button "Create account" [disabled] [ref=e53] [cursor=pointer]:
+          - text: Create account
+          - img [ref=e54]
+      - paragraph [ref=e56]:
+        - text: Already have an account?
+        - button "Sign in" [ref=e57] [cursor=pointer]
+    - paragraph [ref=e58]:
+      - text: By continuing, you agree to our
+      - link "Terms of Service" [ref=e59] [cursor=pointer]:
+        - /url: "#"
+      - text: and
+      - link "Privacy Policy" [ref=e60] [cursor=pointer]:
+        - /url: "#"
+  - alert [ref=e61]
+```

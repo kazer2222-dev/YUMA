@@ -51,3 +51,9 @@ Write-Host ""
 Write-Host "Then update JWT_SECRET in .env.local with the generated value." -ForegroundColor Gray
 Write-Host ""
 
+
+
+
+
+
+

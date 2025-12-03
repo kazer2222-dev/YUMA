@@ -1,0 +1,256 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - generic:
+      - img
+    - main [ref=e3]:
+      - generic [ref=e4]:
+        - generic [ref=e5]:
+          - generic [ref=e12]:
+            - generic [ref=e15]: BUILT BY AI.
+            - generic [ref=e18]: FOR HUMANS.
+            - paragraph [ref=e19]: Focus on the work that matters — everything else organizes, predicts, and documents itself.
+            - generic [ref=e20]:
+              - link "Start for Free" [ref=e22] [cursor=pointer]:
+                - /url: /auth?mode=signup
+                - button "Start for Free" [ref=e23]
+              - link "Login" [ref=e25] [cursor=pointer]:
+                - /url: /auth?mode=login
+                - button "Login" [ref=e26]
+          - generic [ref=e28]: Scroll to Explore
+        - generic [ref=e30]:
+          - generic [ref=e32]:
+            - paragraph [ref=e33]: EXPLORE THE PLATFORM
+            - heading "Everything you need to manage work" [level=2] [ref=e34]
+            - paragraph [ref=e35]: See how YUMA brings together all your project management needs in one intelligent platform
+          - generic [ref=e37]:
+            - generic [ref=e38]:
+              - button "Backlog" [ref=e39] [cursor=pointer]:
+                - img [ref=e40]
+                - text: Backlog
+              - button "Board" [ref=e43] [cursor=pointer]:
+                - img [ref=e44]
+                - text: Board
+              - button "Tasks" [ref=e46] [cursor=pointer]:
+                - img [ref=e47]
+                - text: Tasks
+              - button "Calendar" [ref=e50] [cursor=pointer]:
+                - img [ref=e51]
+                - text: Calendar
+              - button "Roadmap" [ref=e53] [cursor=pointer]:
+                - img [ref=e54]
+                - text: Roadmap
+              - button "Releases" [ref=e56] [cursor=pointer]:
+                - img [ref=e57]
+                - text: Releases
+              - button "Sprints" [ref=e62] [cursor=pointer]:
+                - img [ref=e63]
+                - text: Sprints
+              - button "Docs" [ref=e65] [cursor=pointer]:
+                - img [ref=e66]
+                - text: Docs
+              - button "More" [disabled] [ref=e69]:
+                - img [ref=e70]
+                - text: More
+            - generic [ref=e76]:
+              - generic [ref=e77]:
+                - generic [ref=e78]:
+                  - heading "Product Backlog" [level=3] [ref=e79]
+                  - generic [ref=e80]: 8 items
+                  - generic [ref=e81]: 40 pts total
+                - generic [ref=e82]:
+                  - generic [ref=e83]: "Sort by:"
+                  - generic [ref=e84]: Priority
+              - generic [ref=e85]:
+                - generic [ref=e86]:
+                  - generic [ref=e87]: ID
+                  - generic [ref=e88]: Title
+                  - generic [ref=e89]: Type
+                  - generic [ref=e90]: Priority
+                  - generic [ref=e91]: Points
+                  - generic [ref=e92]: Votes
+                - generic [ref=e93] [cursor=pointer]:
+                  - generic [ref=e94]: BL-1
+                  - generic [ref=e95]: User Authentication System
+                  - generic [ref=e96]: feature
+                  - generic [ref=e97]: high
+                  - generic [ref=e98]: "8"
+                  - generic [ref=e99]:
+                    - generic [ref=e100]: 👍
+                    - text: "12"
+                - generic [ref=e101] [cursor=pointer]:
+                  - generic [ref=e102]: BL-2
+                  - generic [ref=e103]: Dashboard Analytics Module
+                  - generic [ref=e104]: feature
+                  - generic [ref=e105]: high
+                  - generic [ref=e106]: "5"
+                  - generic [ref=e107]:
+                    - generic [ref=e108]: 👍
+                    - text: "8"
+                - generic [ref=e109] [cursor=pointer]:
+                  - generic [ref=e110]: BL-3
+                  - generic [ref=e111]: API Rate Limiting
+                  - generic [ref=e112]: technical
+                  - generic [ref=e113]: medium
+                  - generic [ref=e114]: "3"
+                  - generic [ref=e115]:
+                    - generic [ref=e116]: 👍
+                    - text: "5"
+                - generic [ref=e117] [cursor=pointer]:
+                  - generic [ref=e118]: BL-4
+                  - generic [ref=e119]: Email Notification Service
+                  - generic [ref=e120]: feature
+                  - generic [ref=e121]: medium
+                  - generic [ref=e122]: "5"
+                  - generic [ref=e123]:
+                    - generic [ref=e124]: 👍
+                    - text: "7"
+                - generic [ref=e125] [cursor=pointer]:
+                  - generic [ref=e126]: BL-5
+                  - generic [ref=e127]: Mobile Responsive Design
+                  - generic [ref=e128]: improvement
+                  - generic [ref=e129]: low
+                  - generic [ref=e130]: "8"
+                  - generic [ref=e131]:
+                    - generic [ref=e132]: 👍
+                    - text: "4"
+                - generic [ref=e133] [cursor=pointer]:
+                  - generic [ref=e134]: BL-6
+                  - generic [ref=e135]: Search Functionality
+                  - generic [ref=e136]: feature
+                  - generic [ref=e137]: high
+                  - generic [ref=e138]: "5"
+                  - generic [ref=e139]:
+                    - generic [ref=e140]: 👍
+                    - text: "15"
+                - generic [ref=e141] [cursor=pointer]:
+                  - generic [ref=e142]: BL-7
+                  - generic [ref=e143]: Performance Optimization
+                  - generic [ref=e144]: technical
+                  - generic [ref=e145]: medium
+                  - generic [ref=e146]: "3"
+                  - generic [ref=e147]:
+                    - generic [ref=e148]: 👍
+                    - text: "3"
+                - generic [ref=e149] [cursor=pointer]:
+                  - generic [ref=e150]: BL-8
+                  - generic [ref=e151]: User Settings Page
+                  - generic [ref=e152]: feature
+                  - generic [ref=e153]: low
+                  - generic [ref=e154]: "3"
+                  - generic [ref=e155]:
+                    - generic [ref=e156]: 👍
+                    - text: "2"
+              - generic [ref=e157]:
+                - generic [ref=e158]: 🤖
+                - generic [ref=e159]:
+                  - generic [ref=e160]: AI Recommendation
+                  - generic [ref=e161]: Based on team velocity and priorities, recommend moving BL-6 Search Functionality and BL-1 User Authentication to the next sprint.
+        - generic [ref=e164]:
+          - generic [ref=e165]:
+            - heading "WE DIDN'T JUST ADD AI. WE STARTED WITH IT." [level=2] [ref=e166]:
+              - text: WE DIDN'T JUST
+              - text: ADD AI.
+              - text: WE STARTED
+              - text: WITH IT.
+            - paragraph [ref=e167]:
+              - text: AI isn't an add-on here — it's the origin story.
+              - text: Every line of code, every feature, and every interaction was conceived to bridge the gap between human creativity and machine efficiency.
+            - list [ref=e168]:
+              - listitem [ref=e169]: Self-organizing workspaces
+              - listitem [ref=e171]: Context-aware documentation
+              - listitem [ref=e173]: Automated sprint management
+              - listitem [ref=e175]: Predictive analytics
+          - generic [ref=e180]:
+            - generic [ref=e181]:
+              - generic [ref=e182]:
+                - generic [ref=e183]:
+                  - img [ref=e185]
+                  - generic [ref=e192]:
+                    - generic [ref=e193]: AI Sprint Manager
+                    - generic [ref=e194]: Autonomous Workflow
+                - generic [ref=e196]: AI Active
+              - generic [ref=e198]:
+                - generic [ref=e200]:
+                  - img [ref=e201]
+                  - generic [ref=e204]: Backlog
+                - generic [ref=e207]:
+                  - img [ref=e208]
+                  - generic [ref=e213]: Planning
+                - generic [ref=e216]:
+                  - img [ref=e217]
+                  - generic [ref=e219]: Execution
+                - generic [ref=e222]:
+                  - img [ref=e223]
+                  - generic [ref=e225]: Results
+            - generic [ref=e226]:
+              - img [ref=e228]
+              - generic [ref=e235]: 📋 Reviewing product backlog...
+            - generic [ref=e237]:
+              - generic [ref=e238]:
+                - img [ref=e239]
+                - generic [ref=e242]: Product Backlog
+                - generic [ref=e243]: 26 total points
+              - generic [ref=e244]:
+                - generic [ref=e245]:
+                  - generic [ref=e247]:
+                    - generic [ref=e248]: User Authentication
+                    - generic [ref=e249]: high priority
+                  - generic [ref=e250]: 5 pts
+                - generic [ref=e251]:
+                  - generic [ref=e253]:
+                    - generic [ref=e254]: Dashboard Charts
+                    - generic [ref=e255]: medium priority
+                  - generic [ref=e256]: 3 pts
+                - generic [ref=e257]:
+                  - generic [ref=e259]:
+                    - generic [ref=e260]: API Endpoints
+                    - generic [ref=e261]: high priority
+                  - generic [ref=e262]: 8 pts
+                - generic [ref=e263]:
+                  - generic [ref=e265]:
+                    - generic [ref=e266]: Email Notifications
+                    - generic [ref=e267]: low priority
+                  - generic [ref=e268]: 2 pts
+                - generic [ref=e269]:
+                  - generic [ref=e271]:
+                    - generic [ref=e272]: Search Feature
+                    - generic [ref=e273]: medium priority
+                  - generic [ref=e274]: 5 pts
+                - generic [ref=e275]:
+                  - generic [ref=e277]:
+                    - generic [ref=e278]: User Settings
+                    - generic [ref=e279]: low priority
+                  - generic [ref=e280]: 3 pts
+            - generic [ref=e281]:
+              - generic [ref=e282]: Sprint 24 • 2 weeks
+              - generic [ref=e283]:
+                - img [ref=e285]
+                - text: Powered by AI
+        - generic [ref=e291]:
+          - paragraph [ref=e292]: THE SINGULARITY IS NEAR
+          - heading "\"The only platform where the software works harder than you do.\"" [level=2] [ref=e293]
+          - generic [ref=e294]:
+            - generic [ref=e297]:
+              - generic:
+                - generic: 76%
+              - generic [ref=e298]: Reduction in Admin Work
+            - generic [ref=e301]:
+              - generic:
+                - generic: 9x
+              - generic [ref=e302]: Faster Sprint Planning
+            - generic [ref=e305]:
+              - generic:
+                - generic: 95%
+              - generic [ref=e306]: AI Accuracy
+        - generic [ref=e310]:
+          - heading "Ready to evolve?" [level=2] [ref=e311]
+          - paragraph [ref=e312]: Join thousands of teams who have transformed their workflow with YUMA.
+          - link "Get Started Now" [ref=e313] [cursor=pointer]:
+            - /url: /auth?mode=signup
+            - button "Get Started Now" [ref=e315]
+        - paragraph [ref=e317]: © 2024 YUMA. Made by AI, for People.
+  - alert [ref=e318]
+```

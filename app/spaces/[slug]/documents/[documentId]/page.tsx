@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { DocumentEditorPage } from '@/components/documents/document-editor-page';
+import { SpreadsheetEditor } from '@/components/documents/spreadsheet-editor';
 import { NotionLayout } from '@/components/layout/notion-layout';
 import { Loading } from '@/components/loading';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -23,6 +24,13 @@ interface User {
   avatar?: string;
 }
 
+interface Document {
+  id: string;
+  title: string;
+  type: string;
+  content?: string;
+}
+
 export default function DocumentEditPage() {
   const params = useParams();
   const router = useRouter();
@@ -31,6 +39,7 @@ export default function DocumentEditPage() {
 
   const [user, setUser] = useState<User | null>(null);
   const [spaces, setSpaces] = useState<Space[]>([]);
+  const [document, setDocument] = useState<Document | null>(null);
   const [documentTitle, setDocumentTitle] = useState<string>('Document');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -57,12 +66,13 @@ export default function DocumentEditPage() {
           setSpaces(spacesData.spaces || []);
         }
 
-        // Fetch document to get title
+        // Fetch document to get title and type
         const docRes = await fetch(`/api/spaces/${slug}/documents/${documentId}`, {
           credentials: 'include'
         });
         const docData = await docRes.json();
         if (docData.success && docData.document) {
+          setDocument(docData.document);
           setDocumentTitle(docData.document.title || 'Document');
         }
       } catch (err) {
@@ -101,6 +111,22 @@ export default function DocumentEditPage() {
     router.push(`/spaces/${slug}?tab=documents&search=${encodeURIComponent(query)}`);
   };
 
+  const handleSpreadsheetSave = async (data: any) => {
+    const response = await fetch(`/api/spaces/${slug}/documents/${documentId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        title: documentTitle,
+        content: JSON.stringify(data),
+      }),
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to save');
+    }
+  };
+
   const currentSpace = spaces.find((s) => s.slug === slug);
   const spaceName = currentSpace?.name || slug;
 
@@ -135,7 +161,16 @@ export default function DocumentEditPage() {
     );
   }
 
-  return (
+  // Render spreadsheet editor for SPREADSHEET type
+  if (document?.type === 'SPREADSHEET') {
+    let initialData;
+    try {
+      initialData = document.content ? JSON.parse(document.content) : undefined;
+    } catch {
+      initialData = undefined;
+    }
+
+    return (
       <NotionLayout
         spaces={spaces}
         user={user}
@@ -153,6 +188,37 @@ export default function DocumentEditPage() {
           { name: documentTitle }
         ]}
       >
+        <SpreadsheetEditor
+          documentId={documentId}
+          spaceSlug={slug}
+          initialData={initialData}
+          title={documentTitle}
+          onTitleChange={setDocumentTitle}
+          onSave={handleSpreadsheetSave}
+        />
+      </NotionLayout>
+    );
+  }
+
+  // Default: Rich text document editor
+  return (
+    <NotionLayout
+      spaces={spaces}
+      user={user}
+      onLogout={handleLogout}
+      onCreateSpace={handleCreateSpace}
+      onRefreshSpaces={handleRefreshSpaces}
+      pageTitle={documentTitle}
+      hideTitle={true}
+      showSearch={true}
+      onSearch={handleSearch}
+      breadcrumbs={[
+        { name: 'Spaces', href: '/' },
+        { name: spaceName, href: `/spaces/${slug}` },
+        { name: 'Documents', href: `/spaces/${slug}?tab=documents` },
+        { name: documentTitle }
+      ]}
+    >
       <DocumentEditorPage
         spaceSlug={slug}
         documentId={documentId}
@@ -162,4 +228,3 @@ export default function DocumentEditPage() {
     </NotionLayout>
   );
 }
-

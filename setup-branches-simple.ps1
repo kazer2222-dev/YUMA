@@ -44,3 +44,9 @@ git checkout main 2>&1 | Out-Null
 Write-Host "Branch setup complete!" -ForegroundColor Green
 git branch -a
 
+
+
+
+
+
+

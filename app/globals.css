@@ -2,18 +2,16 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Prevent white flash on auth pages */
+/* Reset default margins and padding */
 html {
   margin: 0;
   padding: 0;
-  height: 100%;
   width: 100%;
 }
 
 body {
   margin: 0;
   padding: 0;
-  height: 100%;
   width: 100%;
 }
 
@@ -1111,6 +1109,14 @@ html {
     color: hsl(var(--foreground)) !important;
     /* Ensure consistent padding - default will be overridden by component classes */
     box-sizing: border-box;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* Ensure all direct children of ProseMirror use full width */
+  .ProseMirror > * {
+    max-width: 100% !important;
+    width: 100% !important;
   }
 
   /* Document editor full width - use available space without breaking layout */
@@ -1118,6 +1124,12 @@ html {
     width: 100% !important;
     max-width: 100% !important;
     position: relative;
+  }
+  
+  .document-editor-full-width .ProseMirror,
+  .document-editor-full-width .ProseMirror > * {
+    max-width: 100% !important;
+    width: 100% !important;
   }
 
   /* Ensure ProseMirror text is bright and not dim - override prose defaults */
@@ -1133,21 +1145,39 @@ html {
     color: hsl(var(--foreground)) !important;
   }
 
+  /* Override global p max-width for editor - ensure full width */
+  .ProseMirror p,
+  .ProseMirror.prose p,
   .ProseMirror.prose p:not(.is-editor-empty),
-  .ProseMirror.prose p.is-editor-empty:not(:first-child),
-  .ProseMirror.prose li,
-  .ProseMirror.prose span:not([style*="color"]),
-  .ProseMirror.prose div:not([style*="color"]),
+  .ProseMirror.prose p.is-editor-empty:not(:first-child) {
+    max-width: 100% !important;
+    width: 100% !important;
+    color: hsl(var(--foreground)) !important;
+    opacity: 1 !important;
+  }
+
+  /* Only apply full width to regular lists, not task lists */
   .ProseMirror.prose ol,
-  .ProseMirror.prose ul {
+  .ProseMirror.prose ul:not([data-type="taskList"]) {
+    max-width: 100% !important;
+    color: hsl(var(--foreground)) !important;
+    opacity: 1 !important;
+  }
+
+  .ProseMirror.prose ol > li,
+  .ProseMirror.prose ul:not([data-type="taskList"]) > li {
+    color: hsl(var(--foreground)) !important;
+    opacity: 1 !important;
+  }
+
+  .ProseMirror.prose span:not([style*="color"]) {
     color: hsl(var(--foreground)) !important;
     opacity: 1 !important;
   }
   
-  /* Ensure empty editor paragraph doesn't interfere with placeholder */
-  .ProseMirror.prose p.is-editor-empty:first-child {
-    color: transparent !important;
-    position: relative;
+  /* Ensure the first paragraph in editor has proper spacing */
+  .ProseMirror.prose > p:first-child {
+    margin-top: 0;
   }
 
   .ProseMirror table {
@@ -1355,62 +1385,74 @@ html {
     -moz-appearance: textfield;
   }
 
-  /* TipTap placeholder - make it visible and styled like document title placeholder */
-  .ProseMirror p.is-editor-empty:first-child::before,
-  .ProseMirror.prose p.is-editor-empty:first-child::before,
-  .prose .ProseMirror p.is-editor-empty:first-child::before,
-  .prose.prose-sm .ProseMirror p.is-editor-empty:first-child::before,
-  .prose.prose-lg .ProseMirror p.is-editor-empty:first-child::before,
-  .prose.prose-xl .ProseMirror p.is-editor-empty:first-child::before,
-  .prose.prose-2xl .ProseMirror p.is-editor-empty:first-child::before {
-    content: attr(data-placeholder);
-    position: absolute;
-    left: 0;
-    top: 0;
-    color: hsl(var(--muted-foreground)) !important;
-    pointer-events: none;
-    opacity: 1 !important;
-    font-size: inherit;
-    line-height: inherit;
-    font-weight: inherit;
-  }
-  
-  /* Show placeholder when editor is focused - ensure it's visible */
-  .ProseMirror:focus p.is-editor-empty:first-child::before,
-  .ProseMirror.prose:focus p.is-editor-empty:first-child::before,
-  .ProseMirror.ProseMirror-focused p.is-editor-empty:first-child::before,
-  .ProseMirror.prose.ProseMirror-focused p.is-editor-empty:first-child::before {
-    color: hsl(var(--muted-foreground)) !important;
-    opacity: 1 !important;
-    display: block !important;
-    visibility: visible !important;
-  }
-  
-  /* Ensure placeholder is always visible when editor is empty */
-  .ProseMirror p.is-editor-empty:first-child::before {
-    display: block !important;
-    visibility: visible !important;
-  }
-  
-  /* Ensure document title placeholder is greyed out */
+  /* Document title placeholder - always grey (focus and blur) */
   input[placeholder="Document title"]::placeholder {
-    color: hsl(var(--muted-foreground)) !important;
+    color: #9CA3AF !important;
     opacity: 1 !important;
+    -webkit-text-fill-color: #9CA3AF !important;
   }
   
   input[placeholder="Document title"]::-webkit-input-placeholder {
-    color: hsl(var(--muted-foreground)) !important;
+    color: #9CA3AF !important;
     opacity: 1 !important;
+    -webkit-text-fill-color: #9CA3AF !important;
   }
   
   input[placeholder="Document title"]::-moz-placeholder {
-    color: hsl(var(--muted-foreground)) !important;
+    color: #9CA3AF !important;
     opacity: 1 !important;
   }
   
   input[placeholder="Document title"]:-ms-input-placeholder {
-    color: hsl(var(--muted-foreground)) !important;
+    color: #9CA3AF !important;
     opacity: 1 !important;
+  }
+  
+  /* TipTap editor placeholder - only show when ENTIRE editor is empty */
+  /* The .is-editor-empty class is added to the ProseMirror element when the whole editor is empty */
+  .ProseMirror.is-editor-empty > p:first-child::before {
+    content: attr(data-placeholder);
+    float: left;
+    color: #9CA3AF !important;
+    opacity: 1 !important;
+    pointer-events: none;
+    height: 0;
+    font-style: normal;
+  }
+  
+  /* Hide placeholder when editor has content (even if first paragraph is empty) */
+  .ProseMirror:not(.is-editor-empty) > p::before,
+  .ProseMirror:not(.is-editor-empty) p.is-empty::before,
+  .ProseMirror:not(.is-editor-empty) p.is-editor-empty::before {
+    content: none !important;
+    display: none !important;
+  }
+  
+  /* Hide placeholder inside task lists, blockquotes, and other nested structures */
+  .ProseMirror ul[data-type="taskList"] p::before,
+  .ProseMirror ul[data-type="taskList"] li > label > div > p::before,
+  .ProseMirror blockquote p::before,
+  .ProseMirror ul:not([data-type="taskList"]) li p::before,
+  .ProseMirror ol li p::before,
+  .ProseMirror p:not(:first-child)::before {
+    content: none !important;
+    display: none !important;
+  }
+  
+  /* TipTap empty paragraph placeholder via extension - only when entire editor is empty */
+  .tiptap.is-editor-empty > p:first-child::before {
+    content: attr(data-placeholder);
+    float: left;
+    color: #9CA3AF !important;
+    opacity: 1 !important;
+    pointer-events: none;
+    height: 0;
+  }
+  
+  /* Hide placeholder in tiptap when there's content */
+  .tiptap:not(.is-editor-empty) > p::before {
+    content: none !important;
+    display: none !important;
   }
 
   /* Theme-aware inline code - override prose styles with higher specificity */
@@ -1482,58 +1524,274 @@ html {
     background-color: #713f12;
   }
 
-  .ProseMirror ul,
+  /* Bullet and Numbered Lists */
+  .ProseMirror ul:not([data-type="taskList"]),
   .ProseMirror ol {
     padding-left: 1.5rem;
     margin: 0.75rem 0;
+    font-size: 15px;
   }
 
-  .ProseMirror ul[data-type="taskList"] {
-    list-style: none;
-    padding: 0;
+  .ProseMirror ul:not([data-type="taskList"]) li,
+  .ProseMirror ol li {
+    margin: 0.25rem 0;
+    font-size: 15px;
+    line-height: 1.5;
   }
 
-  .ProseMirror ul[data-type="taskList"] p {
+  /* Make bullet points and numbers same size as text - use specific pixel size */
+  .ProseMirror ul:not([data-type="taskList"]) li::marker {
+    font-size: 15px !important;
+    color: hsl(var(--foreground));
+    font-weight: normal;
+  }
+
+  .ProseMirror ol li::marker {
+    font-size: 15px !important;
+    color: hsl(var(--foreground));
+    font-weight: normal;
+  }
+
+  /* Override any prose defaults for lists */
+  .ProseMirror.prose ol,
+  .ProseMirror.prose ul:not([data-type="taskList"]) {
+    font-size: 15px !important;
+  }
+
+  .ProseMirror.prose ol li,
+  .ProseMirror.prose ul:not([data-type="taskList"]) li {
+    font-size: 15px !important;
+  }
+
+  .ProseMirror.prose ol li::marker,
+  .ProseMirror.prose ul:not([data-type="taskList"]) li::marker {
+    font-size: 15px !important;
+  }
+
+  .ProseMirror ul:not([data-type="taskList"]) li p,
+  .ProseMirror ol li p {
+    margin: 0;
+    font-size: 15px;
+  }
+
+  /* Blockquote styling */
+  .ProseMirror blockquote {
+    border-left: 3px solid var(--color-primary);
+    margin: 1rem 0;
+    padding: 0.5rem 0 0.5rem 1rem;
+    color: hsl(var(--muted-foreground));
+    font-style: italic;
+    background: hsl(var(--muted) / 0.3);
+    border-radius: 0 0.25rem 0.25rem 0;
+  }
+
+  .ProseMirror blockquote p {
     margin: 0;
   }
 
-  .ProseMirror ul[data-type="taskList"] li {
-    list-style: none;
-    display: flex;
-    align-items: start;
+  /* Horizontal Rule / Divider */
+  .ProseMirror hr {
+    border: none;
+    border-top: 2px solid hsl(var(--border));
+    margin: 1.5rem 0;
   }
 
-  .ProseMirror ul[data-type="taskList"] li > label {
-    display: flex;
-    align-items: start;
-    width: 100%;
+  /* Headings in editor */
+  .ProseMirror h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    margin: 1.5rem 0 0.75rem 0;
+    line-height: 1.3;
+    max-width: 100% !important;
+    width: 100% !important;
   }
 
-  .ProseMirror ul[data-type="taskList"] li > label > input[type="checkbox"] {
-    width: 14px;
-    height: 14px;
+  .ProseMirror h2 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin: 1.25rem 0 0.5rem 0;
+    line-height: 1.35;
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+
+  .ProseMirror h3 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin: 1rem 0 0.5rem 0;
+    max-width: 100% !important;
+    width: 100% !important;
+    line-height: 1.4;
+  }
+
+  /* Ensure first element has no top margin */
+  .ProseMirror > *:first-child {
+    margin-top: 0 !important;
+  }
+
+  /* Todo Block in Editor */
+  .ProseMirror .todo-block-wrapper {
+    margin: 8px 0;
+  }
+  
+  .ProseMirror .todo-block-wrapper .todo-block {
+    /* Styling handled by React component */
+  }
+  
+  /* Make the todo block non-editable by ProseMirror */
+  .ProseMirror .todo-block-wrapper [contenteditable="false"] {
+    outline: none;
+  }
+
+  /* Toggle List in Editor */
+  .ProseMirror .toggle-list-wrapper {
+    margin: 4px 0;
+  }
+
+  .ProseMirror .toggle-list-wrapper .toggle-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  /* Toggle button styling */
+  .ProseMirror .toggle-list-wrapper .toggle-arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    min-width: 20px;
+    padding: 0;
+    margin: 0;
     margin-top: 2px;
-    margin-right: 8px;
-    cursor: pointer;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: hsl(var(--muted-foreground));
+    cursor: pointer !important;
     flex-shrink: 0;
+    outline: none;
+    position: relative;
+    z-index: 100;
+    pointer-events: auto !important;
+    -webkit-user-select: none;
+    user-select: none;
   }
 
-  .ProseMirror ul[data-type="taskList"] li[data-checked="true"] > label > p {
-    text-decoration: line-through;
-    opacity: 0.6;
+  .ProseMirror .toggle-list-wrapper .toggle-arrow:hover {
+    background-color: hsl(var(--muted));
+    color: hsl(var(--foreground));
   }
 
-  .ProseMirror ul[data-type="taskList"] li > label > div {
+  .ProseMirror .toggle-list-wrapper .toggle-arrow:focus {
+    outline: none;
+  }
+
+  .ProseMirror .toggle-list-wrapper .toggle-arrow svg {
+    transition: transform 0.15s ease;
+    pointer-events: none !important;
+  }
+
+  .ProseMirror .toggle-list-wrapper .toggle-arrow.toggle-arrow-open svg,
+  .ProseMirror .toggle-list-wrapper .toggle-arrow-open svg {
+    transform: rotate(90deg) !important;
+  }
+
+  .ProseMirror .toggle-list-wrapper .toggle-content {
     flex: 1;
+    min-width: 0;
   }
 
+  /* First paragraph (heading) - always visible */
+  .ProseMirror .toggle-list-wrapper .toggle-content > div[data-node-view-content-react] > p:first-child,
+  .ProseMirror .toggle-list-wrapper .toggle-content > div > p:first-child,
+  .ProseMirror .toggle-list-wrapper .toggle-content > p:first-child {
+    margin: 0;
+    min-height: 24px;
+    line-height: 1.5;
+  }
+
+  /* Placeholder for empty first paragraph */
+  .ProseMirror .toggle-list-wrapper .toggle-content > div[data-node-view-content-react] > p:first-child.is-empty::before,
+  .ProseMirror .toggle-list-wrapper .toggle-content > div > p:first-child.is-empty::before,
+  .ProseMirror .toggle-list-wrapper .toggle-content > p:first-child.is-empty::before {
+    content: 'Toggle heading';
+    color: hsl(var(--muted-foreground));
+    font-style: italic;
+    pointer-events: none;
+    position: absolute;
+  }
+
+  /* When closed: hide all content after first paragraph */
+  /* NodeViewContent wraps content in a div, so we need to target inside that */
+  .ProseMirror .toggle-list-wrapper.is-closed .toggle-content > div[data-node-view-content-react] > *:not(:first-child),
+  .ProseMirror .toggle-list-wrapper.is-closed .toggle-content > div[data-node-view-content-react] > p:not(:first-child),
+  .ProseMirror .toggle-list-wrapper.is-closed .toggle-content > div[data-node-view-content-react] > div:not(:first-child),
+  .ProseMirror .toggle-list-wrapper.is-closed .toggle-content > div[data-node-view-content-react] > ul:not(:first-child),
+  .ProseMirror .toggle-list-wrapper.is-closed .toggle-content > div[data-node-view-content-react] > ol:not(:first-child),
+  .ProseMirror .toggle-list-wrapper.is-closed .toggle-content > div > *:not(:first-child),
+  .ProseMirror .toggle-list-wrapper.is-closed .toggle-content > *:not(:first-child) {
+    display: none !important;
+  }
+
+  /* When open: show nested content with indentation */
+  .ProseMirror .toggle-list-wrapper.is-open .toggle-content > div[data-node-view-content-react] > *:not(:first-child),
+  .ProseMirror .toggle-list-wrapper.is-open .toggle-content > div[data-node-view-content-react] > p:not(:first-child),
+  .ProseMirror .toggle-list-wrapper.is-open .toggle-content > div[data-node-view-content-react] > div:not(:first-child),
+  .ProseMirror .toggle-list-wrapper.is-open .toggle-content > div[data-node-view-content-react] > ul:not(:first-child),
+  .ProseMirror .toggle-list-wrapper.is-open .toggle-content > div[data-node-view-content-react] > ol:not(:first-child),
+  .ProseMirror .toggle-list-wrapper.is-open .toggle-content > div > *:not(:first-child),
+  .ProseMirror .toggle-list-wrapper.is-open .toggle-content > *:not(:first-child) {
+    display: block !important;
+    padding-left: 16px;
+    border-left: 2px solid hsl(var(--border));
+    margin-left: 8px;
+    margin-top: 4px;
+  }
+
+  /* Mention styling */
   .ProseMirror .mention {
     background-color: hsl(var(--muted));
     border-radius: 0.25rem;
-    padding: 0.125rem 0.25rem;
+    padding: 0.125rem 0.375rem;
     font-weight: 500;
     color: hsl(var(--primary));
     cursor: pointer;
+    text-decoration: none;
+  }
+
+  .ProseMirror .mention:hover {
+    background-color: hsl(var(--primary) / 0.1);
+  }
+
+  /* Hashtag styling - visible labels */
+  .ProseMirror .hashtag,
+  .ProseMirror span[data-type="hashtag"] {
+    display: inline-flex;
+    align-items: center;
+    background: linear-gradient(135deg, hsl(var(--primary) / 0.1), hsl(var(--primary) / 0.15));
+    color: hsl(var(--primary));
+    border: 1px solid hsl(var(--primary) / 0.3);
+    border-radius: 0.375rem;
+    padding: 0.125rem 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    margin: 0 0.125rem;
+    cursor: default;
+  }
+
+  .dark .ProseMirror .hashtag,
+  .dark .ProseMirror span[data-type="hashtag"] {
+    background: linear-gradient(135deg, hsl(var(--primary) / 0.2), hsl(var(--primary) / 0.25));
+    border-color: hsl(var(--primary) / 0.4);
+  }
+
+  /* Toggle list styling */
+  .ProseMirror .toggle-content {
+    border-left: 2px solid hsl(var(--border));
+    padding-left: 1rem;
+    margin-left: 0.5rem;
   }
 
   .ProseMirror table {
@@ -1546,12 +1804,19 @@ html {
 
   .ProseMirror table td,
   .ProseMirror table th {
-    min-width: 1em;
+    min-width: 100px;
+    min-height: 40px;
     border: 1px solid hsl(var(--border));
     padding: 0.5rem;
     vertical-align: top;
     box-sizing: border-box;
     position: relative;
+  }
+  
+  .ProseMirror table td p,
+  .ProseMirror table th p {
+    margin: 0;
+    min-height: 1.5em;
   }
 
   .ProseMirror table th {
@@ -1695,14 +1960,44 @@ html {
   }
 
   .animate-shimmer {
-    animation: shimmer 3s linear infinite;
+    animation: shimmer 2s ease-in-out infinite;
     background: linear-gradient(
-      to right,
+      90deg,
       transparent 0%,
-      rgba(255, 255, 255, 0.1) 50%,
+      rgba(139, 92, 246, 0.5) 50%,
       transparent 100%
     );
-    background-size: 1000px 100%;
+    background-size: 200% 100%;
+  }
+  
+  @keyframes shimmer {
+    0% {
+      background-position: 200% 0;
+    }
+    100% {
+      background-position: -200% 0;
+    }
+  }
+  
+  /* Slow spin animation for AI loading */
+  .animate-spin-slow {
+    animation: spin-slow 3s linear infinite;
+  }
+  
+  @keyframes spin-slow {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  
+  /* AI Glow effect */
+  .ai-glow {
+    box-shadow: 0 0 20px rgba(139, 92, 246, 0.3),
+                0 0 40px rgba(99, 102, 241, 0.2),
+                0 0 60px rgba(59, 130, 246, 0.1);
   }
 
   /* Perspective utility */

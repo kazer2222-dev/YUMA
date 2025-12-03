@@ -170,3 +170,9 @@ If Git commands hang in PowerShell too:
 
 Your Git is properly configured. The timeout issue is with the automation system, not your Git setup. Please test manually to verify the connection works.
 
+
+
+
+
+
+

@@ -322,6 +322,13 @@ export function DocumentsPage() {
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={(e) => {
                           e.stopPropagation();
+                          router.push(`/spaces/${slug}/documents/${doc.id}`);
+                        }}>
+                          <Edit className="w-4 h-4 mr-2" />
+                          Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={(e) => {
+                          e.stopPropagation();
                           handlePin(doc);
                         }}>
                           {doc.isPinned ? (
@@ -439,6 +446,13 @@ export function DocumentsPage() {
                           }}>
                             <Eye className="w-4 h-4 mr-2" />
                             View
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={(e) => {
+                            e.stopPropagation();
+                            router.push(`/spaces/${slug}/documents/${doc.id}`);
+                          }}>
+                            <Edit className="w-4 h-4 mr-2" />
+                            Edit
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={(e) => {
                             e.stopPropagation();

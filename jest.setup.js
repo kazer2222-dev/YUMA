@@ -1,5 +1,20 @@
 import '@testing-library/jest-dom';
 
+// Polyfill fetch for Node.js environments
+// Node.js 18+ has fetch built-in, but Jest might need it in global scope
+if (typeof global.fetch === 'undefined' && typeof globalThis.fetch === 'undefined') {
+  // Provide a basic mock for fetch
+  global.fetch = jest.fn(() =>
+    Promise.resolve({
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      json: () => Promise.resolve({}),
+      text: () => Promise.resolve(''),
+    })
+  );
+}
+
 // Mock Next.js router
 jest.mock('next/navigation', () => ({
   useRouter: () => ({

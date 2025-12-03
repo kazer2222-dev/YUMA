@@ -147,3 +147,9 @@ git show --name-only HEAD
 2. Recommit: `git commit -m "fix: remove hardcoded JWT secret to prevent GitHub push protection"`
 3. Push: `git push origin main` (after unblocking)
 
+
+
+
+
+
+

@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
       apiKey: process.env.OPENAI_API_KEY,
     });
 
-    const { taskTitle, currentDescription } = await request.json();
+    const { taskTitle, userPrompt, existingContent, mode } = await request.json();
 
     if (!taskTitle || typeof taskTitle !== 'string') {
       return NextResponse.json(
@@ -42,9 +42,29 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const prompt = `Generate detailed requirements for the following task: "${taskTitle}"
+    let prompt: string;
+    
+    if (mode === 'append' && existingContent) {
+      // Append mode - add to existing content based on user's instruction
+      prompt = `You are helping with a document titled "${taskTitle}".
 
-${currentDescription ? `Current description:\n${currentDescription}\n\n` : ''}
+Here is the existing content:
+---
+${existingContent}
+---
+
+User's request: "${userPrompt}"
+
+IMPORTANT: 
+- DO NOT regenerate or repeat the existing content
+- ONLY generate the NEW content that should be ADDED based on the user's request
+- Return ONLY the new content to be inserted, nothing else
+- Keep the same style and formatting as the existing content`;
+    } else {
+      // Generate mode - create fresh content
+      prompt = `Generate detailed requirements for the following task: "${taskTitle}"
+
+${userPrompt ? `User's specific request: ${userPrompt}\n\n` : ''}
 
 Generate comprehensive requirements that include:
 - Functional requirements (what the task should do)
@@ -54,18 +74,23 @@ Generate comprehensive requirements that include:
 - Success criteria
 
 Format the requirements clearly with sections and bullet points. Return only the requirements text, no title or extra formatting.`;
+    }
+
+    const systemMessage = mode === 'append' 
+      ? 'You are a helpful writing assistant. When asked to add content to an existing document, ONLY provide the new content to be added. Never repeat or regenerate existing content. Be concise and match the existing style.'
+      : 'You are a technical requirements analyst. Generate clear, comprehensive, and actionable requirements for software tasks. Use proper formatting with sections and bullet points.';
 
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
         {
           role: 'system',
-          content: 'You are a technical requirements analyst. Generate clear, comprehensive, and actionable requirements for software tasks. Use proper formatting with sections and bullet points.',
+          content: systemMessage,
         },
         { role: 'user', content: prompt },
       ],
       temperature: 0.7,
-      max_tokens: 16384,
+      max_tokens: mode === 'append' ? 2048 : 16384,
     });
 
     const requirement = completion.choices[0]?.message?.content?.trim() || '';

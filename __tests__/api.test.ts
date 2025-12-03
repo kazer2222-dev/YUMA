@@ -1,5 +1,8 @@
 import { describe, it, expect, beforeEach } from '@jest/globals';
 
+// Mock fetch globally
+global.fetch = jest.fn();
+
 describe('Auth API', () => {
   beforeEach(() => {
     // Reset mocks before each test
@@ -7,6 +10,12 @@ describe('Auth API', () => {
   });
 
   it('should return 401 when no token provided', async () => {
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      status: 401,
+      ok: false,
+      json: async () => ({ error: 'Unauthorized' }),
+    });
+
     const response = await fetch('/api/auth/me');
     expect(response.status).toBe(401);
   });

@@ -83,3 +83,9 @@ To prevent this in the future:
 2. Commit the fix: `git add lib/auth.ts && git commit -m "fix: remove hardcoded JWT secret"`
 3. Push: `git push origin main`
 
+
+
+
+
+
+

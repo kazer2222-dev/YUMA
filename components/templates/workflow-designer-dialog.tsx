@@ -13,7 +13,6 @@ import {
   BaseEdge,
   EdgeLabelRenderer,
   getSmoothStepPath,
-  getStepPath,
   type Connection,
   type Edge,
   type EdgeChange,
@@ -321,8 +320,8 @@ function TransitionEdge({
   data,
   label,
 }: EdgeProps<TransitionEdgeData>) {
-  // Use getStepPath for step edges to get squared/straight transitions
-  const [edgePath, labelX, labelY] = getStepPath({
+  // Use getSmoothStepPath for step edges to get squared/straight transitions
+  const [edgePath, labelX, labelY] = getSmoothStepPath({
     sourceX,
     sourceY,
     sourcePosition,

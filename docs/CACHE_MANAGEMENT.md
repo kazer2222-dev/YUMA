@@ -215,3 +215,9 @@ Use browser DevTools → Network tab to inspect cache headers:
 - [Web.dev Caching Best Practices](https://web.dev/http-cache/)
 
 
+
+
+
+
+
+

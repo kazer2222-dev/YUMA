@@ -64,7 +64,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className={`${inter.className} antialiased`} style={{ margin: 0, padding: 0 }}>
+      <body className={`${inter.className} antialiased`} style={{ margin: 0, padding: 0, height: '100vh', width: '100%' }}>
         <ThemeProvider defaultTheme="dark" storageKey="yuma-theme">
           <QueryProvider>
             <NavigationProvider>

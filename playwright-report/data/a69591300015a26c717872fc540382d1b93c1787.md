@@ -1,0 +1,188 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - generic:
+      - img
+    - main [ref=e3]:
+      - generic [ref=e4]:
+        - generic [ref=e5]:
+          - generic [ref=e12]:
+            - generic [ref=e15]: BUILT BY AI.
+            - generic [ref=e18]: FOR HUMANS.
+            - paragraph [ref=e19]: Focus on the work that matters — everything else organizes, predicts, and documents itself.
+            - generic [ref=e20]:
+              - link "Start for Free" [ref=e22] [cursor=pointer]:
+                - /url: /auth?mode=signup
+                - button "Start for Free" [ref=e23]
+              - link "Login" [ref=e25] [cursor=pointer]:
+                - /url: /auth?mode=login
+                - button "Login" [ref=e26]
+          - generic [ref=e28]: Scroll to Explore
+        - generic [ref=e30]:
+          - generic [ref=e32]:
+            - paragraph [ref=e33]: EXPLORE THE PLATFORM
+            - heading "Everything you need to manage work" [level=2] [ref=e34]
+            - paragraph [ref=e35]: See how YUMA brings together all your project management needs in one intelligent platform
+          - generic [ref=e37]:
+            - generic [ref=e38]:
+              - button "Backlog" [ref=e39] [cursor=pointer]:
+                - img [ref=e40]
+                - text: Backlog
+              - button "Board" [ref=e47] [cursor=pointer]:
+                - img [ref=e48]
+                - text: Board
+              - button "Tasks" [ref=e53] [cursor=pointer]:
+                - img [ref=e54]
+                - text: Tasks
+              - button "Calendar" [ref=e60] [cursor=pointer]:
+                - img [ref=e61]
+                - text: Calendar
+              - button "Roadmap" [ref=e66] [cursor=pointer]:
+                - img [ref=e67]
+                - text: Roadmap
+              - button "Releases" [ref=e71] [cursor=pointer]:
+                - img [ref=e72]
+                - text: Releases
+              - button "Sprints" [ref=e77] [cursor=pointer]:
+                - img [ref=e78]
+                - text: Sprints
+              - button "Docs" [ref=e80] [cursor=pointer]:
+                - img [ref=e81]
+                - text: Docs
+              - button "More" [disabled] [ref=e87]:
+                - img [ref=e88]
+                - text: More
+            - generic [ref=e95]:
+              - generic [ref=e96]:
+                - generic [ref=e97]: ID
+                - generic [ref=e98]: Task
+                - generic [ref=e99]: Status
+                - generic [ref=e100]: Assignee
+                - generic [ref=e101]: Due
+              - generic [ref=e102] [cursor=pointer]:
+                - generic [ref=e103]: TIT-8
+                - generic [ref=e104]: Design system update
+                - generic [ref=e105]: New
+                - generic [ref=e106]: Sarah
+                - generic [ref=e107]: 28/11
+              - generic [ref=e108] [cursor=pointer]:
+                - generic [ref=e109]: TIT-4
+                - generic [ref=e110]: Sprint planning AI
+                - generic [ref=e111]: In Progress
+                - generic [ref=e112]: John
+                - generic [ref=e113]: 25/11
+              - generic [ref=e114] [cursor=pointer]:
+                - generic [ref=e115]: TIT-6
+                - generic [ref=e116]: Authentication module
+                - generic [ref=e117]: To Do
+                - generic [ref=e118]: Mike
+                - generic [ref=e119]: 30/11
+              - generic [ref=e120] [cursor=pointer]:
+                - generic [ref=e121]: TIT-9
+                - generic [ref=e122]: User onboarding flow
+                - generic [ref=e123]: Backlog
+                - generic [ref=e124]: "-"
+                - generic [ref=e125]: "-"
+              - generic [ref=e126] [cursor=pointer]:
+                - generic [ref=e127]: TIT-7
+                - generic [ref=e128]: Performance optimization
+                - generic [ref=e129]: Backlog
+                - generic [ref=e130]: "-"
+                - generic [ref=e131]: "-"
+        - generic [ref=e134]:
+          - generic [ref=e135]:
+            - heading "WE DIDN'T JUST ADD AI. WE STARTED WITH IT." [level=2] [ref=e136]:
+              - text: WE DIDN'T JUST
+              - text: ADD AI.
+              - text: WE STARTED
+              - text: WITH IT.
+            - paragraph [ref=e137]:
+              - text: AI isn't an add-on here — it's the origin story.
+              - text: Every line of code, every feature, and every interaction was conceived to bridge the gap between human creativity and machine efficiency.
+            - list [ref=e138]:
+              - listitem [ref=e139]: Self-organizing workspaces
+              - listitem [ref=e141]: Context-aware documentation
+              - listitem [ref=e143]: Automated sprint management
+              - listitem [ref=e145]: Predictive analytics
+          - generic [ref=e150]:
+            - generic [ref=e151]:
+              - generic [ref=e152]:
+                - generic [ref=e153]:
+                  - img [ref=e155]
+                  - generic [ref=e162]:
+                    - generic [ref=e163]: AI Sprint Manager
+                    - generic [ref=e164]: Autonomous Workflow
+                - generic [ref=e166]: AI Active
+              - generic [ref=e168]:
+                - generic [ref=e170]:
+                  - img [ref=e171]
+                  - generic [ref=e177]: Backlog
+                - generic [ref=e180]:
+                  - img [ref=e181]
+                  - generic [ref=e186]: Planning
+                - generic [ref=e189]:
+                  - img [ref=e190]
+                  - generic [ref=e195]: Execution
+                - generic [ref=e198]:
+                  - img [ref=e199]
+                  - generic [ref=e204]: Results
+            - generic [ref=e205]:
+              - img [ref=e207]
+              - generic [ref=e214]: 🔄 Starting authentication work...
+            - generic [ref=e217]:
+              - generic [ref=e218]:
+                - generic [ref=e219]:
+                  - img [ref=e220]
+                  - generic [ref=e226]: To Do
+                  - generic [ref=e227]: "3"
+                - generic [ref=e228]:
+                  - generic [ref=e229]:
+                    - generic [ref=e232]: Dashboard Charts
+                    - generic [ref=e233]: 3 pts
+                  - generic [ref=e234]:
+                    - generic [ref=e237]: API Endpoints
+                    - generic [ref=e238]: 8 pts
+                  - generic [ref=e239]:
+                    - generic [ref=e242]: Email Notifications
+                    - generic [ref=e243]: 2 pts
+              - generic [ref=e244]:
+                - generic [ref=e245]:
+                  - img [ref=e246]
+                  - generic [ref=e248]: In Progress
+                  - generic [ref=e249]: "1"
+                - generic [ref=e251]:
+                  - generic [ref=e254]: User Authentication
+                  - generic [ref=e255]: 5 pts
+              - generic [ref=e257]:
+                - img [ref=e258]
+                - generic [ref=e264]: Done
+                - generic [ref=e265]: "0"
+            - generic [ref=e266]:
+              - generic [ref=e267]: Sprint 24 • 2 weeks
+              - generic [ref=e268]:
+                - img [ref=e270]
+                - text: Powered by AI
+        - generic [ref=e276]:
+          - paragraph [ref=e277]: THE SINGULARITY IS NEAR
+          - heading "\"The only platform where the software works harder than you do.\"" [level=2] [ref=e278]
+          - generic [ref=e279]:
+            - generic [ref=e282]:
+              - generic [ref=e284]: 80%
+              - generic [ref=e285]: Reduction in Admin Work
+            - generic [ref=e288]:
+              - generic [ref=e290]: 10x
+              - generic [ref=e291]: Faster Sprint Planning
+            - generic [ref=e294]:
+              - generic [ref=e296]: 99.9%
+              - generic [ref=e297]: AI Accuracy
+        - generic [ref=e301]:
+          - heading "Ready to evolve?" [level=2] [ref=e302]
+          - paragraph [ref=e303]: Join thousands of teams who have transformed their workflow with YUMA.
+          - link "Get Started Now" [ref=e304] [cursor=pointer]:
+            - /url: /auth?mode=signup
+            - button "Get Started Now" [active] [ref=e306]
+        - paragraph [ref=e308]: © 2024 YUMA. Made by AI, for People.
+  - alert [ref=e309]
+```

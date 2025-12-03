@@ -62,14 +62,14 @@ export function ClickUpHomeDashboard({
   onAiInsightsClick,
 }: ClickUpHomeDashboardProps) {
   return (
-    <div className="p-4 sm:p-6 space-y-4 sm:space-y-6 h-full w-full">
+    <div className="p-4 sm:p-6 space-y-4 sm:space-y-6 w-full min-h-full">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div>
-          <h1 className="mb-1">Welcome back, {userName} 👋</h1>
-          <p className="text-[var(--muted-foreground)]">Here&apos;s what&apos;s happening with your projects today</p>
+          <h1 className="text-2xl sm:text-3xl font-bold mb-1 text-foreground">Welcome back, {userName} 👋</h1>
+          <p className="text-muted-foreground text-sm sm:text-base">Here&apos;s what&apos;s happening with your projects today</p>
         </div>
         <Button
-          className="bg-[var(--primary)] hover:bg-[var(--primary)]/90 text-white w-full sm:w-auto"
+          className="bg-primary hover:bg-primary/90 text-white w-full sm:w-auto"
           onClick={onAiInsightsClick}
         >
           <Sparkles className="w-4 h-4 mr-2" />
@@ -83,7 +83,7 @@ export function ClickUpHomeDashboard({
           return (
             <Card
               key={stat.title}
-              className="cursor-pointer border-[var(--border)] bg-[var(--card)] p-4 transition-colors hover:bg-[var(--muted)]"
+              className="cursor-pointer border-border bg-card p-4 transition-colors hover:bg-muted"
             >
               <div className="flex items-start justify-between mb-3">
                 <div
@@ -92,14 +92,14 @@ export function ClickUpHomeDashboard({
                 >
                   <Icon className="w-5 h-5" style={{ color: stat.color }} />
                 </div>
-                <div className="flex items-center gap-1 text-[var(--muted-foreground)]">
+                <div className="flex items-center gap-1 text-muted-foreground">
                   <ArrowUpRight className="w-3 h-3" style={{ color: stat.color }} />
                   <span style={{ color: stat.color }}>{stat.change}</span>
                 </div>
               </div>
               <div>
-                <h2 className="mb-1" style={{ fontSize: 'var(--text-3xl)', fontWeight: 'var(--font-weight-bold)' }}>{stat.value}</h2>
-                <p className="text-[var(--muted-foreground)]">{stat.title}</p>
+                <h2 className="text-2xl sm:text-3xl font-bold mb-1 text-foreground">{stat.value}</h2>
+                <p className="text-muted-foreground text-sm">{stat.title}</p>
               </div>
             </Card>
           );
@@ -107,9 +107,9 @@ export function ClickUpHomeDashboard({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="lg:col-span-2 bg-[var(--card)] border-[var(--border)] p-6">
+        <Card className="lg:col-span-2 bg-card border-border p-6">
           <div className="flex items-center justify-between mb-4">
-            <h2>Recent Tasks</h2>
+            <h2 className="text-lg font-semibold text-foreground">Recent Tasks</h2>
             <Button variant="ghost" size="sm">
               View All
             </Button>
@@ -119,28 +119,28 @@ export function ClickUpHomeDashboard({
               recentTasks.map((task) => (
                 <div
                   key={task.id}
-                  className="flex items-center gap-4 p-3 rounded-lg bg-[var(--background)] hover:bg-[var(--muted)] transition-colors cursor-pointer"
+                  className="flex items-center gap-4 p-3 rounded-lg bg-background hover:bg-muted transition-colors cursor-pointer"
                 >
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-[var(--muted-foreground)]">{task.id}</span>
+                      <span className="text-muted-foreground text-sm">{task.id}</span>
                       <span
-                        className="px-2 py-0.5 rounded"
+                        className="px-2 py-0.5 rounded text-xs"
                         style={{ backgroundColor: `${task.statusColor}20`, color: task.statusColor }}
                       >
                         {task.status}
                       </span>
                     </div>
-                    <h4 className="truncate">{task.title}</h4>
+                    <h4 className="truncate font-medium text-foreground">{task.title}</h4>
                   </div>
-                  <div className="flex items-center gap-4 text-[var(--muted-foreground)]">
+                  <div className="flex items-center gap-4 text-muted-foreground">
                     <div
-                      className="px-2 py-1 rounded"
+                      className="px-2 py-1 rounded text-xs"
                       style={{ backgroundColor: `${task.priorityColor}20`, color: task.priorityColor }}
                     >
                       {task.priority}
                     </div>
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1 text-sm">
                       <Calendar className="w-3 h-3" />
                       <span>{task.dueDate}</span>
                     </div>
@@ -148,7 +148,7 @@ export function ClickUpHomeDashboard({
                 </div>
               ))
             ) : (
-              <div className="text-center py-12 text-[var(--muted-foreground)]">
+              <div className="text-center py-12 text-muted-foreground">
                 <p>No recent tasks</p>
                 <p className="text-sm mt-1">Tasks you work on will appear here</p>
               </div>
@@ -156,42 +156,42 @@ export function ClickUpHomeDashboard({
           </div>
         </Card>
 
-        <Card className="bg-[var(--card)] border-[var(--border)] p-6">
+        <Card className="bg-card border-border p-6">
           <div className="flex items-center gap-2 mb-4">
             <Target className="w-5 h-5" style={{ color: '#4353FF' }} />
-            <h2>Milestones</h2>
+            <h2 className="text-lg font-semibold text-foreground">Milestones</h2>
           </div>
           <div className="space-y-4">
             {milestones.map((milestone) => (
               <div key={milestone.title}>
                 <div className="flex items-center justify-between mb-2">
-                  <h4>{milestone.title}</h4>
-                  <span className="text-[var(--muted-foreground)]">{milestone.progress}%</span>
+                  <h4 className="font-medium text-sm text-foreground">{milestone.title}</h4>
+                  <span className="text-muted-foreground text-sm">{milestone.progress}%</span>
                 </div>
-                <div className="h-2 bg-[var(--background)] rounded-full overflow-hidden mb-1">
+                <div className="h-2 bg-background rounded-full overflow-hidden mb-1">
                   <div
                     className="h-full rounded-full transition-all"
                     style={{ width: `${milestone.progress}%`, backgroundColor: milestone.color }}
                   />
                 </div>
-                <span className="text-[var(--muted-foreground)]">{milestone.date}</span>
+                <span className="text-muted-foreground text-xs">{milestone.date}</span>
               </div>
             ))}
           </div>
         </Card>
       </div>
 
-      <Card className="bg-[var(--card)] border-[var(--border)] p-6">
+      <Card className="bg-card border-border p-6">
         <div className="flex items-center gap-2 mb-4">
           <Sparkles className="w-5 h-5" style={{ color: '#8B5CF6' }} />
-          <h2>AI Insights</h2>
-          <span className="px-2 py-0.5 rounded bg-[#8B5CF620] text-[#8B5CF6]">Powered by AI</span>
+          <h2 className="text-lg font-semibold text-foreground">AI Insights</h2>
+          <span className="px-2 py-0.5 rounded bg-[#8B5CF620] text-[#8B5CF6] text-xs">Powered by AI</span>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {aiInsights.map((insight) => (
             <div
               key={insight.title}
-              className="p-4 rounded-lg border border-[var(--border)] hover:bg-[var(--muted)]/50 transition-colors cursor-pointer"
+              className="p-4 rounded-lg border border-border hover:bg-muted/50 transition-colors cursor-pointer"
             >
               <div className="flex items-start gap-3">
                 <div
@@ -204,8 +204,8 @@ export function ClickUpHomeDashboard({
                   />
                 </div>
                 <div>
-                  <h4 className="mb-1">{insight.title}</h4>
-                  <span className="text-[var(--muted-foreground)]">
+                  <h4 className="font-medium text-sm mb-1 text-foreground">{insight.title}</h4>
+                  <span className="text-muted-foreground text-xs">
                     {insight.description}
                   </span>
                 </div>

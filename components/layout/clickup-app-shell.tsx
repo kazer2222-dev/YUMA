@@ -157,7 +157,7 @@ export function ClickUpAppShell({
 
   return (
     <>
-      <div className="flex min-h-screen bg-[var(--background)] text-[var(--foreground)]">
+      <div className="flex h-screen bg-[var(--background)] text-[var(--foreground)] overflow-hidden">
         <ClickUpSidebar
           spaces={spaces}
           collapsed={sidebarCollapsed}
@@ -209,8 +209,8 @@ export function ClickUpAppShell({
             hideTitle={hideTitle}
           />
 
-          <main className="flex-1 overflow-hidden bg-[var(--background)] min-h-0">
-            <div className="w-full h-full">{children}</div>
+          <main className="flex-1 overflow-auto bg-[var(--background)] min-h-0">
+            <div className="w-full min-h-full">{children}</div>
           </main>
         </div>
       </div>
