@@ -129,6 +129,10 @@ model Space {
   // Documents
   documents Document[]
 
+  // Regression
+  tests Test[]
+  bugs  Bug[]
+
   @@map("spaces")
 }
 
@@ -480,6 +484,8 @@ model Release {
 
   board   Board           @relation(fields: [boardId], references: [id], onDelete: Cascade)
   sprints ReleaseSprint[]
+  tests   Test[]
+  bugs    Bug[]
 
   @@map("releases")
 }
@@ -816,6 +822,42 @@ model DocumentRedaction {
 
   @@index([documentId])
   @@map("document_redactions")
+}
+
+model Test {
+  id                    String   @id @default(cuid())
+  spaceId               String
+  name                  String
+  module                String?
+  lastExecutedReleaseId String?
+  score                 Float    @default(0)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  space               Space    @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  lastExecutedRelease Release? @relation(fields: [lastExecutedReleaseId], references: [id])
+
+  @@index([spaceId])
+  @@map("tests")
+}
+
+model Bug {
+  id               String   @id @default(cuid())
+  spaceId          String
+  summary          String
+  description      String?
+  fixedInReleaseId String?
+  affectedModule   String?
+  status           String   @default("OPEN") // OPEN, FIXED, CLOSED
+  aiRiskScore      Float    @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  space          Space    @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  fixedInRelease Release? @relation(fields: [fixedInReleaseId], references: [id])
+
+  @@index([spaceId])
+  @@map("bugs")
 }
 
 // User's expanded/collapsed state for page tree (Confluence-style persistence)

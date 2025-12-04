@@ -29,6 +29,7 @@ import {
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/loading';
 import { usePageTree, PageTreeProvider } from './page-tree-context';
 import { PageTreeNodeComponent } from './page-tree-node';
 import { PageTreeContextMenu } from './page-tree-context-menu';
@@ -231,6 +232,7 @@ function PageTreeInner({
   // Fetch pages function (can be called to refresh)
   const fetchPages = useCallback(async () => {
     try {
+      dispatch({ type: 'SET_LOADING', payload: true });
       const response = await fetch(`/api/spaces/${spaceSlug}/pages/tree`, {
         credentials: 'include',
       });
@@ -240,12 +242,24 @@ function PageTreeInner({
       }
     } catch (error) {
       console.error('Failed to fetch page tree:', error);
+    } finally {
+      dispatch({ type: 'SET_LOADING', payload: false });
     }
-  }, [spaceSlug, setNodes]);
+  }, [spaceSlug, setNodes, dispatch]);
 
-  // Fetch pages on mount
+  // Fetch pages on mount and listen for refresh events
   useEffect(() => {
     fetchPages();
+
+    const handleRefresh = () => {
+      console.log('[PageTree] Refreshing tree due to external event');
+      fetchPages();
+    };
+
+    window.addEventListener('REFRESH_PAGE_TREE', handleRefresh);
+    return () => {
+      window.removeEventListener('REFRESH_PAGE_TREE', handleRefresh);
+    };
   }, [fetchPages]);
 
 
@@ -436,12 +450,12 @@ function PageTreeInner({
   return (
     <div
       ref={containerRef}
-      className={cn('page-tree flex flex-col h-full', className)}
+      className={cn('page-tree', className)}
       role="tree"
       aria-label="Page tree"
     >
       {/* Header with search and controls */}
-      <div className="flex-shrink-0 p-3 space-y-2 border-b border-border">
+      <div className="flex-shrink-0 px-2 py-1 space-y-2">
         {showSearch && (
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -458,10 +472,15 @@ function PageTreeInner({
       </div>
 
       {/* Tree content */}
-      <div className="flex-1 overflow-y-auto px-2 py-1">
+      <div className="px-2 py-1">
         {state.isLoading ? (
-          <div className="flex items-center justify-center py-8">
-            <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+          <div className="space-y-1 px-2 py-1">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="flex items-center gap-2 py-1">
+                <Skeleton className="w-4 h-4 rounded-sm" />
+                <Skeleton className="h-4 w-32 rounded-sm" />
+              </div>
+            ))}
           </div>
         ) : visibleNodes.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
@@ -482,6 +501,7 @@ function PageTreeInner({
           </div>
         ) : (
           <DndContext
+            id={`page-tree-dnd-context-${spaceSlug}`}
             sensors={sensors}
             collisionDetection={closestCenter}
             onDragStart={handleDragStart}

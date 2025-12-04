@@ -257,7 +257,7 @@ export function SpaceOverviewContent({
       description: 'Permissions and roles',
       icon: Users,
       color: '#F59E0B',
-      onClick: () => onNavigateToTab?.('tasks'),
+      onClick: () => onNavigateToTab?.('members'),
     },
   ];
 

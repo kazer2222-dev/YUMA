@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import {
   Home,
   ChevronRight,
@@ -127,6 +127,7 @@ function NavItemComponent({
   isDocumentsMode,
   activeSpaceSlug,
 }: NavItemComponentProps) {
+  const pathname = usePathname();
   const {
     attributes,
     listeners,
@@ -150,12 +151,13 @@ function NavItemComponent({
   const isTool = item.type === 'tool';
   const isGroup = item.type === 'group';
   const isSpacesGroup = isGroup && item.id === 'spaces' && depth === 0;
+  const isSpacesPage = pathname === '/spaces';
 
   const isSpaceSelected = isSpace && selectedSpace === item.spaceSlug && !selectedBoard;
   const isBoardSelected = isBoard && selectedBoard === item.boardId;
   const isToolSelected = isTool && selectedTool === item.toolId;
 
-  const isSelected = isSpaceSelected || isBoardSelected || isToolSelected;
+  const isSelected = isSpaceSelected || isBoardSelected || isToolSelected || (isSpacesGroup && isSpacesPage);
 
   // Determine if we should show PageTree for this item
   const showPageTree = isSpace && isDocumentsMode && activeSpaceSlug === item.spaceSlug;
@@ -185,6 +187,11 @@ function NavItemComponent({
   const handleClick = () => {
     // Expansion logic moved to chevron click handler
 
+    if (item.id === 'spaces') {
+      window.location.href = '/spaces';
+      onClose?.();
+      return;
+    }
 
     if (isSpace && item.spaceSlug) {
       onSpaceSelect?.(item.spaceSlug);
@@ -334,7 +341,7 @@ function NavItemComponent({
       {isExpanded && (
         <div>
           {showPageTree && renderPageTree ? (
-            <div className="pl-4 h-[calc(100vh-200px)]">
+            <div>
               {renderPageTree(item.spaceSlug!)}
             </div>
           ) : (
@@ -484,11 +491,11 @@ function SidebarContent({
     <PageTree
       spaceSlug={spaceSlug}
       onPageSelect={(pageId) => {
-        router.push(`/spaces/${spaceSlug}/documents/${pageId}`);
+        router.push(`/spaces/${spaceSlug}?view=documents&documentId=${pageId}`);
         onClose?.();
       }}
       onPageOpen={(pageId) => {
-        router.push(`/spaces/${spaceSlug}/documents/${pageId}`);
+        router.push(`/spaces/${spaceSlug}?view=documents&documentId=${pageId}`);
         onClose?.();
       }}
       onPageCreate={async (parentId, title) => {
@@ -521,7 +528,7 @@ function SidebarContent({
         return data.success;
       }}
       showSearch={false}
-      className="h-full"
+      className=""
     />
   );
 
@@ -553,6 +560,7 @@ function SidebarContent({
 
   return (
     <DndContext
+      id="sidebar-dnd-context"
       sensors={sensors}
       collisionDetection={closestCenter}
       onDragEnd={handleDragEnd}

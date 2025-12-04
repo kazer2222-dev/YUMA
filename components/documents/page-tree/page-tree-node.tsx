@@ -32,7 +32,108 @@ interface PageTreeNodeProps {
   parentLineDepths?: number[]; // Depths that need vertical lines
 }
 
-// ... (ConnectingLines, StatusBadge, LabelLozenge components remain same)
+// Memoized connecting line component
+const ConnectingLines = memo(function ConnectingLines({
+  depth,
+  isLast,
+  hasChildren,
+  isExpanded,
+  parentLineDepths,
+}: {
+  depth: number;
+  isLast: boolean;
+  hasChildren: boolean;
+  isExpanded: boolean;
+  parentLineDepths: number[];
+}) {
+  if (depth === 0) return null;
+
+  return (
+    <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
+      {/* Vertical lines for each ancestor level */}
+      {parentLineDepths.map((lineDepth) => (
+        <div
+          key={`vline-${lineDepth}`}
+          className="absolute top-0 bottom-0"
+          style={{
+            left: `${lineDepth * TREE_SPACING.indentPerLevel + TREE_SPACING.chevronMarginLeft + TREE_SPACING.chevronSize / 2}px`,
+            width: '1px',
+            background: 'repeating-linear-gradient(to bottom, var(--tree-line-color) 0, var(--tree-line-color) 4px, transparent 4px, transparent 8px)',
+          }}
+        />
+      ))}
+
+      {/* Current node's L-shaped connector */}
+      {depth > 0 && (
+        <>
+          {/* Vertical part of L */}
+          <div
+            className="absolute"
+            style={{
+              left: `${(depth - 1) * TREE_SPACING.indentPerLevel + TREE_SPACING.chevronMarginLeft + TREE_SPACING.chevronSize / 2}px`,
+              top: 0,
+              bottom: isLast ? '50%' : 0,
+              width: '1px',
+              background: 'repeating-linear-gradient(to bottom, var(--tree-line-color) 0, var(--tree-line-color) 4px, transparent 4px, transparent 8px)',
+            }}
+          />
+          {/* Horizontal part of L */}
+          <div
+            className="absolute"
+            style={{
+              left: `${(depth - 1) * TREE_SPACING.indentPerLevel + TREE_SPACING.chevronMarginLeft + TREE_SPACING.chevronSize / 2}px`,
+              top: '50%',
+              width: `${TREE_SPACING.connectingLineOffset}px`,
+              height: '1px',
+              background: 'repeating-linear-gradient(to right, var(--tree-line-color) 0, var(--tree-line-color) 4px, transparent 4px, transparent 8px)',
+            }}
+          />
+        </>
+      )}
+    </div>
+  );
+});
+
+// Status badge component
+const StatusBadge = memo(function StatusBadge({ status }: { status: PageStatus }) {
+  if (status === 'DRAFT') return null; // Don't show badge for draft (default)
+
+  const colors = PAGE_STATUS_COLORS[status];
+  return (
+    <span
+      className="px-1.5 py-0.5 text-[10px] font-medium rounded"
+      style={{
+        backgroundColor: colors.bg,
+        color: colors.text,
+        border: `1px solid ${colors.border}`,
+      }}
+    >
+      {status.replace('_', ' ')}
+    </span>
+  );
+});
+
+// Label lozenge component
+const LabelLozenge = memo(function LabelLozenge({
+  name,
+  color,
+}: {
+  name: string;
+  color: string;
+}) {
+  return (
+    <span
+      className="px-1.5 py-0.5 text-[10px] font-medium rounded"
+      style={{
+        backgroundColor: `${color}20`,
+        color: color,
+        border: `1px solid ${color}40`,
+      }}
+    >
+      {name}
+    </span>
+  );
+});
 
 export const PageTreeNodeComponent = memo(function PageTreeNodeComponent({
   node,
@@ -71,7 +172,75 @@ export const PageTreeNodeComponent = memo(function PageTreeNodeComponent({
   const isFocused = state.focusedId === node.id;
   const hasChildren = node.childCount > 0 || Boolean(node.children && node.children.length > 0) || isCreatingChild;
 
-  // ... (handlers remain same)
+  // Handle chevron click
+  const handleChevronClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      e.preventDefault();
+      if (e.altKey || e.metaKey) {
+        // Alt/Option + click = recursive expand/collapse
+        if (isExpanded) {
+          collapseRecursive(node.id);
+        } else {
+          expandRecursive(node.id);
+        }
+      } else {
+        toggleExpand(node.id);
+      }
+    },
+    [node.id, isExpanded, toggleExpand, expandRecursive, collapseRecursive]
+  );
+
+  // Handle row click (open page)
+  const handleRowClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation(); // Prevent drag from interfering
+      // Don't open if clicking directly on interactive elements
+      const target = e.target as HTMLElement;
+
+      // Only block if clicking directly on a button element itself
+      // or if the target is inside a button that's visible and interactive
+      if (target.tagName === 'BUTTON') {
+        console.log('[PageTree] Click blocked - clicked directly on button');
+        return;
+      }
+
+      // Check if target is inside a button, but only block if the button is visible
+      const button = target.closest('button');
+      if (button) {
+        // Check if button is visible (not hidden by opacity)
+        const computedStyle = window.getComputedStyle(button);
+        const isVisible = computedStyle.opacity !== '0' && computedStyle.pointerEvents !== 'none';
+        if (isVisible) {
+          console.log('[PageTree] Click blocked - clicked inside visible button');
+          return;
+        }
+      }
+
+      // Check for no-dnd elements
+      if (target.closest('[data-no-dnd="true"]')) {
+        console.log('[PageTree] Click blocked - clicked on no-dnd element');
+        return;
+      }
+
+      console.log('[PageTree] Opening document:', node.id, node.title);
+      setSelected(node.id);
+      setFocused(node.id);
+      onSelect?.(node.id);
+      onOpen?.(node.id);
+    },
+    [node.id, node.title, setSelected, setFocused, onSelect, onOpen]
+  );
+
+  // Handle context menu
+  const handleContextMenu = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      setSelected(node.id);
+      onContextMenu?.(e, node.id);
+    },
+    [node.id, setSelected, onContextMenu]
+  );
 
   // Calculate parent line depths for children
   const childParentLineDepths = isLast
@@ -93,13 +262,13 @@ export const PageTreeNodeComponent = memo(function PageTreeNodeComponent({
         aria-level={depth + 1}
         tabIndex={isFocused ? 0 : -1}
         className={cn(
-          'page-tree-node relative flex items-center h-8 cursor-pointer select-none group/node',
+          'page-tree-node relative flex items-center h-8 cursor-pointer select-none group/node rounded gap-2 pr-3',
           'transition-colors duration-100',
-          isSelected && 'bg-[#E6F0FF] dark:bg-[#253E66]',
-          !isSelected && isHovered && 'bg-black/[0.04] dark:bg-white/[0.06]',
-          isSelected && 'before:absolute before:left-0 before:top-0 before:bottom-0 before:w-0.5 before:bg-blue-500'
+          isSelected && 'bg-[var(--primary)] text-white',
+          !isSelected && isHovered && 'bg-[var(--muted)] text-[var(--foreground)]',
+          !isSelected && !isHovered && 'text-muted-foreground'
         )}
-        style={{ paddingLeft: `${indent}px` }}
+        style={{ paddingLeft: `${indent + 12}px` }}
         onClick={handleRowClick}
         onPointerUp={(e) => {
           if (e.button === 0) {
@@ -129,7 +298,7 @@ export const PageTreeNodeComponent = memo(function PageTreeNodeComponent({
         {hasChildren && (
           <button
             className={cn(
-              'toggle-chevron flex items-center justify-center w-4 h-4 rounded hover:bg-black/10 dark:hover:bg-white/10 transition-colors z-10 mr-1 flex-shrink-0',
+              'toggle-chevron flex items-center justify-center w-4 h-4 rounded hover:bg-black/10 dark:hover:bg-white/10 transition-colors z-10 flex-shrink-0',
             )}
             onClick={handleChevronClick}
             onMouseDown={(e) => {
@@ -148,22 +317,25 @@ export const PageTreeNodeComponent = memo(function PageTreeNodeComponent({
               animate={{ rotate: isExpanded ? 90 : 0 }}
               transition={{ duration: ANIMATION_DURATIONS.expandNode / 1000 * 0.5, ease: 'easeOut' }}
             >
-              <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
+              <ChevronRight className={cn("w-3.5 h-3.5", isSelected ? "text-white" : "text-muted-foreground")} />
             </motion.div>
           </button>
         )}
 
         {/* Page Icon */}
-        <div className="flex items-center justify-center w-5 h-5 mx-1">
+        <div className="flex items-center justify-center w-5 h-5">
           {node.icon ? (
             <span className="text-sm">{node.icon}</span>
           ) : (
-            <FileText className="w-4 h-4 text-muted-foreground" />
+            <FileText className={cn("w-4 h-4", isSelected ? "text-white" : "text-muted-foreground")} />
           )}
         </div>
 
         {/* Title */}
-        <span className="flex-1 truncate text-sm font-medium text-foreground mr-2">
+        <span className={cn(
+          "flex-1 truncate transition-colors",
+          isSelected ? "text-white font-medium" : "text-inherit group-hover/node:text-foreground"
+        )}>
           {node.title || 'Untitled'}
         </span>
 
@@ -195,7 +367,7 @@ export const PageTreeNodeComponent = memo(function PageTreeNodeComponent({
             }}
             aria-label="Add child page"
           >
-            <Plus className="w-3.5 h-3.5 text-muted-foreground" />
+            <Plus className={cn("w-3.5 h-3.5", isSelected ? "text-white" : "text-muted-foreground")} />
           </button>
 
           <button
@@ -206,7 +378,7 @@ export const PageTreeNodeComponent = memo(function PageTreeNodeComponent({
             }}
             aria-label="More options"
           >
-            <MoreHorizontal className="w-3.5 h-3.5 text-muted-foreground" />
+            <MoreHorizontal className={cn("w-3.5 h-3.5", isSelected ? "text-white" : "text-muted-foreground")} />
           </button>
         </div>
       </motion.div>

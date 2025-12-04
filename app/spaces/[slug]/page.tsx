@@ -25,6 +25,8 @@ import {
   X,
   GripVertical,
   FileText,
+  Users,
+  BrainCircuit,
 } from 'lucide-react';
 import { ClickUpAppShell } from '@/components/layout/clickup-app-shell';
 import { Loading, Skeleton, CardSkeleton, TableSkeleton } from '@/components/loading';
@@ -66,9 +68,11 @@ const SPACE_TABS: TabDefinition[] = [
   { id: 'roadmap', label: 'Roadmap', icon: TrendingUp, color: '#EF4444', deletable: true },
   { id: 'reports', label: 'Reports', icon: BarChart3, color: '#F59E0B', deletable: true },
   { id: 'integrations', label: 'Integrations', icon: Zap, color: '#06B6D4', deletable: true },
+  { id: 'members', label: 'Members', icon: Users, color: '#F59E0B', deletable: true },
   { id: 'backlog', label: 'Backlog', icon: List, color: '#8B5CF6', deletable: true },
   { id: 'sprints', label: 'Sprints', icon: Zap, color: '#84CC16', deletable: true },
   { id: 'releases', label: 'Releases', icon: PackageOpen, color: '#EC4899', deletable: true },
+  { id: 'regress', label: 'Regress', icon: BrainCircuit, color: '#8B5CF6', deletable: true },
 ];
 
 const INITIAL_VISIBLE_TAB_IDS: string[] = [
@@ -151,11 +155,10 @@ function SortableTab({
             <button
               onClick={onClick}
               onMouseEnter={onHover}
-              className={`flex items-center gap-2 px-4 py-2 rounded transition-all whitespace-nowrap ${
-                isActive
-                  ? 'bg-[var(--primary)] text-white'
-                  : 'text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]'
-              }`}
+              className={`flex items-center gap-2 px-4 py-2 rounded transition-all whitespace-nowrap ${isActive
+                ? 'bg-[var(--primary)] text-white'
+                : 'text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]'
+                }`}
               type="button"
             >
               {content}
@@ -194,11 +197,10 @@ function SortableTab({
         <button
           onClick={onClick}
           onMouseEnter={onHover}
-          className={`flex items-center gap-2 px-4 py-2 rounded transition-all whitespace-nowrap ${
-            isActive
-              ? 'bg-[var(--primary)] text-white'
-              : 'text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]'
-          }`}
+          className={`flex items-center gap-2 px-4 py-2 rounded transition-all whitespace-nowrap ${isActive
+            ? 'bg-[var(--primary)] text-white'
+            : 'text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]'
+            }`}
           type="button"
         >
           {content}
@@ -229,9 +231,12 @@ const CalendarView = lazy(() => import('@/components/calendar/calendar-view').th
 const RoadmapView = lazy(() => import('@/components/roadmap/roadmap-view').then(mod => ({ default: mod.RoadmapView })));
 const IntegrationsManager = lazy(() => import('@/components/integrations/integrations-manager').then(mod => ({ default: mod.IntegrationsManager })));
 const ReportingDashboard = lazy(() => import('@/components/reports/reporting-dashboard').then(mod => ({ default: mod.ReportingDashboard })));
+const SpaceMembersManager = lazy(() => import('@/components/spaces/space-members-manager').then(mod => ({ default: mod.SpaceMembersManager })));
 const BacklogView = lazy(() => import('@/components/scrum/backlog-view').then(mod => ({ default: mod.BacklogView })));
 const SprintManagement = lazy(() => import('@/components/scrum/sprint-management').then(mod => ({ default: mod.SprintManagement })));
 const ReleaseManagement = lazy(() => import('@/components/scrum/release-management').then(mod => ({ default: mod.ReleaseManagement })));
+const DocumentEditorPage = lazy(() => import('@/components/documents/document-editor-page').then(mod => ({ default: mod.DocumentEditorPage })));
+const RegressView = lazy(() => import('@/components/regression/regress-view').then(mod => ({ default: mod.RegressView })));
 
 interface Space {
   id: string;
@@ -286,7 +291,7 @@ export default function SpacePage() {
   const pathname = usePathname();
   const spaceSlug = params.slug as string;
   const queryClient = useQueryClient();
-  
+
   // React Query hooks for data fetching
   const { data: user, isLoading: userLoading } = useUser();
   const { data: spaces = [] } = useSpaces();
@@ -294,7 +299,7 @@ export default function SpacePage() {
   const { data: boards = [] } = useBoards(spaceSlug, !!spaceSlug);
   const refreshSpaces = useRefreshSpaces();
   const refreshSpace = useRefreshSpace(spaceSlug);
-  
+
   const viewParam = searchParams?.get('view');
   const validView = viewParam && SPACE_TABS.some((tab) => tab.id === viewParam) ? viewParam : null;
 
@@ -355,6 +360,7 @@ export default function SpacePage() {
   const [visibleTabIds, setVisibleTabIds] = useState<string[]>(savedState.visibleTabIds);
   const [tabLoading, setTabLoading] = useState(false);
   const [selectedBoardId, setSelectedBoardId] = useState<string | null>(null);
+  const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
   const [createBoardOpen, setCreateBoardOpen] = useState(false);
   const [templatesOpen, setTemplatesOpen] = useState(false);
   const [workflowsOpen, setWorkflowsOpen] = useState(false);
@@ -482,7 +488,7 @@ export default function SpacePage() {
         userInitiatedTabChange.current = null;
       }, 100);
     },
-    [activeTab, selectedBoardId, router, addTabToVisible, spaceSlug, boards, setSelectedBoardId],
+    [activeTab, selectedBoardId, selectedDocumentId, router, addTabToVisible, spaceSlug, boards, setSelectedBoardId, setSelectedDocumentId],
   );
 
   const selectBoard = useCallback(
@@ -511,7 +517,7 @@ export default function SpacePage() {
     (tab: TabDefinition) => {
       if (tab.id === 'board' || tab.id === 'sprints' || tab.id === 'releases' || tab.id === 'backlog') {
         let nextBoardId = selectedBoardId;
-        
+
         // First, try to get boardId from URL if not in state
         if (!nextBoardId && typeof window !== 'undefined') {
           const urlParams = new URLSearchParams(window.location.search);
@@ -520,7 +526,7 @@ export default function SpacePage() {
             nextBoardId = urlBoardId;
           }
         }
-        
+
         // Fallback to localStorage or first board
         if (!nextBoardId && boards.length > 0) {
           const lastBoardId =
@@ -564,14 +570,14 @@ export default function SpacePage() {
       spaceLoading,
       isNavigating
     });
-    
+
     if (previousPathRef.current !== currentPath) {
       // Path changed - we're navigating to a new space
       console.log('[SpacePage] Navigation detected - setting isNavigating to true');
       setIsNavigating(true);
       previousPathRef.current = currentPath;
     }
-    
+
     // Reset navigating state once space is loaded and matches the current slug
     if (space && !spaceLoading && space.slug === spaceSlug) {
       console.log('[SpacePage] Space loaded - setting isNavigating to false');
@@ -582,7 +588,7 @@ export default function SpacePage() {
 
   // Show loading if: user is loading, space is loading, navigating to new space, or we have a slug but no space data yet
   const loading = userLoading || spaceLoading || isNavigating || (spaceSlug && !space && !spaceError);
-  
+
   console.log('[SpacePage] Loading state:', {
     userLoading,
     spaceLoading,
@@ -634,10 +640,10 @@ export default function SpacePage() {
     },
     [activeTab, handleTabSwitch, spaceSlug],
   );
-  
+
   // Optimized: Combined board type detection with request deduplication
   const boardCheckRef = useRef<{ boardId: string; promise: Promise<void> } | null>(null);
-  
+
   useEffect(() => {
     if (!spaceSlug || !selectedBoardId) {
       boardCheckRef.current = null;
@@ -666,7 +672,7 @@ export default function SpacePage() {
       if (boardData.success && boardData.board) {
         const boardType = boardData.board.type || null;
         const boardName = boardData.board.name || '';
-        
+
         // If board name suggests SCRUM but type is missing, try to fix it
         if ((boardName.toLowerCase().includes('scrum') || boardName.toLowerCase().includes('sprint')) && !boardType) {
           fetch(`/api/spaces/${spaceSlug}/fix-scrum-board`, {
@@ -675,13 +681,13 @@ export default function SpacePage() {
             credentials: 'include',
             body: JSON.stringify({ boardId: selectedBoardId }),
           })
-          .then(res => res.json())
-          .then(fixData => {
-            if (fixData.success) {
-              // This state is no longer needed, but keeping it for now
-            }
-          })
-          .catch(console.error);
+            .then(res => res.json())
+            .then(fixData => {
+              if (fixData.success) {
+                // This state is no longer needed, but keeping it for now
+              }
+            })
+            .catch(console.error);
         }
       }
 
@@ -697,30 +703,31 @@ export default function SpacePage() {
 
     boardCheckRef.current = { boardId: selectedBoardId, promise: checkPromise };
   }, [spaceSlug, selectedBoardId]);
-  
+
   // Optimized URL reading - consolidated and simplified
   const validTabs = useMemo(() => new Set(SPACE_TABS.map((tab) => tab.id)), []);
-  
+
   useEffect(() => {
     if (!pathname || !params.slug || typeof window === 'undefined') return;
-    
+
     // Skip if user just initiated a tab change
     if (userInitiatedTabChange.current && userInitiatedTabChange.current === activeTab) {
       return;
     }
-    
+
     const urlParams = new URLSearchParams(window.location.search);
     const urlView = urlParams.get('view');
     const urlBoardId = urlParams.get('boardId');
+    const urlDocumentId = urlParams.get('documentId');
     const createBoard = urlParams.get('createBoard');
-    
+
     // Handle createBoard param
     if (createBoard === 'true') {
       setCreateBoardOpen(true);
       urlParams.delete('createBoard');
       window.history.replaceState({}, '', window.location.pathname + (urlParams.toString() ? '?' + urlParams.toString() : ''));
     }
-    
+
     // Skip if already on correct tab and no board change needed
     if (urlView && validTabs.has(urlView)) {
       if (activeTab !== urlView) {
@@ -740,14 +747,17 @@ export default function SpacePage() {
           selectBoard(nextBoardId);
         }
       }
+      if (urlView === 'documents' && urlDocumentId && selectedDocumentId !== urlDocumentId) {
+        setSelectedDocumentId(urlDocumentId);
+      }
       return;
     }
-    
+
     // Extract boardId from pathname if present
     const pathParts = pathname.split('/').filter(Boolean);
     const boardsIdx = pathParts.indexOf('boards');
     const derivedBoardId = boardsIdx !== -1 && pathParts[boardsIdx + 1] ? pathParts[boardsIdx + 1] : urlBoardId;
-    
+
     if (derivedBoardId) {
       if (selectedBoardId !== derivedBoardId) {
         selectBoard(derivedBoardId);
@@ -784,20 +794,35 @@ export default function SpacePage() {
   // Optimized: Sync URL when selectedBoardId changes (only if on board-related tabs)
   useEffect(() => {
     if (!selectedBoardId || typeof window === 'undefined') return;
-    
+
     const current = new URL(window.location.href);
     const urlView = current.searchParams.get('view');
     const urlBoardId = current.searchParams.get('boardId');
-    
+
     // Only update URL if on board-related tabs or no view specified
     if ((!urlView || urlView === 'board' || urlView === 'sprints' || urlView === 'releases' || urlView === 'backlog') && urlBoardId !== selectedBoardId) {
       current.searchParams.set('boardId', selectedBoardId);
       if (!urlView) current.searchParams.set('view', 'board');
       router.replace(current.pathname + '?' + current.searchParams.toString());
     }
-    
+
     localStorage.setItem(`lastBoard_${params.slug}`, selectedBoardId);
   }, [selectedBoardId, params.slug, router]);
+
+  // Sync URL when selectedDocumentId changes
+  useEffect(() => {
+    if (!selectedDocumentId || typeof window === 'undefined') return;
+
+    const current = new URL(window.location.href);
+    const urlView = current.searchParams.get('view');
+    const urlDocumentId = current.searchParams.get('documentId');
+
+    if ((!urlView || urlView === 'documents') && urlDocumentId !== selectedDocumentId) {
+      current.searchParams.set('documentId', selectedDocumentId);
+      if (!urlView) current.searchParams.set('view', 'documents');
+      router.replace(current.pathname + '?' + current.searchParams.toString());
+    }
+  }, [selectedDocumentId, router]);
 
   // Removed redundant URL sync effect - user clicks handle URL updates directly
 
@@ -852,16 +877,16 @@ export default function SpacePage() {
   useEffect(() => {
     if (!boards || boards.length === 0 || selectedBoardId) return;
     if (typeof window === 'undefined') return;
-    
+
     const urlParams = new URLSearchParams(window.location.search);
     const urlBoardId = urlParams.get('boardId');
-    
+
     // Priority 1: Use boardId from URL
     if (urlBoardId && boards.some((b: any) => b.id === urlBoardId)) {
       selectBoard(urlBoardId);
       return;
     }
-    
+
     // Priority 2: Restore from localStorage if on board tab
     const urlView = urlParams.get('view');
     if (activeTab === 'board' || !urlView || urlView === 'board') {
@@ -871,7 +896,7 @@ export default function SpacePage() {
         handleTabSwitch('board', lastBoardId);
         return;
       }
-      
+
       // Priority 3: Auto-select first board
       if (boards.length > 0) {
         selectBoard(boards[0].id);
@@ -908,7 +933,7 @@ export default function SpacePage() {
 
   const handleDeleteSpace = async () => {
     if (!space) return;
-    
+
     if (!confirm(`Are you sure you want to delete "${space.name}"? This will delete all tasks, boards, and data in this space. This action cannot be undone.`)) {
       return;
     }
@@ -942,12 +967,12 @@ export default function SpacePage() {
         spaces={spaces || []}
         user={user || { id: '', email: '' }}
         onLogout={handleLogout}
-        onCreateSpace={() => {}}
+        onCreateSpace={() => { }}
         pageTitle=""
         pageSubtitle=""
         breadcrumbs={[]}
         showSearch={true}
-        onSearch={() => {}}
+        onSearch={() => { }}
         onRefreshSpaces={refreshSpaces}
         actions={[]}
       >
@@ -960,7 +985,7 @@ export default function SpacePage() {
               ))}
             </div>
           </div>
-          
+
           {/* Skeleton for content */}
           <div className="flex-1 p-6 space-y-6">
             <div className="space-y-4">
@@ -980,7 +1005,7 @@ export default function SpacePage() {
       </ClickUpAppShell>
     );
   }
-  
+
   console.log('[SpacePage] Rendering main content');
 
   // Redirect to auth if user is not authenticated
@@ -998,7 +1023,7 @@ export default function SpacePage() {
         spaces={spaces}
         user={user}
         onLogout={handleLogout}
-        onCreateSpace={() => {}}
+        onCreateSpace={() => { }}
         pageTitle="Space Error"
         breadcrumbs={[]}
       >
@@ -1023,7 +1048,7 @@ export default function SpacePage() {
         spaces={spaces}
         user={user}
         onLogout={handleLogout}
-        onCreateSpace={() => {}}
+        onCreateSpace={() => { }}
         pageTitle="Space Not Found"
         breadcrumbs={[]}
       >
@@ -1047,7 +1072,7 @@ export default function SpacePage() {
       spaces={spaces}
       user={user}
       onLogout={handleLogout}
-      onCreateSpace={() => {}}
+      onCreateSpace={() => { }}
       pageTitle=""
       pageSubtitle=""
       breadcrumbs={[]}
@@ -1061,104 +1086,104 @@ export default function SpacePage() {
     >
       <div className="flex flex-col min-h-full">
         {/* Navigation Tabs - matches design folder */}
-    {!workflowEditorOpen && (
-    <div className="border-b border-[var(--border)] bg-[var(--background)] px-4 py-2 md:px-6">
-      <div className="flex flex-col gap-2 md:hidden">
-        <div className="flex items-center justify-between gap-2">
-          <Select value={activeTab} onValueChange={(value) => handleTabSwitch(value)}>
-            <SelectTrigger className="w-[140px] border-[var(--border)]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {visibleTabs.map((tab) => (
-                <SelectItem key={tab.id} value={tab.id}>
-                  <div className="flex items-center gap-2">
-                    {tab.icon && (
-                      <tab.icon className="w-4 h-4" />
-                    )}
-                    <span>{tab.label}</span>
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        {!workflowEditorOpen && (
+          <div className="border-b border-[var(--border)] bg-[var(--background)] px-4 py-2 md:px-6">
+            <div className="flex flex-col gap-2 md:hidden">
+              <div className="flex items-center justify-between gap-2">
+                <Select value={activeTab} onValueChange={(value) => handleTabSwitch(value)}>
+                  <SelectTrigger className="w-[140px] border-[var(--border)]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {visibleTabs.map((tab) => (
+                      <SelectItem key={tab.id} value={tab.id}>
+                        <div className="flex items-center gap-2">
+                          {tab.icon && (
+                            <tab.icon className="w-4 h-4" />
+                          )}
+                          <span>{tab.label}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
 
-          {(activeTab === 'board' || activeTab === 'sprints' || activeTab === 'releases' || activeTab === 'backlog') && boards.length > 0 && (
-            <Select
-              value={selectedBoardId ?? boards[0]?.id ?? undefined}
-              onValueChange={handleBoardSelectFromDropdown}
-            >
-              <SelectTrigger className="flex-1 border-[var(--border)]">
-                <SelectValue placeholder="Select board" />
-              </SelectTrigger>
-              <SelectContent>
-                {boards.map((board: any) => (
-                  <SelectItem key={board.id} value={board.id}>
-                    <div className="flex items-center gap-2">
-                      {board.name}
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-
-        </div>
-      </div>
-
-      <div className="hidden md:flex items-center justify-between gap-4">
-        <div className="flex items-center gap-1">
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-            <SortableContext items={visibleTabs.map((tab) => tab.id)} strategy={horizontalListSortingStrategy}>
-              <div className="flex items-center gap-1">
-                {visibleTabs.map((tab) => (
-                  <SortableTab
-                    key={tab.id}
-                    tab={tab}
-                    isActive={activeTab === tab.id}
-                    onClick={() => handleTabClick(tab)}
-                    onRemove={tab.deletable ? () => handleRemoveTab(tab.id) : undefined}
-                    onHover={() => handleTabHover(tab.id)}
-                    selectedBoardId={(tab.id === 'board' || tab.id === 'sprints' || tab.id === 'releases' || tab.id === 'backlog') ? selectedBoardId : undefined}
-                    boards={(tab.id === 'board' || tab.id === 'sprints' || tab.id === 'releases' || tab.id === 'backlog') ? boards : undefined}
-                    onBoardSelect={(tab.id === 'board' || tab.id === 'sprints' || tab.id === 'releases' || tab.id === 'backlog') ? handleBoardSelectFromDropdown : undefined}
-                    onCreateBoard={(tab.id === 'board' || tab.id === 'sprints' || tab.id === 'releases' || tab.id === 'backlog') ? () => setCreateBoardOpen(true) : undefined}
-                  />
-                ))}
-
-                {deletedTabs.length > 0 && (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="ml-2 h-9 px-3 text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]"
-                      >
-                        <Plus className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start" className="w-48">
-                      {deletedTabs.map((tab) => (
-                        <DropdownMenuItem key={tab.id} onClick={() => handleAddTab(tab.id)} className="cursor-pointer">
+                {(activeTab === 'board' || activeTab === 'sprints' || activeTab === 'releases' || activeTab === 'backlog') && boards.length > 0 && (
+                  <Select
+                    value={selectedBoardId ?? boards[0]?.id ?? undefined}
+                    onValueChange={handleBoardSelectFromDropdown}
+                  >
+                    <SelectTrigger className="flex-1 border-[var(--border)]">
+                      <SelectValue placeholder="Select board" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {boards.map((board: any) => (
+                        <SelectItem key={board.id} value={board.id}>
                           <div className="flex items-center gap-2">
-                            {tab.icon && (
-                              <tab.icon className="h-4 w-4" />
-                            )}
-                            <span>{tab.label}</span>
+                            {board.name}
                           </div>
-                        </DropdownMenuItem>
+                        </SelectItem>
                       ))}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                    </SelectContent>
+                  </Select>
                 )}
-              </div>
-            </SortableContext>
-          </DndContext>
-        </div>
 
-      </div>
-    </div>
-    )}
+              </div>
+            </div>
+
+            <div className="hidden md:flex items-center justify-between gap-4">
+              <div className="flex items-center gap-1">
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                  <SortableContext items={visibleTabs.map((tab) => tab.id)} strategy={horizontalListSortingStrategy}>
+                    <div className="flex items-center gap-1">
+                      {visibleTabs.map((tab) => (
+                        <SortableTab
+                          key={tab.id}
+                          tab={tab}
+                          isActive={activeTab === tab.id}
+                          onClick={() => handleTabClick(tab)}
+                          onRemove={tab.deletable ? () => handleRemoveTab(tab.id) : undefined}
+                          onHover={() => handleTabHover(tab.id)}
+                          selectedBoardId={(tab.id === 'board' || tab.id === 'sprints' || tab.id === 'releases' || tab.id === 'backlog') ? selectedBoardId : undefined}
+                          boards={(tab.id === 'board' || tab.id === 'sprints' || tab.id === 'releases' || tab.id === 'backlog') ? boards : undefined}
+                          onBoardSelect={(tab.id === 'board' || tab.id === 'sprints' || tab.id === 'releases' || tab.id === 'backlog') ? handleBoardSelectFromDropdown : undefined}
+                          onCreateBoard={(tab.id === 'board' || tab.id === 'sprints' || tab.id === 'releases' || tab.id === 'backlog') ? () => setCreateBoardOpen(true) : undefined}
+                        />
+                      ))}
+
+                      {deletedTabs.length > 0 && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="ml-2 h-9 px-3 text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]"
+                            >
+                              <Plus className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="start" className="w-48">
+                            {deletedTabs.map((tab) => (
+                              <DropdownMenuItem key={tab.id} onClick={() => handleAddTab(tab.id)} className="cursor-pointer">
+                                <div className="flex items-center gap-2">
+                                  {tab.icon && (
+                                    <tab.icon className="h-4 w-4" />
+                                  )}
+                                  <span>{tab.label}</span>
+                                </div>
+                              </DropdownMenuItem>
+                            ))}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
+                    </div>
+                  </SortableContext>
+                </DndContext>
+              </div>
+
+            </div>
+          </div>
+        )}
 
         {/* Tab Content */}
         <div className="flex-1 min-h-0 p-8">
@@ -1352,7 +1377,28 @@ export default function SpacePage() {
                 </div>
               </div>
             }>
-              <DocumentsPage />
+              {selectedDocumentId ? (
+                <DocumentEditorPage
+                  documentId={selectedDocumentId}
+                  spaceSlug={spaceSlug}
+                  onClose={() => {
+                    setSelectedDocumentId(null);
+                    const url = new URL(window.location.href);
+                    url.searchParams.delete('documentId');
+                    router.replace(url.pathname + '?' + url.searchParams.toString());
+                  }}
+                />
+              ) : (
+                <DocumentsPage
+                  onPageSelect={(pageId) => {
+                    setSelectedDocumentId(pageId);
+                    const url = new URL(window.location.href);
+                    url.searchParams.set('view', 'documents');
+                    url.searchParams.set('documentId', pageId);
+                    router.push(url.pathname + '?' + url.searchParams.toString());
+                  }}
+                />
+              )}
             </Suspense>
           )}
 
@@ -1402,6 +1448,34 @@ export default function SpacePage() {
               </div>
             }>
               <ReportingDashboard spaceSlug={space.slug} />
+            </Suspense>
+          )}
+
+          {activeTab === 'members' && (
+            <Suspense fallback={
+              <div className="space-y-4 p-6">
+                <Skeleton className="h-10 w-48" />
+                <div className="space-y-3">
+                  {[1, 2, 3, 4].map((i) => (
+                    <Card key={i}>
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <Skeleton className="h-10 w-10 rounded-full" />
+                            <div className="space-y-2">
+                              <Skeleton className="h-4 w-32" />
+                              <Skeleton className="h-3 w-48" />
+                            </div>
+                          </div>
+                          <Skeleton className="h-8 w-24" />
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            }>
+              <SpaceMembersManager spaceSlug={space.slug} />
             </Suspense>
           )}
           {/* Scrum Board Tabs Content */}
@@ -1487,37 +1561,48 @@ export default function SpacePage() {
               </div>
             )
           )}
-        </div>
+          {activeTab === 'regress' && (
+            <Suspense fallback={<Loading />}>
+              <RegressView />
+            </Suspense>
+          )}
+        </div >
 
         {/* Create Board Dialog */}
-        {space && (
-          <CreateBoardDialog
-            spaceSlug={space.slug}
-            open={createBoardOpen}
-            onOpenChange={setCreateBoardOpen}
-            onBoardCreated={handleBoardCreated}
-          />
-        )}
+        {
+          space && (
+            <CreateBoardDialog
+              spaceSlug={space.slug}
+              open={createBoardOpen}
+              onOpenChange={setCreateBoardOpen}
+              onBoardCreated={handleBoardCreated}
+            />
+          )
+        }
 
         {/* Templates Manager - Only show as dialog if not in standalone mode */}
-        {space && !showTemplatesView && (
-          <TemplatesManager
-            spaceSlug={space.slug}
-            open={templatesOpen}
-            onOpenChange={setTemplatesOpen}
-          />
-        )}
+        {
+          space && !showTemplatesView && (
+            <TemplatesManager
+              spaceSlug={space.slug}
+              open={templatesOpen}
+              onOpenChange={setTemplatesOpen}
+            />
+          )
+        }
 
         {/* Workflows Manager - Only show as dialog if not in standalone mode */}
-        {space && !workflowsOpen && (
-          <WorkflowsManager
-            spaceId={space.id}
-            spaceSlug={space.slug}
-            open={false}
-            onOpenChange={setWorkflowsOpen}
-          />
-        )}
-      </div>
-    </ClickUpAppShell>
+        {
+          space && !workflowsOpen && (
+            <WorkflowsManager
+              spaceId={space.id}
+              spaceSlug={space.slug}
+              open={false}
+              onOpenChange={setWorkflowsOpen}
+            />
+          )
+        }
+      </div >
+    </ClickUpAppShell >
   );
 }

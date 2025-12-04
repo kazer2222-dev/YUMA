@@ -89,9 +89,9 @@ export const ANIMATION_DURATIONS = {
 
 // Animation easing
 export const ANIMATION_EASING = {
-  easeOut: 'cubic-bezier(0.0, 0.0, 0.2, 1)',
-  easeIn: 'cubic-bezier(0.4, 0.0, 1, 1)',
-  easeInOut: 'cubic-bezier(0.4, 0.0, 0.2, 1)',
+  easeOut: [0.0, 0.0, 0.2, 1],
+  easeIn: [0.4, 0.0, 1, 1],
+  easeInOut: [0.4, 0.0, 0.2, 1],
 } as const;
 
 // Spacing constants (Confluence standard)
@@ -119,7 +119,7 @@ export interface KeyboardNavigationState {
   visibleNodeIds: string[];
 }
 
-export type KeyboardAction = 
+export type KeyboardAction =
   | 'MOVE_UP'
   | 'MOVE_DOWN'
   | 'EXPAND'
@@ -127,5 +127,8 @@ export type KeyboardAction =
   | 'ENTER'
   | 'SPACE'
   | 'CREATE_CHILD';
+
+
+
 
 

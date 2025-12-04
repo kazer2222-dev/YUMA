@@ -15,6 +15,12 @@ export interface Space {
     allowIntegrations: boolean;
     aiAutomationsEnabled: boolean;
   };
+  boards?: {
+    id: string;
+    name: string;
+    description?: string;
+    order: number;
+  }[];
 }
 
 export interface User {

@@ -1383,24 +1383,7 @@ export function DocumentEditorPage({
             </div>
           </div>
 
-          {/* Hint for slash commands */}
-          <div className="flex items-center gap-2 mt-4 pt-4 border-t">
-            <span className="text-sm text-muted-foreground">
-              Type <kbd className="px-1.5 py-0.5 text-xs bg-muted rounded border">/ </kbd> for formatting options and AI commands
-            </span>
 
-            <div className="ml-auto flex items-center gap-1">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => setShowAttachmentParser(true)}
-                title="Parse Attachment"
-              >
-                <Upload className="w-4 h-4" />
-              </Button>
-            </div>
-          </div>
         </div>
       </div>
 
