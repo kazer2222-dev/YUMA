@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useMemo, Suspense, lazy, useCallback, type
 import { DndContext, DragEndEvent, PointerSensor, closestCenter, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, horizontalListSortingStrategy, arrayMove, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { restrictToHorizontalAxis } from '@dnd-kit/modifiers';
 import { useParams, useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -68,7 +69,6 @@ const SPACE_TABS: TabDefinition[] = [
   { id: 'roadmap', label: 'Roadmap', icon: TrendingUp, color: '#EF4444', deletable: true },
   { id: 'reports', label: 'Reports', icon: BarChart3, color: '#F59E0B', deletable: true },
   { id: 'integrations', label: 'Integrations', icon: Zap, color: '#06B6D4', deletable: true },
-  { id: 'members', label: 'Members', icon: Users, color: '#F59E0B', deletable: true },
   { id: 'backlog', label: 'Backlog', icon: List, color: '#8B5CF6', deletable: true },
   { id: 'sprints', label: 'Sprints', icon: Zap, color: '#84CC16', deletable: true },
   { id: 'releases', label: 'Releases', icon: PackageOpen, color: '#EC4899', deletable: true },
@@ -111,14 +111,13 @@ function SortableTab({
     attributes,
     listeners,
     setNodeRef,
-    setActivatorNodeRef,
     transform,
     transition,
     isDragging,
   } = useSortable({ id: tab.id });
 
   const style: React.CSSProperties = {
-    transform: CSS.Transform.toString(transform),
+    transform: CSS.Translate.toString(transform),
     transition,
   };
 
@@ -126,14 +125,6 @@ function SortableTab({
 
   const content = (
     <div className={`flex items-center gap-2 whitespace-nowrap ${isDragging ? 'opacity-50' : ''}`}>
-      <span
-        ref={setActivatorNodeRef}
-        {...listeners}
-        {...attributes}
-        className="-ml-1"
-      >
-        <GripVertical className="w-3 h-3 opacity-0 group-hover:opacity-50 transition-opacity" />
-      </span>
       {tab.icon && (
         <tab.icon
           className={`w-4 h-4 ${isActive ? 'text-white' : ''}`}
@@ -147,7 +138,9 @@ function SortableTab({
     <div
       ref={setNodeRef}
       style={style}
-      className="relative group"
+      {...listeners}
+      {...attributes}
+      className="relative group touch-none"
     >
       {tab.id === 'board' && boards && boards.length > 0 ? (
         <DropdownMenu>
@@ -170,7 +163,7 @@ function SortableTab({
               <DropdownMenuItem
                 key={board.id}
                 onClick={() => onBoardSelect?.(board.id)}
-                className="cursor-pointer"
+                className="cursor-pointer text-base"
               >
                 <div className="flex items-center gap-2 w-full">
                   <span>{board.name}</span>
@@ -186,7 +179,7 @@ function SortableTab({
                 e.stopPropagation();
                 onCreateBoard?.();
               }}
-              className="cursor-pointer"
+              className="cursor-pointer text-base"
             >
               <Plus className="w-3.5 h-3.5 mr-2" />
               Create Board
@@ -215,6 +208,7 @@ function SortableTab({
           }}
           className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-[var(--destructive)] text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-[var(--destructive)]/80 z-10"
           type="button"
+          onPointerDown={(e) => e.stopPropagation()}
         >
           <X className="w-3 h-3" />
         </button>
@@ -1133,49 +1127,56 @@ export default function SpacePage() {
 
             <div className="hidden md:flex items-center justify-between gap-4">
               <div className="flex items-center gap-1">
-                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleDragEnd}
+                  modifiers={[restrictToHorizontalAxis]}
+                >
                   <SortableContext items={visibleTabs.map((tab) => tab.id)} strategy={horizontalListSortingStrategy}>
-                    <div className="flex items-center gap-1">
-                      {visibleTabs.map((tab) => (
-                        <SortableTab
-                          key={tab.id}
-                          tab={tab}
-                          isActive={activeTab === tab.id}
-                          onClick={() => handleTabClick(tab)}
-                          onRemove={tab.deletable ? () => handleRemoveTab(tab.id) : undefined}
-                          onHover={() => handleTabHover(tab.id)}
-                          selectedBoardId={(tab.id === 'board' || tab.id === 'sprints' || tab.id === 'releases' || tab.id === 'backlog') ? selectedBoardId : undefined}
-                          boards={(tab.id === 'board' || tab.id === 'sprints' || tab.id === 'releases' || tab.id === 'backlog') ? boards : undefined}
-                          onBoardSelect={(tab.id === 'board' || tab.id === 'sprints' || tab.id === 'releases' || tab.id === 'backlog') ? handleBoardSelectFromDropdown : undefined}
-                          onCreateBoard={(tab.id === 'board' || tab.id === 'sprints' || tab.id === 'releases' || tab.id === 'backlog') ? () => setCreateBoardOpen(true) : undefined}
-                        />
-                      ))}
+                    <div className="w-full overflow-x-auto pb-2 pt-2">
+                      <div className="flex items-center gap-1 min-w-max">
+                        {visibleTabs.map((tab) => (
+                          <SortableTab
+                            key={tab.id}
+                            tab={tab}
+                            isActive={activeTab === tab.id}
+                            onClick={() => handleTabClick(tab)}
+                            onRemove={tab.deletable ? () => handleRemoveTab(tab.id) : undefined}
+                            onHover={() => handleTabHover(tab.id)}
+                            selectedBoardId={(tab.id === 'board' || tab.id === 'sprints' || tab.id === 'releases' || tab.id === 'backlog') ? selectedBoardId : undefined}
+                            boards={(tab.id === 'board' || tab.id === 'sprints' || tab.id === 'releases' || tab.id === 'backlog') ? boards : undefined}
+                            onBoardSelect={(tab.id === 'board' || tab.id === 'sprints' || tab.id === 'releases' || tab.id === 'backlog') ? handleBoardSelectFromDropdown : undefined}
+                            onCreateBoard={(tab.id === 'board' || tab.id === 'sprints' || tab.id === 'releases' || tab.id === 'backlog') ? () => setCreateBoardOpen(true) : undefined}
+                          />
+                        ))}
 
-                      {deletedTabs.length > 0 && (
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="ml-2 h-9 px-3 text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]"
-                            >
-                              <Plus className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="start" className="w-48">
-                            {deletedTabs.map((tab) => (
-                              <DropdownMenuItem key={tab.id} onClick={() => handleAddTab(tab.id)} className="cursor-pointer">
-                                <div className="flex items-center gap-2">
-                                  {tab.icon && (
-                                    <tab.icon className="h-4 w-4" />
-                                  )}
-                                  <span>{tab.label}</span>
-                                </div>
-                              </DropdownMenuItem>
-                            ))}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      )}
+                        {deletedTabs.length > 0 && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="ml-2 h-9 px-3 text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)] sticky right-0 bg-[var(--background)] shadow-sm"
+                              >
+                                <Plus className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start" className="w-48">
+                              {deletedTabs.map((tab) => (
+                                <DropdownMenuItem key={tab.id} onClick={() => handleAddTab(tab.id)} className="cursor-pointer">
+                                  <div className="flex items-center gap-2">
+                                    {tab.icon && (
+                                      <tab.icon className="h-4 w-4" />
+                                    )}
+                                    <span>{tab.label}</span>
+                                  </div>
+                                </DropdownMenuItem>
+                              ))}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
+                      </div>
                     </div>
                   </SortableContext>
                 </DndContext>

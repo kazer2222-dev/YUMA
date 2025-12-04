@@ -17,12 +17,13 @@ interface WorkflowsManagerProps {
   onOpenChange?: (open: boolean) => void;
   standalone?: boolean;
   onBack?: () => void;
+  onEditorOpenChange?: (open: boolean) => void;
 }
 
-export function WorkflowsManager({ 
-  spaceId, 
-  spaceSlug, 
-  open, 
+export function WorkflowsManager({
+  spaceId,
+  spaceSlug,
+  open,
   onOpenChange,
   standalone = false,
   onBack,
@@ -161,119 +162,119 @@ export function WorkflowsManager({
   }, [workflows]);
 
   const content = (
-          <div className="space-y-4">
-            {!standalone && (
-              <div className="flex items-center justify-between">
-                <p className="text-sm text-muted-foreground">
-                  {openWorkflowsCount} workflow{openWorkflowsCount === 1 ? '' : 's'} available
-                </p>
-                <Button onClick={handleCreate}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Create Workflow
-                </Button>
-              </div>
-            )}
-            {standalone && (
-              <div className="flex items-center justify-between">
-                <p className="text-sm text-muted-foreground">
-                  {openWorkflowsCount} workflow{openWorkflowsCount === 1 ? '' : 's'} available
-                </p>
-              </div>
-            )}
+    <div className="space-y-4">
+      {!standalone && (
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">
+            {openWorkflowsCount} workflow{openWorkflowsCount === 1 ? '' : 's'} available
+          </p>
+          <Button onClick={handleCreate}>
+            <Plus className="mr-2 h-4 w-4" />
+            Create Workflow
+          </Button>
+        </div>
+      )}
+      {standalone && (
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">
+            {openWorkflowsCount} workflow{openWorkflowsCount === 1 ? '' : 's'} available
+          </p>
+        </div>
+      )}
 
-            {errorMessage && (
-              <Alert>
-                <AlertDescription>{errorMessage}</AlertDescription>
-              </Alert>
-            )}
+      {errorMessage && (
+        <Alert>
+          <AlertDescription>{errorMessage}</AlertDescription>
+        </Alert>
+      )}
 
-            {loading ? (
-              <div className="py-12 text-center text-muted-foreground">Loading workflows...</div>
-            ) : workflows.length === 0 ? (
-              <Card>
-                <CardContent className="flex flex-col items-center justify-center gap-4 py-12">
-                  <GitBranch className="h-12 w-12 text-muted-foreground" />
-                  <div className="text-center text-muted-foreground">
-                    <p className="text-sm">No workflows yet</p>
-                    <p className="text-xs">Use workflows to control how tasks move between statuses.</p>
+      {loading ? (
+        <div className="py-12 text-center text-muted-foreground">Loading workflows...</div>
+      ) : workflows.length === 0 ? (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center gap-4 py-12">
+            <GitBranch className="h-12 w-12 text-muted-foreground" />
+            <div className="text-center text-muted-foreground">
+              <p className="text-sm">No workflows yet</p>
+              <p className="text-xs">Use workflows to control how tasks move between statuses.</p>
+            </div>
+            <Button onClick={handleCreate}>
+              <Plus className="mr-2 h-4 w-4" />
+              Create Your First Workflow
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2">
+          {workflows.map((workflow) => {
+            const linkedCount = workflow.linkedTemplates?.length ?? 0;
+            return (
+              <Card key={workflow.id} className="transition-shadow hover:shadow-md self-start">
+                <CardHeader className="pb-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 space-y-1">
+                      <CardTitle className="text-base flex items-center gap-2">
+                        {workflow.name}
+                        {workflow.isDefault && (
+                          <Badge variant="secondary" className="text-xs">
+                            Default
+                          </Badge>
+                        )}
+                        {workflow.aiOptimized && (
+                          <Badge variant="outline" className="text-xs gap-1">
+                            <Zap className="h-3 w-3" /> AI
+                          </Badge>
+                        )}
+                      </CardTitle>
+                      {workflow.description && (
+                        <CardDescription>{workflow.description}</CardDescription>
+                      )}
+                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => handleEdit(workflow.id)}>
+                          <Edit className="mr-2 h-4 w-4" />
+                          Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleDuplicate(workflow.id)}>
+                          <Copy className="mr-2 h-4 w-4" />
+                          Duplicate
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => handleDelete(workflow)}
+                          className="text-destructive"
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
-                  <Button onClick={handleCreate}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Create Your First Workflow
-                  </Button>
+                </CardHeader>
+                <CardContent className="space-y-2 text-xs text-muted-foreground">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <span>Version {workflow.version}</span>
+                    <span>
+                      Updated {new Date(workflow.updatedAt).toLocaleDateString()}
+                    </span>
+                    {linkedCount > 0 ? (
+                      <span>{linkedCount} linked template{linkedCount === 1 ? '' : 's'}</span>
+                    ) : (
+                      <span>No linked templates</span>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
-            ) : (
-              <div className="grid gap-4 md:grid-cols-2">
-                {workflows.map((workflow) => {
-                  const linkedCount = workflow.linkedTemplates?.length ?? 0;
-                  return (
-                    <Card key={workflow.id} className="transition-shadow hover:shadow-md self-start">
-                      <CardHeader className="pb-3">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex-1 space-y-1">
-                            <CardTitle className="text-base flex items-center gap-2">
-                              {workflow.name}
-                              {workflow.isDefault && (
-                                <Badge variant="secondary" className="text-xs">
-                                  Default
-                                </Badge>
-                              )}
-                              {workflow.aiOptimized && (
-                                <Badge variant="outline" className="text-xs gap-1">
-                                  <Zap className="h-3 w-3" /> AI
-                                </Badge>
-                              )}
-                            </CardTitle>
-                            {workflow.description && (
-                              <CardDescription>{workflow.description}</CardDescription>
-                            )}
-                          </div>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                                <MoreVertical className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => handleEdit(workflow.id)}>
-                                <Edit className="mr-2 h-4 w-4" />
-                                Edit
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleDuplicate(workflow.id)}>
-                                <Copy className="mr-2 h-4 w-4" />
-                                Duplicate
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => handleDelete(workflow)}
-                                className="text-destructive"
-                              >
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                Delete
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
-                      </CardHeader>
-                      <CardContent className="space-y-2 text-xs text-muted-foreground">
-                        <div className="flex flex-wrap items-center gap-3">
-                          <span>Version {workflow.version}</span>
-                          <span>
-                            Updated {new Date(workflow.updatedAt).toLocaleDateString()}
-                          </span>
-                          {linkedCount > 0 ? (
-                            <span>{linkedCount} linked template{linkedCount === 1 ? '' : 's'}</span>
-                          ) : (
-                            <span>No linked templates</span>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 
   if (standalone) {
