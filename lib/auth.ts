@@ -79,7 +79,7 @@ export class AuthService {
 
   static async requestPIN(email: string): Promise<{ success: boolean; message: string }> {
     const isProduction = process.env.NODE_ENV === 'production';
-    
+
     try {
       const pin = this.generatePIN();
       const hashedPin = await this.hashPIN(pin);
@@ -133,7 +133,7 @@ export class AuthService {
         console.error('Email service error (non-fatal):', emailError);
         emailSent = !isProduction; // Return true in dev, false in prod
       }
-      
+
       // Always log PIN in development mode, regardless of success
       if (!isProduction) {
         console.log('');
@@ -154,7 +154,7 @@ export class AuthService {
         console.log('═══════════════════════════════════════════════════════════════');
         console.log('');
       }
-      
+
       // Always succeed in development (PIN is logged to console)
       if (!emailSent && isProduction) {
         return {
@@ -162,7 +162,7 @@ export class AuthService {
           message: 'Failed to send PIN. Please check your email configuration.'
         };
       }
-      
+
       // Success - PIN is either sent via email or logged to console (development)
       return {
         success: true,
@@ -176,7 +176,7 @@ export class AuthService {
         name: error?.name,
         stack: error?.stack
       });
-      
+
       // In development, still try to log the PIN if we have it
       if (!isProduction) {
         console.log('');
@@ -187,7 +187,7 @@ export class AuthService {
         console.log('═══════════════════════════════════════════════════════════════');
         console.log('');
       }
-      
+
       return {
         success: false,
         message: `Failed to send PIN. ${error?.message || 'Please try again.'}`
@@ -196,8 +196,8 @@ export class AuthService {
   }
 
   static async verifyPIN(
-    email: string, 
-    pin: string, 
+    email: string,
+    pin: string,
     options?: {
       rememberMe?: boolean;
       deviceInfo?: string;
@@ -206,7 +206,7 @@ export class AuthService {
     }
   ): Promise<{ success: boolean; session?: SessionData; message: string }> {
     const isProduction = process.env.NODE_ENV === 'production';
-    
+
     try {
       // Try to find valid PIN in database
       let pinRecord = null;
@@ -233,7 +233,7 @@ export class AuthService {
       const devPIN = process.env.DEV_PIN;
       if (!isProduction && devPIN && pin === devPIN) {
         console.log(`[DEV MODE] Using configured DEV_PIN bypass for ${email}`);
-        
+
         // If a PIN record exists, mark it as used to clean up
         if (pinRecord) {
           try {
@@ -245,7 +245,7 @@ export class AuthService {
             // Ignore errors in cleanup
           }
         }
-        
+
         // Find or create user
         let user = null;
         try {
@@ -303,7 +303,7 @@ export class AuthService {
         }
 
         // Session expiration: 30 days if remember me, otherwise 7 days (will be cleared on browser close via session cookie)
-        const sessionExpiration = rememberMe 
+        const sessionExpiration = rememberMe
           ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days
           : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days (but cookie will be session-based)
 
@@ -359,7 +359,7 @@ export class AuthService {
 
       // Verify PIN
       const isValid = await this.verifyPINHash(pin, pinRecord.hashedCode);
-      
+
       if (!isValid) {
         // Increment attempts
         await prisma.pinCode.update({
@@ -394,7 +394,7 @@ export class AuthService {
 
         // Create personal space for new user with unique ticker
         const tickerBase = user.id.slice(-6).toUpperCase();
-        await prisma.space.create({
+        const space = await prisma.space.create({
           data: {
             name: 'Personal',
             slug: `personal-${user.id}`,
@@ -402,8 +402,72 @@ export class AuthService {
             members: {
               create: {
                 userId: user.id,
-                role: 'OWNER'
+                role: 'OWNER',
+                // We'll update the roleId after creating the roles, or we can create roles first
+                // But Prisma doesn't support easy self-referential creates with nested writes for this specific case easily
+                // So we'll let it be null for now and update it, OR we can define the roles here
               }
+            },
+            roles: {
+              create: [
+                {
+                  name: 'Admin',
+                  description: 'Full access to all space features and settings',
+                  isDefault: true,
+                  isSystem: true,
+                  permissions: {
+                    create: [
+                      { permissionKey: 'manage_space', granted: true },
+                      { permissionKey: 'manage_members', granted: true },
+                      { permissionKey: 'manage_roles', granted: true },
+                      { permissionKey: 'create_tasks', granted: true },
+                      { permissionKey: 'edit_tasks', granted: true },
+                      { permissionKey: 'delete_tasks', granted: true },
+                      { permissionKey: 'view_space', granted: true },
+                      { permissionKey: 'view_regress', granted: true },
+                      { permissionKey: 'create_test_cases', granted: true },
+                      { permissionKey: 'edit_test_cases', granted: true },
+                      { permissionKey: 'execute_tests', granted: true },
+                      { permissionKey: 'override_priority', granted: true },
+                      { permissionKey: 'run_regression_suite', granted: true },
+                      { permissionKey: 'delete_test_results', granted: true },
+                      { permissionKey: 'view_reports', granted: true },
+                      { permissionKey: 'export_data', granted: true },
+                    ]
+                  }
+                },
+                {
+                  name: 'Member',
+                  description: 'Can create and edit content, but cannot manage settings',
+                  isDefault: true,
+                  isSystem: true,
+                  permissions: {
+                    create: [
+                      { permissionKey: 'view_space', granted: true },
+                      { permissionKey: 'create_tasks', granted: true },
+                      { permissionKey: 'edit_tasks', granted: true },
+                      { permissionKey: 'view_regress', granted: true },
+                      { permissionKey: 'create_test_cases', granted: true },
+                      { permissionKey: 'edit_test_cases', granted: true },
+                      { permissionKey: 'execute_tests', granted: true },
+                      { permissionKey: 'view_reports', granted: true },
+                    ]
+                  }
+                },
+                {
+                  name: 'Viewer',
+                  description: 'Read-only access to space content',
+                  isDefault: true,
+                  isSystem: true,
+                  permissions: {
+                    create: [
+                      { permissionKey: 'view_space', granted: true },
+                      { permissionKey: 'view_regress', granted: true },
+                      { permissionKey: 'view_reports', granted: true },
+                    ]
+                  }
+                }
+              ]
             },
             settings: {
               create: {
@@ -414,6 +478,23 @@ export class AuthService {
             }
           }
         });
+
+        // Assign Admin role to the owner
+        const adminRole = await prisma.spaceRole.findFirst({
+          where: { spaceId: space.id, name: 'Admin' }
+        });
+
+        if (adminRole) {
+          await prisma.spaceMember.update({
+            where: {
+              spaceId_userId: {
+                spaceId: space.id,
+                userId: user.id
+              }
+            },
+            data: { roleId: adminRole.id }
+          });
+        }
       }
 
       // Generate tokens
@@ -447,7 +528,7 @@ export class AuthService {
       }
 
       // Session expiration: 30 days if remember me, otherwise 7 days (will be cleared on browser close via session cookie)
-      const sessionExpiration = rememberMe 
+      const sessionExpiration = rememberMe
         ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days
         : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days (but cookie will be session-based)
 
@@ -486,7 +567,7 @@ export class AuthService {
         name: error?.name,
         stack: error?.stack
       });
-      
+
       // In development, provide more helpful error messages
       const isProduction = process.env.NODE_ENV === 'production';
       if (!isProduction) {
@@ -499,7 +580,7 @@ export class AuthService {
         console.log('═══════════════════════════════════════════════════════════════');
         console.log('');
       }
-      
+
       return {
         success: false,
         message: `Authentication failed. ${error?.message || 'Please try again.'}`
@@ -535,7 +616,7 @@ export class AuthService {
       if (isDev) {
         console.log(`[Auth] getUserFromToken called`);
       }
-      
+
       const decoded = this.verifyToken(token);
       if (!decoded) {
         if (isDev) {

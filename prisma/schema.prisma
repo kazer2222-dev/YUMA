@@ -16,7 +16,7 @@ model User {
   email         String   @unique
   name          String?
   avatar        String?
-  password      String?  // Hashed password for email registration
+  password      String? // Hashed password for email registration
   emailVerified Boolean  @default(false)
   googleId      String?  @unique // Google OAuth ID
   createdAt     DateTime @default(now())
@@ -42,14 +42,27 @@ model User {
   createdEvents     Event[]            @relation("EventCreator")
 
   // Documents
-  createdDocuments     Document[]            @relation("DocumentCreator")
-  documentAccess       DocumentAccess[]
-  documentComments     DocumentComment[]
-  documentActivities   DocumentActivity[]
-  documentShareLinks   DocumentShareLink[]
+  createdDocuments   Document[]          @relation("DocumentCreator")
+  documentAccess     DocumentAccess[]
+  documentComments   DocumentComment[]
+  documentActivities DocumentActivity[]
+  documentShareLinks DocumentShareLink[]
+
+  // Space Management
+  addedMembers    SpaceMember[]     @relation("AddedBy")
+  sentInvitations SpaceInvitation[] @relation("InvitedBy")
+  auditLogs       SpaceAuditLog[]   @relation("AuditLog")
 
   // Admin
   adminRole AdminRole?
+
+  // User Groups
+  groupMemberships SpaceGroupMember[]
+  groupAdditions   SpaceGroupMember[] @relation("GroupAddedBy")
+
+  // Notifications
+  notifications             Notification[]
+  notificationPreferences   UserNotificationPreference[]
 
   @@map("users")
 }
@@ -133,6 +146,17 @@ model Space {
   tests Test[]
   bugs  Bug[]
 
+  // User Management
+  roles       SpaceRole[]
+  groups      SpaceGroup[]
+  invitations SpaceInvitation[]
+  auditLogs   SpaceAuditLog[]
+
+  // Notifications
+  notificationScheme       NotificationScheme?
+  notifications            Notification[]
+  userNotificationPrefs    UserNotificationPreference[]
+
   @@map("spaces")
 }
 
@@ -155,17 +179,120 @@ model Board {
 }
 
 model SpaceMember {
-  id       String   @id @default(cuid())
-  spaceId  String
-  userId   String
-  role     String   @default("MEMBER") // OWNER, ADMIN, MEMBER, VIEWER
-  joinedAt DateTime @default(now())
+  id      String   @id @default(cuid())
+  spaceId String
+  userId  String
+  roleId  String? // Reference to SpaceRole
+  role    String // Legacy role field
+  addedBy String? // User who added this member
+  addedAt DateTime @default(now())
 
-  space Space @relation(fields: [spaceId], references: [id], onDelete: Cascade)
-  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  space Space     @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  user  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  roleRelation  SpaceRole? @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  adder User?     @relation("AddedBy", fields: [addedBy], references: [id])
 
   @@unique([spaceId, userId])
   @@map("space_members")
+}
+
+model SpaceRole {
+  id          String   @id @default(cuid())
+  spaceId     String
+  name        String
+  description String?
+  isDefault   Boolean  @default(false)
+  isSystem    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  space       Space             @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  members     SpaceMember[]
+  permissions SpacePermission[]
+  invitations SpaceInvitation[]
+  groups      SpaceGroup[]
+
+  @@unique([spaceId, name])
+  @@map("space_roles")
+}
+
+model SpaceGroup {
+  id          String   @id @default(cuid())
+  spaceId     String
+  name        String
+  description String?
+  roleId      String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  space       Space             @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  role        SpaceRole?        @relation(fields: [roleId], references: [id])
+  members     SpaceGroupMember[]
+
+  @@unique([spaceId, name])
+  @@map("space_groups")
+}
+
+model SpaceGroupMember {
+  id        String   @id @default(cuid())
+  groupId   String
+  userId    String
+  addedBy   String?
+  addedAt   DateTime @default(now())
+
+  group     SpaceGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  adder     User?      @relation("GroupAddedBy", fields: [addedBy], references: [id])
+
+  @@unique([groupId, userId])
+  @@map("space_group_members")
+}
+
+
+model SpacePermission {
+  id            String  @id @default(cuid())
+  roleId        String
+  permissionKey String
+  granted       Boolean @default(true)
+
+  role SpaceRole @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionKey])
+  @@map("space_permissions")
+}
+
+model SpaceInvitation {
+  id         String    @id @default(cuid())
+  spaceId    String
+  email      String
+  roleId     String
+  token      String    @unique
+  invitedBy  String
+  status     String    @default("PENDING")
+  expiresAt  DateTime
+  createdAt  DateTime  @default(now())
+  acceptedAt DateTime?
+
+  space   Space     @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  role    SpaceRole @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  inviter User      @relation("InvitedBy", fields: [invitedBy], references: [id])
+
+  @@map("space_invitations")
+}
+
+model SpaceAuditLog {
+  id        String   @id @default(cuid())
+  spaceId   String
+  userId    String
+  action    String
+  targetId  String?
+  metadata  String?
+  createdAt DateTime @default(now())
+
+  space Space @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  user  User  @relation("AuditLog", fields: [userId], references: [id])
+
+  @@map("space_audit_logs")
 }
 
 model Status {
@@ -228,6 +355,7 @@ model Task {
   workflowId       String?
   workflowStatusId String?
   workflowVersion  Int?
+  sourceTemplateId String? // Template this task was created from (for access inheritance)
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
@@ -516,13 +644,30 @@ model Template {
   defaultAssigneeId String?
   permissions       String? // JSON string for workflow permissions
   aiOptimized       Boolean  @default(false)
+  restrictAccess    Boolean  @default(false) // FR-1: Opt-in to limit template access
 
-  space           Space     @relation(fields: [spaceId], references: [id], onDelete: Cascade)
-  workflow        Workflow? @relation(fields: [workflowId], references: [id], onDelete: SetNull)
-  defaultAssignee User?     @relation("TemplateDefaultAssignee", fields: [defaultAssigneeId], references: [id], onDelete: SetNull)
+  space           Space                @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  workflow        Workflow?            @relation(fields: [workflowId], references: [id], onDelete: SetNull)
+  defaultAssignee User?                @relation("TemplateDefaultAssignee", fields: [defaultAssigneeId], references: [id], onDelete: SetNull)
+  accessRules     TemplateAccessRule[]
 
   @@unique([spaceId, title], name: "spaceId_title")
   @@map("templates")
+}
+
+// FR-2, FR-4: Template-level access control rules
+model TemplateAccessRule {
+  id         String   @id @default(cuid())
+  templateId String
+  permission String   // "CREATE", "EDIT", "VIEW"
+  entityType String   // "USER", "ROLE", "GROUP", "SPECIAL" (e.g., "CREATOR", "ASSIGNEE", "ALL_MEMBERS")
+  entityId   String?  // User/Role/Group ID, null for SPECIAL types like "ALL_MEMBERS"
+  createdAt  DateTime @default(now())
+
+  template Template @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@unique([templateId, permission, entityType, entityId])
+  @@map("template_access_rules")
 }
 
 model Workflow {
@@ -618,52 +763,52 @@ model WorkflowAudit {
 // Document Management Models
 
 model Document {
-  id          String   @id @default(cuid())
-  spaceId     String
-  parentId    String?  // Parent document ID for tree hierarchy
-  title       String
-  description String?
-  summary     String? // Brief summary of the document
-  icon        String?  // Custom icon/emoji for the page
-  coverImage  String?  // Cover image URL
-  type        String   @default("RICH_TEXT") // RICH_TEXT, PDF, DOCX, XLSX, PPTX, TXT, IMAGE, ARCHIVE
-  pageStatus  String   @default("DRAFT") // DRAFT, IN_REVIEW, APPROVED, ARCHIVED - Confluence-style page status
-  status      String   @default("DRAFT") // DRAFT, PUBLISHED, ARCHIVED
-  content     String? // For rich text documents (HTML/Markdown)
-  fileUrl     String? // For uploaded files (PDF, DOCX, etc.)
-  fileSize    Int? // File size in bytes
-  mimeType    String?
-  tags        String // JSON string for SQLite
-  labels      String?  // JSON string for colored labels/badges (Confluence-style)
-  metadata    String? // JSON string for extracted metadata
-  structure   String? // JSON string for TOC/outline
-  authorId    String
-  projectId   String? // Optional project reference
-  position    Int      @default(0) // Position within same parent level
-  order       Int      @default(0) // For manual ordering (deprecated, use position)
-  isPinned    Boolean  @default(false)
-  isExpanded  Boolean  @default(true) // Default expanded state for tree
-  hasUnpublishedChanges Boolean @default(false) // Draft indicator
-  lastEditedBy String? // Last user who edited
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  deletedAt   DateTime? // Soft delete
+  id                    String    @id @default(cuid())
+  spaceId               String
+  parentId              String? // Parent document ID for tree hierarchy
+  title                 String
+  description           String?
+  summary               String? // Brief summary of the document
+  icon                  String? // Custom icon/emoji for the page
+  coverImage            String? // Cover image URL
+  type                  String    @default("RICH_TEXT") // RICH_TEXT, PDF, DOCX, XLSX, PPTX, TXT, IMAGE, ARCHIVE
+  pageStatus            String    @default("DRAFT") // DRAFT, IN_REVIEW, APPROVED, ARCHIVED - Confluence-style page status
+  status                String    @default("DRAFT") // DRAFT, PUBLISHED, ARCHIVED
+  content               String? // For rich text documents (HTML/Markdown)
+  fileUrl               String? // For uploaded files (PDF, DOCX, etc.)
+  fileSize              Int? // File size in bytes
+  mimeType              String?
+  tags                  String // JSON string for SQLite
+  labels                String? // JSON string for colored labels/badges (Confluence-style)
+  metadata              String? // JSON string for extracted metadata
+  structure             String? // JSON string for TOC/outline
+  authorId              String
+  projectId             String? // Optional project reference
+  position              Int       @default(0) // Position within same parent level
+  order                 Int       @default(0) // For manual ordering (deprecated, use position)
+  isPinned              Boolean   @default(false)
+  isExpanded            Boolean   @default(true) // Default expanded state for tree
+  hasUnpublishedChanges Boolean   @default(false) // Draft indicator
+  lastEditedBy          String? // Last user who edited
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  deletedAt             DateTime? // Soft delete
 
   // Hierarchical relationships
-  parent          Document?            @relation("DocumentHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
-  children        Document[]           @relation("DocumentHierarchy")
-  
+  parent   Document?  @relation("DocumentHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children Document[] @relation("DocumentHierarchy")
+
   // Other relationships
-  space           Space                @relation(fields: [spaceId], references: [id], onDelete: Cascade)
-  author          User                 @relation("DocumentCreator", fields: [authorId], references: [id], onDelete: Cascade)
-  versions        DocumentVersion[]
-  access          DocumentAccess[]
-  comments        DocumentComment[]
-  activities      DocumentActivity[]
-  shareLinks      DocumentShareLink[]
-  linkedTasks     DocumentLink[]
-  vectors         DocumentVector[]
-  redactions      DocumentRedaction[]
+  space       Space               @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  author      User                @relation("DocumentCreator", fields: [authorId], references: [id], onDelete: Cascade)
+  versions    DocumentVersion[]
+  access      DocumentAccess[]
+  comments    DocumentComment[]
+  activities  DocumentActivity[]
+  shareLinks  DocumentShareLink[]
+  linkedTasks DocumentLink[]
+  vectors     DocumentVector[]
+  redactions  DocumentRedaction[]
 
   @@index([spaceId])
   @@index([parentId])
@@ -676,17 +821,17 @@ model Document {
 }
 
 model DocumentVersion {
-  id          String   @id @default(cuid())
-  documentId  String
-  version     Int
-  content     String? // For rich text
-  fileUrl     String? // For file-based documents
-  fileSize    Int?
-  changeNote  String? // User-provided change note
+  id            String   @id @default(cuid())
+  documentId    String
+  version       Int
+  content       String? // For rich text
+  fileUrl       String? // For file-based documents
+  fileSize      Int?
+  changeNote    String? // User-provided change note
   changeSummary String? // AI-generated change summary
-  label       String? // Version label (e.g., "draft", "approved")
-  createdBy   String
-  createdAt   DateTime @default(now())
+  label         String? // Version label (e.g., "draft", "approved")
+  createdBy     String
+  createdAt     DateTime @default(now())
 
   document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
 
@@ -696,14 +841,14 @@ model DocumentVersion {
 }
 
 model DocumentAccess {
-  id         String   @id @default(cuid())
+  id         String    @id @default(cuid())
   documentId String
   userId     String?
-  role       String   @default("VIEW") // OWNER, ADMIN, EDIT, COMMENT, VIEW, RESTRICTED
+  role       String    @default("VIEW") // OWNER, ADMIN, EDIT, COMMENT, VIEW, RESTRICTED
   grantedBy  String
   expiresAt  DateTime?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 
   document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
   user     User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -715,22 +860,22 @@ model DocumentAccess {
 }
 
 model DocumentComment {
-  id          String   @id @default(cuid())
-  documentId  String
-  userId      String
-  content     String
-  parentId    String? // For threaded comments
-  resolved    Boolean  @default(false)
-  resolvedBy  String?
-  resolvedAt  DateTime?
-  position    String? // JSON string for inline comment position
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id         String    @id @default(cuid())
+  documentId String
+  userId     String
+  content    String
+  parentId   String? // For threaded comments
+  resolved   Boolean   @default(false)
+  resolvedBy String?
+  resolvedAt DateTime?
+  position   String? // JSON string for inline comment position
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 
-  document Document           @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  user     User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  parent   DocumentComment?   @relation("CommentThread", fields: [parentId], references: [id], onDelete: Cascade)
-  replies  DocumentComment[]  @relation("CommentThread")
+  document Document          @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  user     User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent   DocumentComment?  @relation("CommentThread", fields: [parentId], references: [id], onDelete: Cascade)
+  replies  DocumentComment[] @relation("CommentThread")
 
   @@index([documentId])
   @@index([userId])
@@ -757,18 +902,18 @@ model DocumentActivity {
 }
 
 model DocumentShareLink {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   documentId  String
-  token       String   @unique
+  token       String    @unique
   createdBy   String
-  accessLevel String   @default("VIEW") // VIEW, COMMENT, EDIT
+  accessLevel String    @default("VIEW") // VIEW, COMMENT, EDIT
   password    String? // Hashed password
   expiresAt   DateTime?
   maxViews    Int?
-  viewCount   Int      @default(0)
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  viewCount   Int       @default(0)
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
   user     User     @relation(fields: [createdBy], references: [id], onDelete: Cascade)
@@ -862,12 +1007,12 @@ model Bug {
 
 // User's expanded/collapsed state for page tree (Confluence-style persistence)
 model UserTreeState {
-  id          String   @id @default(cuid())
-  userId      String
-  spaceId     String
-  documentId  String
-  isExpanded  Boolean  @default(true)
-  updatedAt   DateTime @updatedAt
+  id         String   @id @default(cuid())
+  userId     String
+  spaceId    String
+  documentId String
+  isExpanded Boolean  @default(true)
+  updatedAt  DateTime @updatedAt
 
   @@unique([userId, documentId])
   @@index([userId, spaceId])
@@ -876,12 +1021,88 @@ model UserTreeState {
 
 // Recent pages viewed by user
 model UserRecentPage {
-  id          String   @id @default(cuid())
-  userId      String
-  documentId  String
-  viewedAt    DateTime @default(now())
+  id         String   @id @default(cuid())
+  userId     String
+  documentId String
+  viewedAt   DateTime @default(now())
 
   @@unique([userId, documentId])
   @@index([userId])
   @@map("user_recent_pages")
+}
+
+// ==========================================
+// NOTIFICATION CONFIGURATION
+// ==========================================
+
+model NotificationScheme {
+  id          String   @id @default(cuid())
+  spaceId     String   @unique
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  space  Space                     @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  events NotificationSchemeEvent[]
+
+  @@map("notification_schemes")
+}
+
+model NotificationSchemeEvent {
+  id        String  @id @default(cuid())
+  schemeId  String
+  eventType String  // e.g., "TEST_PRIORITIZED", "USER_ADDED", "TASK_ASSIGNED"
+  enabled   Boolean @default(true)
+
+  scheme     NotificationScheme           @relation(fields: [schemeId], references: [id], onDelete: Cascade)
+  recipients NotificationEventRecipient[]
+
+  @@unique([schemeId, eventType])
+  @@map("notification_scheme_events")
+}
+
+model NotificationEventRecipient {
+  id            String  @id @default(cuid())
+  eventId       String
+  recipientType String  // "ROLE", "USER", "WATCHER", "ASSIGNEE", "REPORTER", "SPACE_ADMIN"
+  recipientId   String? // Role ID or User ID (null for dynamic types like WATCHER)
+
+  event NotificationSchemeEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@map("notification_event_recipients")
+}
+
+model UserNotificationPreference {
+  id           String  @id @default(cuid())
+  userId       String
+  spaceId      String?
+  eventType    String?
+  inAppEnabled Boolean @default(true)
+  selfNotify   Boolean @default(false)
+
+  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  space Space? @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, spaceId, eventType])
+  @@map("user_notification_preferences")
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  spaceId   String
+  eventType String
+  title     String
+  message   String
+  link      String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  space Space @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read])
+  @@index([spaceId])
+  @@map("notifications")
 }

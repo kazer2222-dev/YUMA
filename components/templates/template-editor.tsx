@@ -22,7 +22,8 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { GripVertical, Plus, Trash2, X, Save, Clock, GitBranch, Copy, Unlink, Loader2, AlertCircle } from 'lucide-react';
 import { useToastHelpers } from '@/components/toast';
-import type { Template, TemplateField } from './template-types';
+import type { Template, TemplateField, TemplateAccessRule } from './template-types';
+import { TemplateAccessSection } from './template-access-section';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { WorkflowDetail, WorkflowSummary } from '@/lib/workflows/types';
@@ -214,18 +215,18 @@ function convertSuggestionToWorkflowDetail(suggestion: any, spaceId?: string | n
   const now = new Date();
   const statuses = Array.isArray(suggestion.statuses)
     ? suggestion.statuses.map((status: any, index: number) => ({
-        id: `ai-status-${index}-${Date.now()}`,
-        key: status.key,
-        name: status.name,
-        category: status.category,
-        color: status.color ?? null,
-        isInitial: Boolean(status.isInitial),
-        isFinal: Boolean(status.isFinal),
-        order: status.order ?? index,
-        visibilityRules: undefined,
-        fieldLockRules: undefined,
-        statusRefId: undefined,
-      }))
+      id: `ai-status-${index}-${Date.now()}`,
+      key: status.key,
+      name: status.name,
+      category: status.category,
+      color: status.color ?? null,
+      isInitial: Boolean(status.isInitial),
+      isFinal: Boolean(status.isFinal),
+      order: status.order ?? index,
+      visibilityRules: undefined,
+      fieldLockRules: undefined,
+      statusRefId: undefined,
+    }))
     : [];
 
   const statusKeyToId = new Map<string, string>(
@@ -236,37 +237,37 @@ function convertSuggestionToWorkflowDetail(suggestion: any, spaceId?: string | n
 
   const transitions = Array.isArray(suggestion.transitions)
     ? suggestion.transitions.map((transition: any, index: number) => {
-        const conditions: Record<string, any> = {};
-        if (transition.assigneeOnly) {
-          conditions.roles = ['ASSIGNEE'];
-        }
-        if (transition.adminOnly) {
-          conditions.roles = [...(conditions.roles || []), 'OWNER', 'ADMIN'];
-        }
-        if (transition.requirePriority) {
-          conditions.requiredFields = ['priority'];
-        }
+      const conditions: Record<string, any> = {};
+      if (transition.assigneeOnly) {
+        conditions.roles = ['ASSIGNEE'];
+      }
+      if (transition.adminOnly) {
+        conditions.roles = [...(conditions.roles || []), 'OWNER', 'ADMIN'];
+      }
+      if (transition.requirePriority) {
+        conditions.requiredFields = ['priority'];
+      }
 
-        const validators: Record<string, any> = {};
-        if (transition.preventOpenSubtasks) {
-          validators.preventOpenSubtasks = true;
-        }
+      const validators: Record<string, any> = {};
+      if (transition.preventOpenSubtasks) {
+        validators.preventOpenSubtasks = true;
+      }
 
-        return {
-          id: `ai-transition-${index}-${Date.now()}`,
-          key: `${transition.fromKey}-${transition.toKey}`,
-          name: transition.name,
-          fromId: statusKeyToId.get(transition.fromKey) ?? defaultFromId,
-          toId: statusKeyToId.get(transition.toKey) ?? defaultToId,
-          fromKey: transition.fromKey,
-          toKey: transition.toKey,
-          conditions: Object.keys(conditions).length ? conditions : undefined,
-          validators: Object.keys(validators).length ? validators : undefined,
-          postFunctions: undefined,
-          uiTrigger: transition.uiTrigger ?? 'BUTTON',
-          order: transition.order ?? index,
-        };
-      })
+      return {
+        id: `ai-transition-${index}-${Date.now()}`,
+        key: `${transition.fromKey}-${transition.toKey}`,
+        name: transition.name,
+        fromId: statusKeyToId.get(transition.fromKey) ?? defaultFromId,
+        toId: statusKeyToId.get(transition.toKey) ?? defaultToId,
+        fromKey: transition.fromKey,
+        toKey: transition.toKey,
+        conditions: Object.keys(conditions).length ? conditions : undefined,
+        validators: Object.keys(validators).length ? validators : undefined,
+        postFunctions: undefined,
+        uiTrigger: transition.uiTrigger ?? 'BUTTON',
+        order: transition.order ?? index,
+      };
+    })
     : [];
 
   return {
@@ -295,7 +296,10 @@ export function TemplateEditor({ spaceSlug, template, open, onOpenChange }: Temp
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [members, setMembers] = useState<Array<{ id: string; name?: string; email: string }>>([]);
-  const [activeTab, setActiveTab] = useState<'fields' | 'workflow'>('fields');
+  const [activeTab, setActiveTab] = useState<'fields' | 'workflow' | 'access'>('fields');
+  // Access control state
+  const [restrictAccess, setRestrictAccess] = useState<boolean>(template?.restrictAccess ?? false);
+  const [accessRules, setAccessRules] = useState<TemplateAccessRule[]>(template?.accessRules ?? []);
   const [spaceId, setSpaceId] = useState<string | null>(null);
   const [workflows, setWorkflows] = useState<WorkflowSummary[]>([]);
   const [workflowsLoading, setWorkflowsLoading] = useState(false);
@@ -514,8 +518,8 @@ export function TemplateEditor({ spaceSlug, template, open, onOpenChange }: Temp
         const combinedIssues = Array.isArray(data.issues)
           ? data.issues
           : Array.isArray(suggestion.validations?.issues)
-          ? suggestion.validations?.issues ?? []
-          : [];
+            ? suggestion.validations?.issues ?? []
+            : [];
 
         setAiRecommendations(suggestion.recommendations ?? []);
         setAiSuggestionWarnings(Array.from(combinedWarnings));
@@ -581,6 +585,8 @@ export function TemplateEditor({ spaceSlug, template, open, onOpenChange }: Temp
       if (template) {
         setTitle(template.title);
         setFields(template.fieldConfig || []);
+        setRestrictAccess(template.restrictAccess ?? false);
+        setAccessRules(template.accessRules ?? []);
       } else {
         setTitle('');
         // Summary field is always present and required
@@ -593,6 +599,8 @@ export function TemplateEditor({ spaceSlug, template, open, onOpenChange }: Temp
             order: 0,
           },
         ]);
+        setRestrictAccess(false);
+        setAccessRules([]);
       }
       setError('');
     }
@@ -614,6 +622,39 @@ export function TemplateEditor({ spaceSlug, template, open, onOpenChange }: Temp
     setPendingWorkflowId(currentWorkflowId);
   }, [open, template?.workflowId]);
 
+  // Load access rules from API when editing existing template
+  useEffect(() => {
+    if (!open || !template?.id) {
+      return;
+    }
+
+    let isCancelled = false;
+
+    const fetchAccessRules = async () => {
+      try {
+        const response = await fetch(
+          `/api/spaces/${spaceSlug}/templates/${template.id}/access`,
+          { credentials: 'include' }
+        );
+        const data = await response.json();
+        if (!isCancelled && data.success) {
+          setRestrictAccess(data.restrictAccess ?? false);
+          setAccessRules(data.accessRules ?? []);
+        }
+      } catch (err) {
+        if (!isCancelled) {
+          console.error('Failed to fetch access rules:', err);
+        }
+      }
+    };
+
+    fetchAccessRules();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [open, template?.id, spaceSlug]);
+
   useEffect(() => {
     if (!open) {
       return;
@@ -631,36 +672,36 @@ export function TemplateEditor({ spaceSlug, template, open, onOpenChange }: Temp
         if (data.success) {
           const resolved: SpaceCustomField[] = Array.isArray(data.customFields)
             ? data.customFields.map((field: any) => {
-                let parsedOptions: string[] | null = null;
-                if (Array.isArray(field.options)) {
-                  parsedOptions = field.options;
-                } else if (typeof field.options === 'string') {
-                  try {
-                    const json = JSON.parse(field.options);
-                    if (Array.isArray(json)) {
-                      parsedOptions = json;
-                    } else if (json && typeof json === 'object') {
-                      parsedOptions = Object.values(json).map((value: any) => String(value));
-                    }
-                  } catch {
-                    parsedOptions = null;
+              let parsedOptions: string[] | null = null;
+              if (Array.isArray(field.options)) {
+                parsedOptions = field.options;
+              } else if (typeof field.options === 'string') {
+                try {
+                  const json = JSON.parse(field.options);
+                  if (Array.isArray(json)) {
+                    parsedOptions = json;
+                  } else if (json && typeof json === 'object') {
+                    parsedOptions = Object.values(json).map((value: any) => String(value));
                   }
-                } else if (field.options && typeof field.options === 'object') {
-                  parsedOptions = Object.values(field.options).map((value: any) => String(value));
+                } catch {
+                  parsedOptions = null;
                 }
+              } else if (field.options && typeof field.options === 'object') {
+                parsedOptions = Object.values(field.options).map((value: any) => String(value));
+              }
 
-                return {
-                  id: field.id,
-                  name: field.name,
-                  key: field.key,
-                  type: field.type,
-                  options: parsedOptions,
-                  required: field.required,
-                  helpText: field.helpText ?? null,
-                  defaultValue: field.defaultValue,
-                  inlineLabel: field.inlineLabel ?? null,
-                } satisfies SpaceCustomField;
-              })
+              return {
+                id: field.id,
+                name: field.name,
+                key: field.key,
+                type: field.type,
+                options: parsedOptions,
+                required: field.required,
+                helpText: field.helpText ?? null,
+                defaultValue: field.defaultValue,
+                inlineLabel: field.inlineLabel ?? null,
+              } satisfies SpaceCustomField;
+            })
             : [];
           setCustomFields(resolved);
         } else if (data.message) {
@@ -698,13 +739,13 @@ export function TemplateEditor({ spaceSlug, template, open, onOpenChange }: Temp
         if (data.success) {
           const resolvedMembers = Array.isArray(data.members)
             ? data.members
-                .map((member: any) => member?.user)
-                .filter((user: any) => user && typeof user.id === 'string')
-                .map((user: any) => ({
-                  id: user.id,
-                  name: user.name || undefined,
-                  email: user.email
-                }))
+              .map((member: any) => member?.user)
+              .filter((user: any) => user && typeof user.id === 'string')
+              .map((user: any) => ({
+                id: user.id,
+                name: user.name || undefined,
+                email: user.email
+              }))
             : [];
 
           setMembers(resolvedMembers);
@@ -803,7 +844,7 @@ export function TemplateEditor({ spaceSlug, template, open, onOpenChange }: Temp
     const newFields = [...fields];
     const targetIndex = direction === 'up' ? index - 1 : index + 1;
     if (targetIndex < 0 || targetIndex >= newFields.length) return;
-    
+
     [newFields[index], newFields[targetIndex]] = [newFields[targetIndex], newFields[index]];
     newFields.forEach((f, idx) => { f.order = idx; });
     setFields(newFields);
@@ -1162,7 +1203,7 @@ export function TemplateEditor({ spaceSlug, template, open, onOpenChange }: Temp
 
     setError('');
     const existingIndex = fields.findIndex(f => f.id === field.id);
-    
+
     if (existingIndex >= 0) {
       const newFields = [...fields];
       newFields[existingIndex] = field;
@@ -1170,7 +1211,7 @@ export function TemplateEditor({ spaceSlug, template, open, onOpenChange }: Temp
     } else {
       setFields([...fields, field].map((f, idx) => ({ ...f, order: idx })));
     }
-    
+
     setFieldDialogOpen(false);
     setEditingField(null);
   };
@@ -1210,7 +1251,7 @@ export function TemplateEditor({ spaceSlug, template, open, onOpenChange }: Temp
       const url = template
         ? `/api/spaces/${spaceSlug}/templates/${template.id}`
         : `/api/spaces/${spaceSlug}/templates`;
-      
+
       const method = template ? 'PUT' : 'POST';
 
       const response = await fetch(url, {
@@ -1235,6 +1276,30 @@ export function TemplateEditor({ spaceSlug, template, open, onOpenChange }: Temp
       const data = await response.json();
 
       if (response.ok && data.success) {
+        const savedTemplateId = data.template?.id || template?.id;
+
+        // Save access rules if the template was saved successfully
+        if (savedTemplateId) {
+          try {
+            await fetch(`/api/spaces/${spaceSlug}/templates/${savedTemplateId}/access`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
+              body: JSON.stringify({
+                restrictAccess,
+                accessRules: accessRules.map(rule => ({
+                  permission: rule.permission,
+                  entityType: rule.entityType,
+                  entityId: rule.entityId,
+                })),
+              }),
+            });
+          } catch (accessError) {
+            console.error('Error saving access rules:', accessError);
+            // Don't fail the save if access rules fail - they can be updated later
+          }
+        }
+
         if (!template && data.template?.id && pendingWorkflowId !== null) {
           await assignWorkflow(pendingWorkflowId, data.template.id);
         }
@@ -1286,10 +1351,11 @@ export function TemplateEditor({ spaceSlug, template, open, onOpenChange }: Temp
               />
             </div>
 
-            <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'fields' | 'workflow')} className="w-full">
+            <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'fields' | 'workflow' | 'access')} className="w-full">
               <TabsList>
                 <TabsTrigger value="fields">Fields</TabsTrigger>
                 <TabsTrigger value="workflow">Workflow</TabsTrigger>
+                <TabsTrigger value="access">Access</TabsTrigger>
               </TabsList>
               <TabsContent value="fields" className="pt-4 space-y-2">
                 <div className="flex items-center justify-between">
@@ -1370,6 +1436,17 @@ export function TemplateEditor({ spaceSlug, template, open, onOpenChange }: Temp
               </TabsContent>
               <TabsContent value="workflow" className="pt-4">
                 {workflowTabContent}
+              </TabsContent>
+              <TabsContent value="access" className="pt-4">
+                <TemplateAccessSection
+                  spaceSlug={spaceSlug}
+                  templateId={template?.id}
+                  restrictAccess={restrictAccess}
+                  accessRules={accessRules}
+                  onRestrictAccessChange={setRestrictAccess}
+                  onAccessRulesChange={setAccessRules}
+                  disabled={loading}
+                />
               </TabsContent>
             </Tabs>
           </div>
@@ -1783,11 +1860,11 @@ function FieldConfigDialog({ field, open, onOpenChange, onSave, members, customF
         setLocalField((prev) =>
           prev.customFieldId
             ? normalizeField({
-                ...prev,
-                customFieldId: undefined,
-                customFieldKey: undefined,
-                customFieldType: undefined,
-              })
+              ...prev,
+              customFieldId: undefined,
+              customFieldKey: undefined,
+              customFieldType: undefined,
+            })
             : prev
         );
       }
@@ -1801,11 +1878,11 @@ function FieldConfigDialog({ field, open, onOpenChange, onSave, members, customF
         setLocalField((prev) =>
           prev.customFieldId
             ? normalizeField({
-                ...prev,
-                customFieldId: undefined,
-                customFieldKey: undefined,
-                customFieldType: undefined,
-              })
+              ...prev,
+              customFieldId: undefined,
+              customFieldKey: undefined,
+              customFieldType: undefined,
+            })
             : prev
         );
       }
@@ -1821,11 +1898,11 @@ function FieldConfigDialog({ field, open, onOpenChange, onSave, members, customF
       setLocalField((prev) =>
         prev.customFieldId
           ? normalizeField({
-              ...prev,
-              customFieldId: undefined,
-              customFieldKey: undefined,
-              customFieldType: undefined,
-            })
+            ...prev,
+            customFieldId: undefined,
+            customFieldKey: undefined,
+            customFieldType: undefined,
+          })
           : prev
       );
       return;

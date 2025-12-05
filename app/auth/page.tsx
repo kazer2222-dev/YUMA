@@ -4,12 +4,12 @@ import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useToastHelpers } from '@/components/toast';
-import { 
-  Loader2, 
-  Mail, 
-  Lock, 
-  User, 
-  ArrowRight, 
+import {
+  Loader2,
+  Mail,
+  Lock,
+  User,
+  ArrowRight,
   ArrowLeft,
   Eye,
   EyeOff,
@@ -42,18 +42,18 @@ const GoogleIcon = () => (
 );
 
 // OTP Input Component
-const OTPInput = ({ 
-  value, 
-  onChange, 
-  disabled 
-}: { 
-  value: string[]; 
+const OTPInput = ({
+  value,
+  onChange,
+  disabled
+}: {
+  value: string[];
   onChange: (value: string[]) => void;
   disabled?: boolean;
 }) => {
   const handleChange = (index: number, inputValue: string) => {
     if (inputValue.length > 1) return;
-    
+
     const newValue = [...value];
     newValue[index] = inputValue;
     onChange(newValue);
@@ -378,15 +378,16 @@ function AuthContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { success, error: showError, info } = useToastHelpers();
-  
+
   const urlMode = searchParams.get('mode');
   const errorParam = searchParams.get('error');
-  
+
+  // Default to signin mode (returning users are more common than new signups)
   const [mode, setMode] = useState<'signin' | 'signup'>(
-    urlMode === 'login' || urlMode === 'signin' ? 'signin' : 'signup'
+    urlMode === 'signup' || urlMode === 'register' ? 'signup' : 'signin'
   );
   const [step, setStep] = useState<'form' | 'otp' | 'session'>('form');
-  
+
   // Form states
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -396,19 +397,19 @@ function AuthContent() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
-  
+
   // Remembered user state
   const [rememberedUser, setRememberedUser] = useState<{ email: string; name?: string } | null>(null);
   const [checkingSession, setCheckingSession] = useState(false);
-  
+
   // Loading states
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
-  
+
   // Error state
   const [error, setError] = useState('');
-  
+
   // OTP timer
   const [timeLeft, setTimeLeft] = useState(600);
   const [resendCount, setResendCount] = useState(0);
@@ -423,19 +424,29 @@ function AuthContent() {
         'token_exchange_failed': 'Authentication failed. Unable to complete sign-in.',
         'user_info_failed': 'Authentication failed. Unable to get user information.',
         'config_error': 'Google Sign-In is not configured. Please use email instead.',
-        'internal_error': 'An unexpected error occurred. Please try again.',
+        'account_not_found': 'No account found with this Google email. Please sign up first.',
+        'internal_error': 'An unexpected error occurred.',
       };
-      setError(errorMessages[errorParam] || 'Authentication failed. Please try again.');
+
+      let message = errorMessages[errorParam] || 'Authentication failed. Please try again.';
+
+      // Add details if available
+      const details = searchParams.get('details');
+      if (details) {
+        message += ` Details: ${decodeURIComponent(details)}`;
+      }
+
+      setError(message);
     }
-  }, [errorParam]);
+  }, [errorParam, searchParams]);
 
   // Update mode from URL
   useEffect(() => {
-    if (urlMode === 'login' || urlMode === 'signin') {
+    if (urlMode === 'signup' || urlMode === 'register') {
+      setMode('signup');
+    } else if (urlMode === 'login' || urlMode === 'signin') {
       setMode('signin');
       setConfirmPassword(''); // Clear confirm password when switching to signin
-    } else if (urlMode === 'signup') {
-      setMode('signup');
     }
   }, [urlMode]);
 
@@ -449,7 +460,7 @@ function AuthContent() {
   // Check for remembered user on mount
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    
+
     try {
       const remembered = localStorage.getItem('yuma_remembered_user');
       if (remembered) {
@@ -469,7 +480,7 @@ function AuthContent() {
     try {
       const response = await fetch('/api/auth/me', { credentials: 'include' });
       const data = await response.json();
-      
+
       if (data.success && data.user.email === userEmail) {
         // Session is valid, show session prompt
         setStep('session');
@@ -512,7 +523,7 @@ function AuthContent() {
   // OTP timer
   useEffect(() => {
     if (step !== 'otp') return;
-    
+
     const timer = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {
@@ -539,7 +550,7 @@ function AuthContent() {
     const hasNumber = /[0-9]/.test(pwd);
     const hasSymbol = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(pwd);
     const hasMinLength = pwd.length >= 8;
-    
+
     return {
       hasLowerCase,
       hasUpperCase,
@@ -557,9 +568,12 @@ function AuthContent() {
   // Handle Google Sign-In
   const handleGoogleSignIn = () => {
     setGoogleLoading(true);
-    // Pass rememberMe as query param to store in cookie
-    const rememberMeParam = rememberMe ? '?rememberMe=true' : '';
-    window.location.href = `/api/auth/google${rememberMeParam}`;
+    // Pass rememberMe and mode as query params
+    const params = new URLSearchParams();
+    if (rememberMe) params.set('rememberMe', 'true');
+    params.set('mode', mode); // 'signin' or 'signup'
+    const queryString = params.toString() ? `?${params.toString()}` : '';
+    window.location.href = `/api/auth/google${queryString}`;
   };
 
   // Handle Email Sign-In
@@ -683,7 +697,7 @@ function AuthContent() {
   // Handle resend OTP
   const handleResendOTP = async () => {
     if (resendCount >= 3) return;
-    
+
     setResendLoading(true);
     setError('');
 
@@ -725,7 +739,7 @@ function AuthContent() {
           transition={{ duration: 8, repeat: Infinity, ease: "easeInOut", delay: 2 }}
         />
       </div>
-      
+
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -748,364 +762,364 @@ function AuthContent() {
               <p style={{ color: '#9ca3af', fontSize: '14px' }}>Checking your session...</p>
             </div>
           ) : (
-          <AnimatePresence mode="wait">
-            {step === 'session' && rememberedUser ? (
-              <motion.div
-                key="session"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.3 }}
-              >
-                {/* Session Prompt Header */}
-                <div style={styles.header}>
-                  <div style={{
-                    width: '64px',
-                    height: '64px',
-                    backgroundColor: 'rgba(59, 130, 246, 0.2)',
-                    borderRadius: '16px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    margin: '0 auto 16px',
-                  }}>
-                    <User style={{ width: 32, height: 32, color: '#60a5fa' }} />
-                  </div>
-                  <h1 style={styles.title}>Welcome back!</h1>
-                  <p style={styles.subtitle}>
-                    You're signed in as
-                  </p>
-                </div>
-
-                {/* User Info Card */}
-                <div style={{
-                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                  borderRadius: '12px',
-                  padding: '20px',
-                  marginBottom: '24px',
-                  border: '1px solid rgba(255, 255, 255, 0.1)',
-                }}>
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '12px',
-                    marginBottom: '8px',
-                  }}>
+            <AnimatePresence mode="wait">
+              {step === 'session' && rememberedUser ? (
+                <motion.div
+                  key="session"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  {/* Session Prompt Header */}
+                  <div style={styles.header}>
                     <div style={{
-                      width: '40px',
-                      height: '40px',
-                      borderRadius: '50%',
+                      width: '64px',
+                      height: '64px',
                       backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                      borderRadius: '16px',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      color: '#60a5fa',
-                      fontWeight: 600,
-                      fontSize: '16px',
+                      margin: '0 auto 16px',
                     }}>
-                      {rememberedUser.name?.charAt(0)?.toUpperCase() || rememberedUser.email.charAt(0).toUpperCase()}
+                      <User style={{ width: 32, height: 32, color: '#60a5fa' }} />
                     </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ color: 'white', fontWeight: 500, fontSize: '15px' }}>
-                        {rememberedUser.name || 'User'}
+                    <h1 style={styles.title}>Welcome back!</h1>
+                    <p style={styles.subtitle}>
+                      You're signed in as
+                    </p>
+                  </div>
+
+                  {/* User Info Card */}
+                  <div style={{
+                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                    borderRadius: '12px',
+                    padding: '20px',
+                    marginBottom: '24px',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                  }}>
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '12px',
+                      marginBottom: '8px',
+                    }}>
+                      <div style={{
+                        width: '40px',
+                        height: '40px',
+                        borderRadius: '50%',
+                        backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#60a5fa',
+                        fontWeight: 600,
+                        fontSize: '16px',
+                      }}>
+                        {rememberedUser.name?.charAt(0)?.toUpperCase() || rememberedUser.email.charAt(0).toUpperCase()}
                       </div>
-                      <div style={{ color: '#9ca3af', fontSize: '13px', marginTop: '2px' }}>
-                        {rememberedUser.email}
+                      <div style={{ flex: 1 }}>
+                        <div style={{ color: 'white', fontWeight: 500, fontSize: '15px' }}>
+                          {rememberedUser.name || 'User'}
+                        </div>
+                        <div style={{ color: '#9ca3af', fontSize: '13px', marginTop: '2px' }}>
+                          {rememberedUser.email}
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
 
-                {/* Action Buttons */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {/* Action Buttons */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <button
+                      onClick={handleContinueSession}
+                      disabled={checkingSession}
+                      style={{
+                        ...styles.submitBtn,
+                        opacity: checkingSession ? 0.5 : 1,
+                      }}
+                    >
+                      {checkingSession ? (
+                        <>
+                          <Loader2 style={{ width: 20, height: 20, animation: 'spin 1s linear infinite' }} />
+                          Checking session...
+                        </>
+                      ) : (
+                        <>
+                          Continue to YUMA
+                          <ArrowRight style={{ width: 20, height: 20 }} />
+                        </>
+                      )}
+                    </button>
+                    <button
+                      onClick={handleSwitchAccount}
+                      disabled={checkingSession}
+                      style={{
+                        ...styles.actionBtn,
+                        opacity: checkingSession ? 0.5 : 1,
+                      }}
+                    >
+                      Switch account
+                    </button>
+                  </div>
+                </motion.div>
+              ) : step === 'form' ? (
+                <motion.div
+                  key="form"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  {/* Header */}
+                  <div style={styles.header}>
+                    <h1 style={styles.title}>
+                      {mode === 'signin' ? 'Welcome back' : 'Create your account'}
+                    </h1>
+                    <p style={styles.subtitle}>
+                      {mode === 'signin'
+                        ? 'Sign in to continue to YUMA'
+                        : 'Start managing your tasks with AI'}
+                    </p>
+                  </div>
+
+                  {/* Google Sign-In */}
                   <button
-                    onClick={handleContinueSession}
-                    disabled={checkingSession}
+                    type="button"
+                    onClick={handleGoogleSignIn}
+                    disabled={googleLoading || loading}
                     style={{
-                      ...styles.submitBtn,
-                      opacity: checkingSession ? 0.5 : 1,
+                      ...styles.googleBtn,
+                      opacity: googleLoading || loading ? 0.5 : 1,
                     }}
                   >
-                    {checkingSession ? (
-                      <>
-                        <Loader2 style={{ width: 20, height: 20, animation: 'spin 1s linear infinite' }} />
-                        Checking session...
-                      </>
+                    {googleLoading ? (
+                      <Loader2 style={{ width: 20, height: 20, animation: 'spin 1s linear infinite' }} />
                     ) : (
                       <>
-                        Continue to YUMA
-                        <ArrowRight style={{ width: 20, height: 20 }} />
+                        <GoogleIcon />
+                        <span>Continue with Google</span>
                       </>
                     )}
                   </button>
-                  <button
-                    onClick={handleSwitchAccount}
-                    disabled={checkingSession}
-                    style={{
-                      ...styles.actionBtn,
-                      opacity: checkingSession ? 0.5 : 1,
-                    }}
-                  >
-                    Switch account
-                  </button>
-                </div>
-              </motion.div>
-            ) : step === 'form' ? (
-              <motion.div
-                key="form"
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 20 }}
-                transition={{ duration: 0.3 }}
-              >
-                {/* Header */}
-                <div style={styles.header}>
-                  <h1 style={styles.title}>
-                    {mode === 'signin' ? 'Welcome back' : 'Create your account'}
-                  </h1>
-                  <p style={styles.subtitle}>
-                    {mode === 'signin' 
-                      ? 'Sign in to continue to YUMA'
-                      : 'Start managing your tasks with AI'}
-                  </p>
-                </div>
 
-                {/* Google Sign-In */}
-                <button
-                  type="button"
-                  onClick={handleGoogleSignIn}
-                  disabled={googleLoading || loading}
-                  style={{
-                    ...styles.googleBtn,
-                    opacity: googleLoading || loading ? 0.5 : 1,
-                  }}
-                >
-                  {googleLoading ? (
-                    <Loader2 style={{ width: 20, height: 20, animation: 'spin 1s linear infinite' }} />
-                  ) : (
-                    <>
-                      <GoogleIcon />
-                      <span>Continue with Google</span>
-                    </>
-                  )}
-                </button>
+                  {/* Divider */}
+                  <div style={styles.divider}>
+                    <div style={styles.dividerLine} />
+                    <span style={styles.dividerText}>or continue with email</span>
+                    <div style={styles.dividerLine} />
+                  </div>
 
-                {/* Divider */}
-                <div style={styles.divider}>
-                  <div style={styles.dividerLine} />
-                  <span style={styles.dividerText}>or continue with email</span>
-                  <div style={styles.dividerLine} />
-                </div>
+                  {/* Form */}
+                  <form onSubmit={mode === 'signin' ? handleSignIn : handleSignUp}>
+                    {/* Name field (signup only) */}
+                    {mode === 'signup' && (
+                      <div style={styles.formGroup}>
+                        <label style={styles.label}>Full name</label>
+                        <div style={styles.inputWrapper}>
+                          <User style={{ ...styles.inputIcon, width: 20, height: 20 }} />
+                          <input
+                            type="text"
+                            placeholder="John Doe"
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                            required
+                            disabled={loading}
+                            style={styles.input}
+                          />
+                        </div>
+                      </div>
+                    )}
 
-                {/* Form */}
-                <form onSubmit={mode === 'signin' ? handleSignIn : handleSignUp}>
-                  {/* Name field (signup only) */}
-                  {mode === 'signup' && (
+                    {/* Email field */}
                     <div style={styles.formGroup}>
-                      <label style={styles.label}>Full name</label>
+                      <label style={styles.label}>Email address</label>
                       <div style={styles.inputWrapper}>
-                        <User style={{ ...styles.inputIcon, width: 20, height: 20 }} />
+                        <Mail style={{ ...styles.inputIcon, width: 20, height: 20 }} />
                         <input
-                          type="text"
-                          placeholder="John Doe"
-                          value={name}
-                          onChange={(e) => setName(e.target.value)}
+                          type="email"
+                          placeholder="you@example.com"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
                           required
                           disabled={loading}
                           style={styles.input}
                         />
                       </div>
                     </div>
-                  )}
 
-                  {/* Email field */}
-                  <div style={styles.formGroup}>
-                    <label style={styles.label}>Email address</label>
-                    <div style={styles.inputWrapper}>
-                      <Mail style={{ ...styles.inputIcon, width: 20, height: 20 }} />
-                      <input
-                        type="email"
-                        placeholder="you@example.com"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        required
-                        disabled={loading}
-                        style={styles.input}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Password field */}
-                  <div style={styles.formGroup}>
-                    <label style={styles.label}>Password</label>
-                    <div style={styles.inputWrapper}>
-                      <Lock style={{ ...styles.inputIcon, width: 20, height: 20 }} />
-                      <input
-                        type={showPassword ? 'text' : 'password'}
-                        placeholder="••••••••"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        required
-                        disabled={loading}
-                        style={styles.input}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        style={styles.eyeBtn}
-                      >
-                        {showPassword ? (
-                          <EyeOff style={{ width: 20, height: 20 }} />
-                        ) : (
-                          <Eye style={{ width: 20, height: 20 }} />
-                        )}
-                      </button>
-                    </div>
-                    {mode === 'signup' && password.length > 0 && (
-                      <div style={styles.passwordRequirements}>
-                        <div style={{
-                          ...styles.passwordCheck,
-                          color: passwordValidation.hasMinLength ? '#34d399' : '#6b7280',
-                        }}>
-                          <Check style={{ width: 16, height: 16, opacity: passwordValidation.hasMinLength ? 1 : 0.3 }} />
-                          <span>At least 8 characters</span>
-                        </div>
-                        <div style={{
-                          ...styles.passwordCheck,
-                          color: passwordValidation.hasLowerCase ? '#34d399' : '#6b7280',
-                        }}>
-                          <Check style={{ width: 16, height: 16, opacity: passwordValidation.hasLowerCase ? 1 : 0.3 }} />
-                          <span>One lowercase letter</span>
-                        </div>
-                        <div style={{
-                          ...styles.passwordCheck,
-                          color: passwordValidation.hasUpperCase ? '#34d399' : '#6b7280',
-                        }}>
-                          <Check style={{ width: 16, height: 16, opacity: passwordValidation.hasUpperCase ? 1 : 0.3 }} />
-                          <span>One uppercase letter</span>
-                        </div>
-                        <div style={{
-                          ...styles.passwordCheck,
-                          color: passwordValidation.hasNumber ? '#34d399' : '#6b7280',
-                        }}>
-                          <Check style={{ width: 16, height: 16, opacity: passwordValidation.hasNumber ? 1 : 0.3 }} />
-                          <span>One number</span>
-                        </div>
-                        <div style={{
-                          ...styles.passwordCheck,
-                          color: passwordValidation.hasSymbol ? '#34d399' : '#6b7280',
-                        }}>
-                          <Check style={{ width: 16, height: 16, opacity: passwordValidation.hasSymbol ? 1 : 0.3 }} />
-                          <span>One symbol</span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Confirm Password field (signup only) */}
-                  {mode === 'signup' && (
+                    {/* Password field */}
                     <div style={styles.formGroup}>
-                      <label style={styles.label}>Retype your password</label>
+                      <label style={styles.label}>Password</label>
                       <div style={styles.inputWrapper}>
                         <Lock style={{ ...styles.inputIcon, width: 20, height: 20 }} />
                         <input
-                          type={showConfirmPassword ? 'text' : 'password'}
+                          type={showPassword ? 'text' : 'password'}
                           placeholder="••••••••"
-                          value={confirmPassword}
-                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
                           required
                           disabled={loading}
-                          style={{
-                            ...styles.input,
-                            ...(confirmPassword.length > 0 && !passwordsMatch ? { borderColor: '#ef4444' } : {}),
-                          }}
+                          style={styles.input}
                         />
                         <button
                           type="button"
-                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                          onClick={() => setShowPassword(!showPassword)}
                           style={styles.eyeBtn}
                         >
-                          {showConfirmPassword ? (
+                          {showPassword ? (
                             <EyeOff style={{ width: 20, height: 20 }} />
                           ) : (
                             <Eye style={{ width: 20, height: 20 }} />
                           )}
                         </button>
                       </div>
-                      {confirmPassword.length > 0 && !passwordsMatch && (
-                        <div style={{ ...styles.passwordCheck, color: '#ef4444', marginTop: '4px' }}>
-                          <span>Passwords do not match</span>
-                        </div>
-                      )}
-                      {confirmPassword.length > 0 && passwordsMatch && (
-                        <div style={{ ...styles.passwordCheck, color: '#34d399', marginTop: '4px' }}>
-                          <Check style={{ width: 16, height: 16 }} />
-                          <span>Passwords match</span>
+                      {mode === 'signup' && password.length > 0 && (
+                        <div style={styles.passwordRequirements}>
+                          <div style={{
+                            ...styles.passwordCheck,
+                            color: passwordValidation.hasMinLength ? '#34d399' : '#6b7280',
+                          }}>
+                            <Check style={{ width: 16, height: 16, opacity: passwordValidation.hasMinLength ? 1 : 0.3 }} />
+                            <span>At least 8 characters</span>
+                          </div>
+                          <div style={{
+                            ...styles.passwordCheck,
+                            color: passwordValidation.hasLowerCase ? '#34d399' : '#6b7280',
+                          }}>
+                            <Check style={{ width: 16, height: 16, opacity: passwordValidation.hasLowerCase ? 1 : 0.3 }} />
+                            <span>One lowercase letter</span>
+                          </div>
+                          <div style={{
+                            ...styles.passwordCheck,
+                            color: passwordValidation.hasUpperCase ? '#34d399' : '#6b7280',
+                          }}>
+                            <Check style={{ width: 16, height: 16, opacity: passwordValidation.hasUpperCase ? 1 : 0.3 }} />
+                            <span>One uppercase letter</span>
+                          </div>
+                          <div style={{
+                            ...styles.passwordCheck,
+                            color: passwordValidation.hasNumber ? '#34d399' : '#6b7280',
+                          }}>
+                            <Check style={{ width: 16, height: 16, opacity: passwordValidation.hasNumber ? 1 : 0.3 }} />
+                            <span>One number</span>
+                          </div>
+                          <div style={{
+                            ...styles.passwordCheck,
+                            color: passwordValidation.hasSymbol ? '#34d399' : '#6b7280',
+                          }}>
+                            <Check style={{ width: 16, height: 16, opacity: passwordValidation.hasSymbol ? 1 : 0.3 }} />
+                            <span>One symbol</span>
+                          </div>
                         </div>
                       )}
                     </div>
-                  )}
 
-                  {/* Remember Me checkbox (signin only) */}
-                  {mode === 'signin' && (
-                    <div style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <input
-                        type="checkbox"
-                        id="rememberMe"
-                        checked={rememberMe}
-                        onChange={(e) => setRememberMe(e.target.checked)}
-                        disabled={loading}
-                        style={{
-                          width: '16px',
-                          height: '16px',
-                          cursor: 'pointer',
-                          accentColor: '#3b82f6',
-                        }}
-                      />
-                      <label
-                        htmlFor="rememberMe"
-                        style={{
-                          fontSize: '14px',
-                          color: '#d1d5db',
-                          cursor: 'pointer',
-                          userSelect: 'none',
-                        }}
-                      >
-                        Remember me
-                      </label>
-                    </div>
-                  )}
-
-                  {/* Error */}
-                  {error && <div style={styles.error}>{error}</div>}
-
-                  {/* Submit button */}
-                  <button
-                    type="submit"
-                    disabled={loading || (mode === 'signup' && (!isPasswordValid || !passwordsMatch))}
-                    style={{
-                      ...styles.submitBtn,
-                      color: '#ffffff',
-                      opacity: loading || (mode === 'signup' && (!isPasswordValid || !passwordsMatch)) ? 0.5 : 1,
-                    }}
-                  >
-                    {loading ? (
-                      <>
-                        <Loader2 style={{ width: 20, height: 20, animation: 'spin 1s linear infinite' }} />
-                        {mode === 'signin' ? 'Signing in...' : 'Creating account...'}
-                      </>
-                    ) : (
-                      <>
-                        {mode === 'signin' ? 'Sign in' : 'Create account'}
-                        <ArrowRight style={{ width: 20, height: 20 }} />
-                      </>
+                    {/* Confirm Password field (signup only) */}
+                    {mode === 'signup' && (
+                      <div style={styles.formGroup}>
+                        <label style={styles.label}>Retype your password</label>
+                        <div style={styles.inputWrapper}>
+                          <Lock style={{ ...styles.inputIcon, width: 20, height: 20 }} />
+                          <input
+                            type={showConfirmPassword ? 'text' : 'password'}
+                            placeholder="••••••••"
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
+                            required
+                            disabled={loading}
+                            style={{
+                              ...styles.input,
+                              ...(confirmPassword.length > 0 && !passwordsMatch ? { borderColor: '#ef4444' } : {}),
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                            style={styles.eyeBtn}
+                          >
+                            {showConfirmPassword ? (
+                              <EyeOff style={{ width: 20, height: 20 }} />
+                            ) : (
+                              <Eye style={{ width: 20, height: 20 }} />
+                            )}
+                          </button>
+                        </div>
+                        {confirmPassword.length > 0 && !passwordsMatch && (
+                          <div style={{ ...styles.passwordCheck, color: '#ef4444', marginTop: '4px' }}>
+                            <span>Passwords do not match</span>
+                          </div>
+                        )}
+                        {confirmPassword.length > 0 && passwordsMatch && (
+                          <div style={{ ...styles.passwordCheck, color: '#34d399', marginTop: '4px' }}>
+                            <Check style={{ width: 16, height: 16 }} />
+                            <span>Passwords match</span>
+                          </div>
+                        )}
+                      </div>
                     )}
-                  </button>
-                </form>
 
-                {/* Toggle mode */}
-                <p style={styles.toggle}>
-                  {mode === 'signin' ? "Don't have an account?" : "Already have an account?"}
+                    {/* Remember Me checkbox (signin only) */}
+                    {mode === 'signin' && (
+                      <div style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <input
+                          type="checkbox"
+                          id="rememberMe"
+                          checked={rememberMe}
+                          onChange={(e) => setRememberMe(e.target.checked)}
+                          disabled={loading}
+                          style={{
+                            width: '16px',
+                            height: '16px',
+                            cursor: 'pointer',
+                            accentColor: '#3b82f6',
+                          }}
+                        />
+                        <label
+                          htmlFor="rememberMe"
+                          style={{
+                            fontSize: '14px',
+                            color: '#d1d5db',
+                            cursor: 'pointer',
+                            userSelect: 'none',
+                          }}
+                        >
+                          Remember me
+                        </label>
+                      </div>
+                    )}
+
+                    {/* Error */}
+                    {error && <div style={styles.error}>{error}</div>}
+
+                    {/* Submit button */}
+                    <button
+                      type="submit"
+                      disabled={loading || (mode === 'signup' && (!isPasswordValid || !passwordsMatch))}
+                      style={{
+                        ...styles.submitBtn,
+                        color: '#ffffff',
+                        opacity: loading || (mode === 'signup' && (!isPasswordValid || !passwordsMatch)) ? 0.5 : 1,
+                      }}
+                    >
+                      {loading ? (
+                        <>
+                          <Loader2 style={{ width: 20, height: 20, animation: 'spin 1s linear infinite' }} />
+                          {mode === 'signin' ? 'Signing in...' : 'Creating account...'}
+                        </>
+                      ) : (
+                        <>
+                          {mode === 'signin' ? 'Sign in' : 'Create account'}
+                          <ArrowRight style={{ width: 20, height: 20 }} />
+                        </>
+                      )}
+                    </button>
+                  </form>
+
+                  {/* Toggle mode */}
+                  <p style={styles.toggle}>
+                    {mode === 'signin' ? "Don't have an account?" : "Already have an account?"}
                     <button
                       type="button"
                       onClick={() => {
@@ -1117,101 +1131,101 @@ function AuthContent() {
                     >
                       {mode === 'signin' ? 'Sign up' : 'Sign in'}
                     </button>
-                </p>
-              </motion.div>
-            ) : (
-              <motion.div
-                key="otp"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                transition={{ duration: 0.3 }}
-              >
-                {/* OTP Header */}
-                <div style={styles.otpHeader}>
-                  <div style={styles.otpIcon}>
-                    <Mail style={{ width: 32, height: 32, color: '#60a5fa' }} />
-                  </div>
-                  <h1 style={styles.title}>Check your email</h1>
-                  <p style={styles.subtitle}>
-                    We sent a 6-digit code to{' '}
-                    <span style={{ color: 'white', fontWeight: 500 }}>{email}</span>
                   </p>
-                </div>
-
-                {/* OTP Input */}
-                <OTPInput value={otp} onChange={setOtp} disabled={loading} />
-
-                {/* Timer */}
-                <p style={styles.otpTimer}>
-                  {timeLeft > 0 ? (
-                    <>
-                      Code expires in{' '}
-                      <span style={{ color: 'white', fontFamily: 'monospace' }}>
-                        {formatTime(timeLeft)}
-                      </span>
-                    </>
-                  ) : (
-                    <span style={{ color: '#f87171' }}>Code has expired</span>
-                  )}
-                </p>
-
-                {/* Error */}
-                {error && <div style={{ ...styles.error, marginTop: '16px' }}>{error}</div>}
-
-                {/* Verify button */}
-                <button
-                  onClick={handleVerifyOTP}
-                  disabled={loading || otp.join('').length !== 6 || timeLeft === 0}
-                  style={{
-                    ...styles.submitBtn,
-                    marginTop: '16px',
-                    opacity: loading || otp.join('').length !== 6 || timeLeft === 0 ? 0.5 : 1,
-                  }}
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="otp"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  transition={{ duration: 0.3 }}
                 >
-                  {loading ? (
-                    <>
-                      <Loader2 style={{ width: 20, height: 20, animation: 'spin 1s linear infinite' }} />
-                      Verifying...
-                    </>
-                  ) : (
-                    'Verify code'
-                  )}
-                </button>
+                  {/* OTP Header */}
+                  <div style={styles.otpHeader}>
+                    <div style={styles.otpIcon}>
+                      <Mail style={{ width: 32, height: 32, color: '#60a5fa' }} />
+                    </div>
+                    <h1 style={styles.title}>Check your email</h1>
+                    <p style={styles.subtitle}>
+                      We sent a 6-digit code to{' '}
+                      <span style={{ color: 'white', fontWeight: 500 }}>{email}</span>
+                    </p>
+                  </div>
 
-                {/* Action buttons */}
-                <div style={styles.actionBtns}>
-                  <button
-                    onClick={() => {
-                      setStep('form');
-                      setOtp(['', '', '', '', '', '']);
-                      setError('');
-                    }}
-                    disabled={loading}
-                    style={styles.actionBtn}
-                  >
-                    <ArrowLeft style={{ width: 16, height: 16 }} />
-                    Back
-                  </button>
-                  <button
-                    onClick={handleResendOTP}
-                    disabled={loading || resendLoading || resendCount >= 3}
-                    style={{
-                      ...styles.actionBtn,
-                      opacity: resendCount >= 3 ? 0.5 : 1,
-                    }}
-                  >
-                    {resendLoading ? (
-                      <Loader2 style={{ width: 16, height: 16, animation: 'spin 1s linear infinite' }} />
+                  {/* OTP Input */}
+                  <OTPInput value={otp} onChange={setOtp} disabled={loading} />
+
+                  {/* Timer */}
+                  <p style={styles.otpTimer}>
+                    {timeLeft > 0 ? (
+                      <>
+                        Code expires in{' '}
+                        <span style={{ color: 'white', fontFamily: 'monospace' }}>
+                          {formatTime(timeLeft)}
+                        </span>
+                      </>
                     ) : (
-                      <RotateCcw style={{ width: 16, height: 16 }} />
+                      <span style={{ color: '#f87171' }}>Code has expired</span>
                     )}
-                    Resend ({3 - resendCount} left)
+                  </p>
+
+                  {/* Error */}
+                  {error && <div style={{ ...styles.error, marginTop: '16px' }}>{error}</div>}
+
+                  {/* Verify button */}
+                  <button
+                    onClick={handleVerifyOTP}
+                    disabled={loading || otp.join('').length !== 6 || timeLeft === 0}
+                    style={{
+                      ...styles.submitBtn,
+                      marginTop: '16px',
+                      opacity: loading || otp.join('').length !== 6 || timeLeft === 0 ? 0.5 : 1,
+                    }}
+                  >
+                    {loading ? (
+                      <>
+                        <Loader2 style={{ width: 20, height: 20, animation: 'spin 1s linear infinite' }} />
+                        Verifying...
+                      </>
+                    ) : (
+                      'Verify code'
+                    )}
                   </button>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+
+                  {/* Action buttons */}
+                  <div style={styles.actionBtns}>
+                    <button
+                      onClick={() => {
+                        setStep('form');
+                        setOtp(['', '', '', '', '', '']);
+                        setError('');
+                      }}
+                      disabled={loading}
+                      style={styles.actionBtn}
+                    >
+                      <ArrowLeft style={{ width: 16, height: 16 }} />
+                      Back
+                    </button>
+                    <button
+                      onClick={handleResendOTP}
+                      disabled={loading || resendLoading || resendCount >= 3}
+                      style={{
+                        ...styles.actionBtn,
+                        opacity: resendCount >= 3 ? 0.5 : 1,
+                      }}
+                    >
+                      {resendLoading ? (
+                        <Loader2 style={{ width: 16, height: 16, animation: 'spin 1s linear infinite' }} />
+                      ) : (
+                        <RotateCcw style={{ width: 16, height: 16 }} />
+                      )}
+                      Resend ({3 - resendCount} left)
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           )}
         </div>
 

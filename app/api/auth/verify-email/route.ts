@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 import { AuthService } from '@/lib/auth';
+import { PermissionService } from '@/lib/services/permission-service';
 
 export async function POST(request: NextRequest) {
   try {
@@ -19,9 +20,9 @@ export async function POST(request: NextRequest) {
 
     // Get device information from request
     const userAgent = request.headers.get('user-agent') || 'unknown';
-    const ipAddress = request.headers.get('x-forwarded-for')?.split(',')[0] || 
-                     request.headers.get('x-real-ip') || 
-                     'unknown';
+    const ipAddress = request.headers.get('x-forwarded-for')?.split(',')[0] ||
+      request.headers.get('x-real-ip') ||
+      'unknown';
     const deviceInfo = `${userAgent}|${ipAddress}`.slice(0, 500);
 
     // Development mode: Allow fixed OTP 123456
@@ -57,7 +58,7 @@ export async function POST(request: NextRequest) {
 
       if (!existingSpace) {
         const tickerBase = user.id.slice(-6).toUpperCase();
-        await prisma.space.create({
+        const space = await prisma.space.create({
           data: {
             name: 'Personal',
             slug: `personal-${user.id}`,
@@ -77,6 +78,21 @@ export async function POST(request: NextRequest) {
             }
           }
         });
+
+        // Initialize default roles and assign Admin to owner
+        try {
+          await PermissionService.initializeDefaultRoles(space.id);
+
+          const adminRole = await PermissionService.getAdminRole(space.id);
+          if (adminRole) {
+            await prisma.spaceMember.update({
+              where: { spaceId_userId: { spaceId: space.id, userId: user.id } },
+              data: { roleId: adminRole.id }
+            });
+          }
+        } catch (e) {
+          console.error('Error initializing roles:', e);
+        }
       }
 
       // Generate tokens
@@ -104,7 +120,7 @@ export async function POST(request: NextRequest) {
       }
 
       // Session expiration: 30 days if remember me, otherwise 7 days
-      const sessionExpiration = isRememberMe 
+      const sessionExpiration = isRememberMe
         ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days
         : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
 
@@ -233,7 +249,7 @@ export async function POST(request: NextRequest) {
     if (!existingSpace) {
       // Generate unique ticker from user id
       const tickerBase = user.id.slice(-6).toUpperCase();
-      await prisma.space.create({
+      const space = await prisma.space.create({
         data: {
           name: 'Personal',
           slug: `personal-${user.id}`,
@@ -253,6 +269,21 @@ export async function POST(request: NextRequest) {
           }
         }
       });
+
+      // Initialize default roles and assign Admin to owner
+      try {
+        await PermissionService.initializeDefaultRoles(space.id);
+
+        const adminRole = await PermissionService.getAdminRole(space.id);
+        if (adminRole) {
+          await prisma.spaceMember.update({
+            where: { spaceId_userId: { spaceId: space.id, userId: user.id } },
+            data: { roleId: adminRole.id }
+          });
+        }
+      } catch (e) {
+        console.error('Error initializing roles:', e);
+      }
     }
 
     // Generate tokens
@@ -280,7 +311,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Session expiration: 30 days if remember me, otherwise 7 days
-    const sessionExpiration = isRememberMe 
+    const sessionExpiration = isRememberMe
       ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days
       : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
 

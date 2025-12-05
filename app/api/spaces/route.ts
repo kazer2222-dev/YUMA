@@ -5,13 +5,13 @@ import { AuthService } from '@/lib/auth';
 export async function GET(request: NextRequest) {
   try {
     const accessToken = request.cookies.get('accessToken')?.value;
-    
+
     console.log(`[API /spaces] Received cookies:`, {
       hasAccessToken: !!accessToken,
       cookieNames: Array.from(request.cookies.getAll().map(c => c.name)),
       allCookies: request.cookies.getAll().map(c => ({ name: c.name, value: c.value ? 'SET' : 'NOT SET' }))
     });
-    
+
     if (!accessToken) {
       return NextResponse.json(
         { success: false, message: 'Authentication required' },
@@ -35,12 +35,12 @@ export async function GET(request: NextRequest) {
       where: isAdmin
         ? {}
         : {
-            members: {
-              some: {
-                userId: user.id
-              }
+          members: {
+            some: {
+              userId: user.id
             }
-          },
+          }
+        },
       include: {
         members: {
           include: {
@@ -107,8 +107,8 @@ export async function GET(request: NextRequest) {
   } catch (error: any) {
     console.error('Error fetching spaces:', error);
     return NextResponse.json(
-      { 
-        success: false, 
+      {
+        success: false,
         message: 'Failed to fetch spaces',
         error: process.env.NODE_ENV === 'development' ? error.message : undefined
       },
@@ -120,7 +120,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const accessToken = request.cookies.get('accessToken')?.value;
-    
+
     if (!accessToken) {
       return NextResponse.json(
         { success: false, message: 'Authentication required' },
@@ -193,6 +193,67 @@ export async function POST(request: NextRequest) {
             role: 'OWNER'
           }
         },
+        roles: {
+          create: [
+            {
+              name: 'Admin',
+              description: 'Full access to all space features and settings',
+              isDefault: true,
+              isSystem: true,
+              permissions: {
+                create: [
+                  { permissionKey: 'manage_space', granted: true },
+                  { permissionKey: 'manage_members', granted: true },
+                  { permissionKey: 'manage_roles', granted: true },
+                  { permissionKey: 'create_tasks', granted: true },
+                  { permissionKey: 'edit_tasks', granted: true },
+                  { permissionKey: 'delete_tasks', granted: true },
+                  { permissionKey: 'view_space', granted: true },
+                  { permissionKey: 'view_regress', granted: true },
+                  { permissionKey: 'create_test_cases', granted: true },
+                  { permissionKey: 'edit_test_cases', granted: true },
+                  { permissionKey: 'execute_tests', granted: true },
+                  { permissionKey: 'override_priority', granted: true },
+                  { permissionKey: 'run_regression_suite', granted: true },
+                  { permissionKey: 'delete_test_results', granted: true },
+                  { permissionKey: 'view_reports', granted: true },
+                  { permissionKey: 'export_data', granted: true },
+                ]
+              }
+            },
+            {
+              name: 'Member',
+              description: 'Can create and edit content, but cannot manage settings',
+              isDefault: true,
+              isSystem: true,
+              permissions: {
+                create: [
+                  { permissionKey: 'view_space', granted: true },
+                  { permissionKey: 'create_tasks', granted: true },
+                  { permissionKey: 'edit_tasks', granted: true },
+                  { permissionKey: 'view_regress', granted: true },
+                  { permissionKey: 'create_test_cases', granted: true },
+                  { permissionKey: 'edit_test_cases', granted: true },
+                  { permissionKey: 'execute_tests', granted: true },
+                  { permissionKey: 'view_reports', granted: true },
+                ]
+              }
+            },
+            {
+              name: 'Viewer',
+              description: 'Read-only access to space content',
+              isDefault: true,
+              isSystem: true,
+              permissions: {
+                create: [
+                  { permissionKey: 'view_space', granted: true },
+                  { permissionKey: 'view_regress', granted: true },
+                  { permissionKey: 'view_reports', granted: true },
+                ]
+              }
+            }
+          ]
+        },
         settings: {
           create: {
             allowCustomFields: true,
@@ -217,6 +278,23 @@ export async function POST(request: NextRequest) {
         settings: true
       }
     });
+
+    // Assign Admin role to the owner
+    const adminRole = await prisma.spaceRole.findFirst({
+      where: { spaceId: space.id, name: 'Admin' }
+    });
+
+    if (adminRole) {
+      await prisma.spaceMember.update({
+        where: {
+          spaceId_userId: {
+            spaceId: space.id,
+            userId: user.id
+          }
+        },
+        data: { roleId: adminRole.id }
+      });
+    }
 
     // Create default statuses at the space level
     const defaultStatuses = await Promise.all([

@@ -6,7 +6,7 @@ import { AuthService } from '@/lib/auth';
 function getTemplateModel() {
   // Try to access template model - it should be available after prisma generate
   const model = (prisma as any).template;
-  
+
   if (!model) {
     // If template model is not available, try to create a new PrismaClient instance
     // This can happen if the server was started before running prisma generate
@@ -21,7 +21,7 @@ function getTemplateModel() {
     } catch (e) {
       console.error('[Templates] Failed to create fresh PrismaClient:', e);
     }
-    
+
     throw new Error('Prisma template model not available. Please run: npx prisma generate and restart the server.');
   }
   return model;
@@ -34,7 +34,7 @@ export async function GET(
 ) {
   try {
     const accessToken = request.cookies.get('accessToken')?.value;
-    
+
     if (!accessToken) {
       return NextResponse.json(
         { success: false, message: 'Authentication required' },
@@ -96,11 +96,12 @@ export async function GET(
         createdBy: t.createdBy,
         updatedBy: t.updatedBy,
         workflowId: t.workflowId ?? null,
+        restrictAccess: t.restrictAccess ?? false,
       })),
     });
   } catch (error: any) {
     console.error('Error fetching templates:', error);
-    
+
     // Check if template model is missing
     if (error.message?.includes('Prisma template model not available')) {
       return NextResponse.json(
@@ -108,7 +109,7 @@ export async function GET(
         { status: 500 }
       );
     }
-    
+
     return NextResponse.json(
       { success: false, message: `Failed to fetch templates: ${error.message || 'Unknown error'}` },
       { status: 500 }
@@ -123,7 +124,7 @@ export async function POST(
 ) {
   try {
     const accessToken = request.cookies.get('accessToken')?.value;
-    
+
     if (!accessToken) {
       return NextResponse.json(
         { success: false, message: 'Authentication required' },
@@ -228,7 +229,7 @@ export async function POST(
       meta: error.meta,
       stack: error.stack
     });
-    
+
     // Check if template model is missing
     if (error.message?.includes('Prisma template model not available')) {
       return NextResponse.json(
@@ -236,14 +237,14 @@ export async function POST(
         { status: 500 }
       );
     }
-    
+
     if (error.code === 'P2002') {
       return NextResponse.json(
         { success: false, message: 'Template title must be unique within this space.' },
         { status: 400 }
       );
     }
-    
+
     // Check if it's a table not found error (migration not run)
     if (error.message?.includes('no such table') || error.message?.includes('does not exist') || error.code === 'P2021') {
       return NextResponse.json(
@@ -251,7 +252,7 @@ export async function POST(
         { status: 500 }
       );
     }
-    
+
     return NextResponse.json(
       { success: false, message: `Failed to create template: ${error.message || 'Unknown error'}` },
       { status: 500 }

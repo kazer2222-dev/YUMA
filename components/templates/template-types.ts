@@ -13,6 +13,46 @@ export interface TemplateField {
   inlineLabel?: string;
 }
 
+// FR-2: Permission types for template access control
+export type TemplatePermission = 'CREATE' | 'EDIT' | 'VIEW';
+
+// Entity types that can be granted access
+export type TemplateAccessEntityType = 'USER' | 'ROLE' | 'GROUP' | 'SPECIAL';
+
+// Special entity types like "ALL_MEMBERS", "CREATOR", "ASSIGNEE"
+export type SpecialEntityId = 'ALL_MEMBERS' | 'CREATOR' | 'ASSIGNEE' | 'SPACE_ADMINS';
+
+// Access rule for a template
+export interface TemplateAccessRule {
+  id?: string;
+  permission: TemplatePermission;
+  entityType: TemplateAccessEntityType;
+  entityId?: string | null; // User/Role/Group ID, null for SPECIAL types
+  // Display fields (not stored in DB, populated on fetch)
+  entityName?: string;
+  entityEmail?: string; // For users
+  entityColor?: string; // For roles/groups
+}
+
+// Grouped access rules by permission type
+export interface TemplateAccessConfig {
+  restrictAccess: boolean;
+  createRules: TemplateAccessRule[];
+  editRules: TemplateAccessRule[];
+  viewRules: TemplateAccessRule[];
+}
+
+// Entity that can be selected for access (used in search results)
+export interface AccessEntity {
+  id: string;
+  type: TemplateAccessEntityType;
+  name: string;
+  email?: string; // For users
+  description?: string; // For roles/groups
+  color?: string; // For roles/groups
+  memberCount?: number; // For groups
+}
+
 export interface Template {
   id: string;
   title: string;
@@ -22,6 +62,9 @@ export interface Template {
   createdBy: string;
   updatedBy: string;
   workflowId?: string | null;
+  // Access control fields
+  restrictAccess?: boolean;
+  accessRules?: TemplateAccessRule[];
 }
 
 export interface BaseTemplate {
@@ -34,8 +77,4 @@ export interface BaseTemplate {
   fieldCount: number;
   isSystem?: boolean;
 }
-
-
-
-
 

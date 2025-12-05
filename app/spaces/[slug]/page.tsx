@@ -44,6 +44,8 @@ import { TemplatesManager } from '@/components/templates/templates-manager';
 import { WorkflowsManager } from '@/components/workflows/workflows-manager';
 import { useQueryClient } from '@tanstack/react-query';
 import { SpaceOverviewContent } from '@/components/spaces/space-overview-content';
+import { SpaceSettingsContent } from '@/components/spaces/space-settings-content';
+import { NotificationsTab } from '@/components/spaces/settings/notifications-tab';
 import {
   Select,
   SelectContent,
@@ -68,7 +70,6 @@ const SPACE_TABS: TabDefinition[] = [
   { id: 'calendar', label: 'Calendar', icon: Calendar, color: '#F59E0B', deletable: true },
   { id: 'roadmap', label: 'Roadmap', icon: TrendingUp, color: '#EF4444', deletable: true },
   { id: 'reports', label: 'Reports', icon: BarChart3, color: '#F59E0B', deletable: true },
-  { id: 'integrations', label: 'Integrations', icon: Zap, color: '#06B6D4', deletable: true },
   { id: 'backlog', label: 'Backlog', icon: List, color: '#8B5CF6', deletable: true },
   { id: 'sprints', label: 'Sprints', icon: Zap, color: '#84CC16', deletable: true },
   { id: 'releases', label: 'Releases', icon: PackageOpen, color: '#EC4899', deletable: true },
@@ -163,7 +164,7 @@ function SortableTab({
               <DropdownMenuItem
                 key={board.id}
                 onClick={() => onBoardSelect?.(board.id)}
-                className="cursor-pointer text-base"
+                className="cursor-pointer text-base hover:bg-[var(--muted)] hover:text-[var(--foreground)] focus:bg-[var(--muted)] focus:text-[var(--foreground)]"
               >
                 <div className="flex items-center gap-2 w-full">
                   <span>{board.name}</span>
@@ -179,7 +180,7 @@ function SortableTab({
                 e.stopPropagation();
                 onCreateBoard?.();
               }}
-              className="cursor-pointer text-base"
+              className="cursor-pointer text-base hover:bg-[var(--muted)] hover:text-[var(--foreground)] focus:bg-[var(--muted)] focus:text-[var(--foreground)]"
             >
               <Plus className="w-3.5 h-3.5 mr-2" />
               Create Board
@@ -359,7 +360,9 @@ export default function SpacePage() {
   const [templatesOpen, setTemplatesOpen] = useState(false);
   const [workflowsOpen, setWorkflowsOpen] = useState(false);
   const [workflowEditorOpen, setWorkflowEditorOpen] = useState(false);
+  const [showSettingsView, setShowSettingsView] = useState(false);
   const [showTemplatesView, setShowTemplatesView] = useState(false);
+  const [showNotificationsView, setShowNotificationsView] = useState(false);
   const userInitiatedTabChange = useRef<string | null>(null);
   const loadedTabs = useRef<Set<string>>(new Set(['overview']));
   const prefetchCache = useRef<Set<string>>(new Set());
@@ -1126,7 +1129,7 @@ export default function SpacePage() {
             </div>
 
             <div className="hidden md:flex items-center justify-between gap-4">
-              <div className="flex items-center gap-1">
+              <div className="flex-1 min-w-0">
                 <DndContext
                   sensors={sensors}
                   collisionDetection={closestCenter}
@@ -1134,8 +1137,8 @@ export default function SpacePage() {
                   modifiers={[restrictToHorizontalAxis]}
                 >
                   <SortableContext items={visibleTabs.map((tab) => tab.id)} strategy={horizontalListSortingStrategy}>
-                    <div className="w-full overflow-x-auto pb-2 pt-2">
-                      <div className="flex items-center gap-1 min-w-max">
+                    <div className="w-full overflow-x-auto pb-2 pt-2 tab-scrollbar">
+                      <div className="flex items-center gap-1">
                         {visibleTabs.map((tab) => (
                           <SortableTab
                             key={tab.id}
@@ -1157,7 +1160,7 @@ export default function SpacePage() {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="ml-2 h-9 px-3 text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)] sticky right-0 bg-[var(--background)] shadow-sm"
+                                className="ml-2 h-9 px-3 text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)] shrink-0"
                               >
                                 <Plus className="h-4 w-4" />
                               </Button>
@@ -1279,7 +1282,31 @@ export default function SpacePage() {
           {/* Only render active tab for better performance - lazy loading handles caching */}
           {activeTab === 'overview' && (
             <>
-              {showTemplatesView ? (
+              {showSettingsView ? (
+                <div className="flex-1 min-h-0">
+                  <SpaceSettingsContent
+                    spaceSlug={space.slug}
+                    spaceName={space.name}
+                    standalone={true}
+                    onBack={() => setShowSettingsView(false)}
+                  />
+                </div>
+              ) : showNotificationsView ? (
+                <div className="flex-1 min-h-0">
+                  <div className="flex flex-col h-full">
+                    <div className="flex items-center gap-6 border-b pb-3 mb-6">
+                      <Button variant="ghost" size="sm" onClick={() => setShowNotificationsView(false)} className="shrink-0">
+                        <ArrowLeft className="w-4 h-4 mr-2" />
+                        Back
+                      </Button>
+                      <h2 className="text-xl font-semibold">Notifications</h2>
+                    </div>
+                    <div className="flex-1 overflow-auto">
+                      <NotificationsTab spaceSlug={space.slug} />
+                    </div>
+                  </div>
+                </div>
+              ) : showTemplatesView ? (
                 <div className="flex-1 min-h-0">
                   <TemplatesManager
                     spaceSlug={space.slug}
@@ -1311,6 +1338,8 @@ export default function SpacePage() {
                   onOpenTemplates={() => setShowTemplatesView(true)}
                   onOpenWorkflows={() => setWorkflowsOpen(true)}
                   onNavigateToTab={navigateFromOverview}
+                  onOpenSettings={() => setShowSettingsView(true)}
+                  onOpenNotifications={() => setShowNotificationsView(true)}
                 />
               )}
             </>
@@ -1603,7 +1632,8 @@ export default function SpacePage() {
             />
           )
         }
-      </div >
+
+      </div>
     </ClickUpAppShell >
   );
 }

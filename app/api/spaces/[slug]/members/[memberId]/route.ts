@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { AuthService } from '@/lib/auth';
+import { PermissionService } from '@/lib/services/permission-service';
 
 export async function PATCH(
   request: NextRequest,
@@ -8,7 +9,7 @@ export async function PATCH(
 ) {
   try {
     const accessToken = request.cookies.get('accessToken')?.value;
-    
+
     if (!accessToken) {
       return NextResponse.json(
         { success: false, message: 'Authentication required' },
@@ -25,11 +26,11 @@ export async function PATCH(
     }
 
     const { slug, memberId } = params;
-    const { role } = await request.json();
+    const { roleId } = await request.json();
 
-    if (!role || !['OWNER', 'ADMIN', 'MEMBER', 'VIEWER'].includes(role)) {
+    if (!roleId || typeof roleId !== 'string') {
       return NextResponse.json(
-        { success: false, message: 'Invalid role' },
+        { success: false, message: 'Role ID is required' },
         { status: 400 }
       );
     }
@@ -40,10 +41,17 @@ export async function PATCH(
         space: { slug },
         userId: user.id,
         role: { in: ['OWNER', 'ADMIN'] }
+      },
+      include: {
+        roleRelation: true
       }
     });
 
-    if (!membership) {
+    // Also check if user has MANAGE_MEMBERS permission via role
+    const hasPermission = await PermissionService.hasPermission(user.id, membership?.spaceId || '', 'manage_members');
+    const isOwner = membership?.role === 'OWNER';
+
+    if (!membership || (!isOwner && !hasPermission)) {
       return NextResponse.json(
         { success: false, message: 'Insufficient permissions' },
         { status: 403 }
@@ -55,6 +63,9 @@ export async function PATCH(
       where: {
         id: memberId,
         space: { slug }
+      },
+      include: {
+        roleRelation: true
       }
     });
 
@@ -66,17 +77,60 @@ export async function PATCH(
     }
 
     // Prevent non-owners from changing owner roles
-    if (membership.role !== 'OWNER' && targetMember.role === 'OWNER') {
+    if (!isOwner && targetMember.role === 'OWNER') {
       return NextResponse.json(
         { success: false, message: 'Only owners can modify owner roles' },
         { status: 403 }
       );
     }
 
+    // Verify the new role exists in this space
+    const newRole = await prisma.spaceRole.findFirst({
+      where: {
+        id: roleId,
+        space: { slug }
+      }
+    });
+
+    if (!newRole) {
+      return NextResponse.json(
+        { success: false, message: 'Role not found' },
+        { status: 404 }
+      );
+    }
+
+    // Check if we are removing the last admin
+    const adminRole = await PermissionService.getAdminRole(membership.spaceId);
+    const isTargetAdmin = targetMember.role === 'OWNER' || (adminRole && targetMember.roleId === adminRole.id);
+    const isNewRoleAdmin = adminRole && newRole.id === adminRole.id;
+
+    if (isTargetAdmin && !isNewRoleAdmin) {
+      // Count total admins
+      const adminCount = await prisma.spaceMember.count({
+        where: {
+          spaceId: membership.spaceId,
+          OR: [
+            { role: 'OWNER' },
+            { roleId: adminRole?.id }
+          ]
+        }
+      });
+
+      if (adminCount <= 1) {
+        return NextResponse.json(
+          { success: false, message: 'Cannot remove the last admin from the space' },
+          { status: 400 }
+        );
+      }
+    }
+
     // Update member role
     const updatedMember = await prisma.spaceMember.update({
       where: { id: memberId },
-      data: { role },
+      data: {
+        roleId: roleId,
+        role: targetMember.role === 'OWNER' ? 'MEMBER' : targetMember.role
+      },
       include: {
         user: {
           select: {
@@ -85,7 +139,8 @@ export async function PATCH(
             email: true,
             avatar: true
           }
-        }
+        },
+        roleRelation: true
       }
     });
 
@@ -93,8 +148,19 @@ export async function PATCH(
       success: true,
       member: {
         id: updatedMember.id,
-        role: updatedMember.role,
-        joinedAt: updatedMember.joinedAt,
+        role: updatedMember.roleRelation ? {
+          id: updatedMember.roleRelation.id,
+          name: updatedMember.roleRelation.name,
+          description: updatedMember.roleRelation.description,
+          isDefault: updatedMember.roleRelation.isDefault,
+          isSystem: updatedMember.roleRelation.isSystem
+        } : {
+          id: 'unknown',
+          name: updatedMember.role,
+          isDefault: false,
+          isSystem: false
+        },
+        addedAt: updatedMember.addedAt,
         user: updatedMember.user
       }
     });
@@ -113,7 +179,7 @@ export async function DELETE(
 ) {
   try {
     const accessToken = request.cookies.get('accessToken')?.value;
-    
+
     if (!accessToken) {
       return NextResponse.json(
         { success: false, message: 'Authentication required' },
@@ -140,7 +206,10 @@ export async function DELETE(
       }
     });
 
-    if (!membership) {
+    const hasPermission = await PermissionService.hasPermission(user.id, membership?.spaceId || '', 'manage_members');
+    const isOwner = membership?.role === 'OWNER';
+
+    if (!membership || (!isOwner && !hasPermission)) {
       return NextResponse.json(
         { success: false, message: 'Insufficient permissions' },
         { status: 403 }
@@ -162,18 +231,24 @@ export async function DELETE(
       );
     }
 
-    // Prevent removing the last owner
-    if (targetMember.role === 'OWNER') {
-      const ownerCount = await prisma.spaceMember.count({
+    // Check if we are removing the last admin
+    const adminRole = await PermissionService.getAdminRole(membership.spaceId);
+    const isTargetAdmin = targetMember.role === 'OWNER' || (adminRole && targetMember.roleId === adminRole.id);
+
+    if (isTargetAdmin) {
+      const adminCount = await prisma.spaceMember.count({
         where: {
-          space: { slug },
-          role: 'OWNER'
+          spaceId: membership.spaceId,
+          OR: [
+            { role: 'OWNER' },
+            { roleId: adminRole?.id }
+          ]
         }
       });
 
-      if (ownerCount <= 1) {
+      if (adminCount <= 1) {
         return NextResponse.json(
-          { success: false, message: 'Cannot remove the last owner' },
+          { success: false, message: 'Cannot remove the last admin from the space' },
           { status: 400 }
         );
       }
@@ -196,5 +271,3 @@ export async function DELETE(
     );
   }
 }
-
-
